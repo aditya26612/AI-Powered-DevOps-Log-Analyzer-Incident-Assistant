@@ -7,6 +7,7 @@ import com.project.log_layer.enums.LogStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
@@ -16,7 +17,7 @@ import java.util.UUID;
  * Repository for performing CRUD and search operations
  * on Log entities.
  */
-public interface LogRepository extends JpaRepository<Log, Long> {
+public interface LogRepository extends JpaRepository<Log, Long>, JpaSpecificationExecutor<Log> {
 
     /**
      * Returns logs filtered by log level.

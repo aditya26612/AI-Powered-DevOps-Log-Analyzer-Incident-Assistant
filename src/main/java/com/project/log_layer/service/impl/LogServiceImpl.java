@@ -9,6 +9,8 @@ import com.project.log_layer.dto.response.common.BatchOperationResponse;
 import com.project.log_layer.dto.response.common.PagedResponse;
 import com.project.log_layer.dto.response.log.LogResponse;
 import com.project.log_layer.entity.Log;
+import com.project.log_layer.exception.InvalidSearchCriteriaException;
+import com.project.log_layer.exception.LogNotFoundException;
 import com.project.log_layer.mapper.LogMapper;
 import com.project.log_layer.parser.LogParser;
 import com.project.log_layer.parser.ParserFactory;
@@ -16,7 +18,13 @@ import com.project.log_layer.parser.mapper.ParsedLogMapper;
 import com.project.log_layer.parser.model.ParsedLogData;
 import com.project.log_layer.repository.LogRepository;
 import com.project.log_layer.service.LogService;
+import com.project.log_layer.specification.LogSpecificationBuilder;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +35,8 @@ import java.util.UUID;
 @Transactional
 public class LogServiceImpl implements LogService {
 
+    private final LogSpecificationBuilder logSpecificationBuilder;
+
     private final LogRepository logRepository;
 
     private final ParserFactory parserFactory;
@@ -34,6 +44,17 @@ public class LogServiceImpl implements LogService {
     private final ParsedLogMapper parsedLogMapper;
 
     private final LogMapper logMapper;
+
+    private UUID generateCorrelationId(
+            LogIngestRequest request) {
+
+        return request.getCorrelationId() != null
+                ? request.getCorrelationId()
+                : UUID.randomUUID();
+
+    }
+
+
 
     /**
      * Ingests a single log.
@@ -71,11 +92,9 @@ public class LogServiceImpl implements LogService {
             Log log,
             LogIngestRequest request) {
 
-        if (request.getCorrelationId() != null) {
-            log.setCorrelationId(request.getCorrelationId());
-        } else {
-            log.setCorrelationId(UUID.randomUUID());
-        }
+        log.setCorrelationId(
+                generateCorrelationId(request)
+        );
 
     }
 
@@ -92,48 +111,82 @@ public class LogServiceImpl implements LogService {
     }
 
     /**
-     * Not implemented in Version 1.
+     * Retrieves a log by its identifier.
+     *
+     * @param id log identifier
+     * @return Log entity
+     * @throws LogNotFoundException if no log exists
      */
-    @Override
-    public LogResponse getById(Long id) {
+    private Log getLogOrThrow(Long id) {
 
-        throw new UnsupportedOperationException(
-                "Get by id is not implemented yet."
-        );
+        return logRepository.findById(id)
+                .orElseThrow(() ->
+                        new LogNotFoundException(
+                                "Log not found with id : " + id
+                        )
+                );
+
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public LogResponse getById(Long id) {
+
+        Log log = getLogOrThrow(id);
+
+        return logMapper.toLogResponse(log);
+    }
+
+
     /**
-     * Not implemented in Version 1.
+     * Searches logs using dynamic filtering,
+     * pagination and sorting.
+     *
+     * @param request search request
+     * @return paged search result
      */
     @Override
+    @Transactional(readOnly = true)
     public PagedResponse<LogResponse> search(
             LogFilterRequest request) {
 
-        throw new UnsupportedOperationException(
-                "Search is not implemented yet."
+        validateSearchRequest(request);
+
+        Pageable pageable = createPageable(request);
+
+        Specification<Log> specification =
+                buildSpecification(request);
+
+        Page<Log> page = logRepository.findAll(
+                specification,
+                pageable
         );
+
+        return logMapper.toPagedResponse(page);
+
     }
 
     /**
-     * Not implemented in Version 1.
+     * Deletes a log by its identifier.
+     *
+     * @param id log identifier
+     * @throws LogNotFoundException if the log does not exist
      */
     @Override
     public void delete(Long id) {
 
-        throw new UnsupportedOperationException(
-                "Delete is not implemented yet."
-        );
+        Log log = getLogOrThrow(id);
+
+        logRepository.delete(log);
+
     }
 
-    /**
-     * Not implemented in Version 1.
-     */
+
     @Override
     public boolean exists(Long id) {
 
-        throw new UnsupportedOperationException(
-                "Exists is not implemented yet."
-        );
+        return logRepository.existsById(id);
+
     }
 
     /**
@@ -148,5 +201,62 @@ public class LogServiceImpl implements LogService {
                 "Log analysis is not implemented yet."
         );
     }
+    /**
+     * Validates the supplied search request.
+     *
+     * @param request search request
+     * @throws InvalidSearchCriteriaException if the request is invalid
+     */
+    private void validateSearchRequest(
+            LogFilterRequest request) {
 
+        if (request == null) {
+            throw new InvalidSearchCriteriaException(
+                    "Search request cannot be null."
+            );
+        }
+
+        if (request.getStartTime() != null &&
+                request.getEndTime() != null &&
+                request.getStartTime().isAfter(request.getEndTime())) {
+
+            throw new InvalidSearchCriteriaException(
+                    "Start time cannot be after end time."
+            );
+        }
+
+    }
+
+    /**
+     * Creates a pageable object for searching.
+     *
+     * @param request search request
+     * @return pageable
+     */
+    private Pageable createPageable(
+            LogFilterRequest request) {
+
+        return PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                Sort.by(
+                        request.getSortDirection(),
+                        request.getSortBy().getField()
+                )
+        );
+
+    }
+
+    /**
+     * Builds the search specification.
+     *
+     * @param request search request
+     * @return specification
+     */
+    private Specification<Log> buildSpecification(
+            LogFilterRequest request) {
+
+        return logSpecificationBuilder.build(request);
+
+    }
 }

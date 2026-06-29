@@ -7,7 +7,7 @@ import com.project.log_layer.enums.ErrorCode;
  */
 public class LogNotFoundException extends LogException {
 
-    public LogNotFoundException(Long id) {
+    public LogNotFoundException(String id) {
         super(
                 ErrorCode.LOG_NOT_FOUND,
                 "Log not found with id: " + id

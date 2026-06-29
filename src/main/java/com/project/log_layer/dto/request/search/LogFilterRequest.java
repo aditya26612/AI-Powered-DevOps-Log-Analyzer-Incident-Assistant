@@ -3,6 +3,7 @@ package com.project.log_layer.dto.request.search;
 import com.project.log_layer.enums.Environment;
 import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.enums.LogSortField;
+import com.project.log_layer.enums.LogSource;
 import com.project.log_layer.enums.LogStatus;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -18,6 +19,11 @@ import java.util.UUID;
 
 /**
  * Request DTO used for searching and filtering logs.
+ *
+ * <p>
+ * All fields are optional except pagination defaults.
+ * Only the supplied fields are applied as search filters.
+ * </p>
  */
 @Getter
 @Setter
@@ -32,14 +38,15 @@ public class LogFilterRequest {
     private LogLevel level;
 
     /**
-     * Service name.
+     * Source of the log.
+     *
+     * Example:
+     * SPRING_BOOT
+     * DOCKER
+     * KUBERNETES
+     * NGINX
      */
-    private String serviceName;
-
-    /**
-     * Application name.
-     */
-    private String applicationName;
+    private LogSource source;
 
     /**
      * Deployment environment.
@@ -47,24 +54,60 @@ public class LogFilterRequest {
     private Environment environment;
 
     /**
-     * Processing status.
+     * Current processing status.
      */
     private LogStatus status;
 
     /**
-     * Search only anomaly logs.
+     * Filter only anomaly logs.
      */
     private Boolean anomaly;
 
     /**
-     * Correlation ID for request tracing.
+     * Spring Boot application name.
      */
-    private UUID correlationId;
+    private String applicationName;
 
     /**
-     * Keyword search inside log message.
+     * Service name.
      */
-    private String keyword;
+    private String serviceName;
+
+    /**
+     * Logger name.
+     *
+     * Example:
+     * com.project.user.UserService
+     */
+    private String loggerName;
+
+    /**
+     * Thread name.
+     *
+     * Example:
+     * main
+     * http-nio-8080-exec-1
+     */
+    private String threadName;
+
+    /**
+     * Host or container name.
+     */
+    private String hostName;
+
+    /**
+     * Search text inside the log message.
+     *
+     * Performs a partial match.
+     */
+    private String message;
+
+    /**
+     * Correlation identifier.
+     *
+     * Useful for distributed tracing.
+     */
+    private UUID correlationId;
 
     /**
      * Search logs generated after this timestamp.
@@ -91,12 +134,9 @@ public class LogFilterRequest {
     @Builder.Default
     private Integer size = 20;
 
-//    /**
-//     * Sorting field.
-//     */
-//    @Builder.Default
-//    private String sortBy = "timestamp";
-
+    /**
+     * Field used for sorting.
+     */
     @Builder.Default
     private LogSortField sortBy = LogSortField.TIMESTAMP;
 

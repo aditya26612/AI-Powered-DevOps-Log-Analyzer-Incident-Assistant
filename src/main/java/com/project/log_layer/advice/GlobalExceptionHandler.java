@@ -2,10 +2,7 @@ package com.project.log_layer.advice;
 
 import com.project.log_layer.dto.response.common.ErrorResponse;
 import com.project.log_layer.enums.ErrorCode;
-import com.project.log_layer.exception.InvalidLogFormatException;
-import com.project.log_layer.exception.LogException;
-import com.project.log_layer.exception.LogNotFoundException;
-import com.project.log_layer.exception.UnsupportedLogException;
+import com.project.log_layer.exception.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -15,6 +12,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,7 +35,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             InvalidLogFormatException.class,
-            UnsupportedLogException.class
+            UnsupportedLogException.class,
+            InvalidSearchCriteriaException.class
     })
     public ResponseEntity<ErrorResponse> handleBadRequest(
             LogException ex,
@@ -169,5 +168,30 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request) {
+
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .errorCode(ErrorCode.VALIDATION_FAILED)
+                .message(
+                        "Invalid value '" +
+                                ex.getValue() +
+                                "' for parameter '" +
+                                ex.getName() +
+                                "'."
+                )
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity
+                .badRequest()
+                .body(response);
     }
 }

@@ -9,34 +9,20 @@ package com.project.log_layer.enums;
  */
 public enum LogSortField {
 
-    /**
-     * Sort by log timestamp.
-     */
-    TIMESTAMP,
+    TIMESTAMP("timestamp"),
+    LEVEL("level"),
+    APPLICATION_NAME("applicationName"),
+    SERVICE_NAME("serviceName"),
+    STATUS("status"),
+    CREATED_AT("createdAt");
 
-    /**
-     * Sort by log severity.
-     */
-    LEVEL,
+    private final String field;
 
-    /**
-     * Sort by service name.
-     */
-    SERVICE_NAME,
+    LogSortField(String field) {
+        this.field = field;
+    }
 
-    /**
-     * Sort by application name.
-     */
-    APPLICATION_NAME,
-
-    /**
-     * Sort by anomaly score.
-     */
-    ANOMALY_SCORE,
-
-    /**
-     * Sort by database creation time.
-     */
-    CREATED_AT
-
+    public String getField() {
+        return field;
+    }
 }

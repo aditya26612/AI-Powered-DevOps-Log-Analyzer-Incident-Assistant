@@ -70,20 +70,23 @@ public class LogController {
     public ResponseEntity<PagedResponse<LogResponse>> search(
             @Valid @RequestBody LogFilterRequest request) {
 
-        return ResponseEntity.ok(
-                logService.search(request)
-        );
+        PagedResponse<LogResponse> response =
+                logService.search(request);
+
+        return ResponseEntity.ok(response);
     }
 
     /**
      * Delete log.
      */
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(
+    public ResponseEntity<Void> delete(
             @PathVariable Long id) {
 
         logService.delete(id);
+
+        return ResponseEntity.noContent().build();
+
     }
 
     /**
