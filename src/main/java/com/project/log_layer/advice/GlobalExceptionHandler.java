@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -137,4 +138,36 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest request) {
+
+        String message = "Malformed JSON request.";
+
+        Throwable cause = ex.getCause();
+
+        if (cause instanceof com.fasterxml.jackson.databind.exc.InvalidFormatException invalidFormat) {
+
+            if (invalidFormat.getTargetType().isEnum()) {
+
+                message = "Invalid value '" +
+                        invalidFormat.getValue() +
+                        "' for field '" +
+                        invalidFormat.getPath().get(0).getFieldName() +
+                        "'.";
+            }
+        }
+
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .errorCode(ErrorCode.VALIDATION_FAILED)
+                .message(message)
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(response);
+    }
 }
