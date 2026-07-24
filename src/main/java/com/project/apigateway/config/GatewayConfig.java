@@ -1,6 +1,6 @@
 package com.project.apigateway.config;
 
-import com.project.apigateway.filter.JwtAuthenticationFilter;
+import com.project.apigateway.security.JwtAuthenticationWebFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 @RequiredArgsConstructor
 public class GatewayConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthenticationWebFilter jwtAuthenticationFilter;
 
     @Bean
     public RouteLocator gatewayRoutes(RouteLocatorBuilder builder) {
@@ -29,8 +29,6 @@ public class GatewayConfig {
 
                         .path("/api/v1/logs/**")
 
-                        .filters(filter ->
-                                filter.filter(jwtAuthenticationFilter))
 
                         .uri("http://localhost:8082"))
 
