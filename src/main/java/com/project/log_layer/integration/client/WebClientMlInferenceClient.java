@@ -28,37 +28,42 @@ public class WebClientMlInferenceClient implements MlInferenceClient {
 //    public MlPredictionResponse predict(MlPredictionRequest request) {
 //        throw new UnsupportedOperationException("Not implemented yet");
 //    }
-@Override
-public MlPredictionResponse predict(MlPredictionRequest request) {
 
-    return mlWebClient
-            .post()
-            .uri(mlServiceProperties.getPredictEndpoint())
-            .bodyValue(request)
-            .retrieve()
+    @Override
+    public MlPredictionResponse predict(MlPredictionRequest request) {
 
-            .onStatus(
-                    HttpStatusCode::is4xxClientError,
-                    response -> response.bodyToMono(String.class)
-                            .map(body ->
-                                    new MlServiceException(
-                                            "ML Service returned client error: " + body
-                                    )
-                            )
-            )
+        try {
 
-            .onStatus(
-                    HttpStatusCode::is5xxServerError,
-                    response -> response.bodyToMono(String.class)
-                            .map(body ->
-                                    new MlServiceException(
-                                            "ML Service returned server error: " + body
-                                    )
-                            )
-            )
+            return mlWebClient
+                    .post()
+                    .uri(mlServiceProperties.getPredictEndpoint())
+                    .bodyValue(request)
+                    .retrieve()
 
-            .bodyToMono(MlPredictionResponse.class)
-            .block();
-}
+                    .onStatus(
+                            HttpStatusCode::is4xxClientError,
+                            response -> response.bodyToMono(String.class)
+                                    .map(body -> new MlServiceException(
+                                            "ML Service returned client error: " + body))
+                    )
+
+                    .onStatus(
+                            HttpStatusCode::is5xxServerError,
+                            response -> response.bodyToMono(String.class)
+                                    .map(body -> new MlServiceException(
+                                            "ML Service returned server error: " + body))
+                    )
+
+                    .bodyToMono(MlPredictionResponse.class)
+                    .block();
+
+        } catch (Exception ex) {
+
+            throw new MlServiceException(
+                    "Unable to connect to ML Service.",
+                    ex
+            );
+        }
+    }
 
 }

@@ -3,6 +3,7 @@ package com.project.log_layer.advice;
 import com.project.log_layer.dto.response.common.ErrorResponse;
 import com.project.log_layer.enums.ErrorCode;
 import com.project.log_layer.exception.*;
+import com.project.log_layer.integration.exception.MlServiceException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -17,8 +18,32 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.time.LocalDateTime;
 import java.util.List;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MlServiceException.class)
+    public ResponseEntity<ErrorResponse> handleMlServiceException(
+            MlServiceException ex,
+            HttpServletRequest request) {
+
+        log.error("ML service error", ex);
+
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error(HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase())
+                .errorCode(ErrorCode.ML_SERVICE_UNAVAILABLE)
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(response);
+    }
 
     @ExceptionHandler(LogNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleLogNotFound(
@@ -101,6 +126,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleException(
             Exception ex,
             HttpServletRequest request) {
+
+        log.error("Unexpected exception while processing request", ex);
 
         ErrorResponse response = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
