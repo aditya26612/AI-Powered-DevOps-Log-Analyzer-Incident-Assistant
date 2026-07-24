@@ -20,8 +20,8 @@ public class GatewayConfig {
 
                 .route("user-service", route -> route
 
-                        .path("/api/auth/**",
-                                "/api/users/**")
+                        .path("/api/v1/auth/**",
+                                "/api/v1/users/**")
 
                         .uri("http://localhost:8081"))
 
