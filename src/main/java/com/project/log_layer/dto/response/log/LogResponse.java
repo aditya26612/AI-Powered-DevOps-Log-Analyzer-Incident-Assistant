@@ -1,9 +1,6 @@
 package com.project.log_layer.dto.response.log;
 
-import com.project.log_layer.enums.Environment;
-import com.project.log_layer.enums.LogLevel;
-import com.project.log_layer.enums.LogSource;
-import com.project.log_layer.enums.LogStatus;
+import com.project.log_layer.enums.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -130,4 +127,15 @@ public class LogResponse {
      */
     private LocalDateTime createdAt;
 
+    private Integer prediction;
+
+    private String predictionLabel;
+
+    private Double decisionScore;
+
+    private String modelVersion;
+
+    private AnalysisStatus analysisStatus;
+
+    private LocalDateTime analyzedAt;
 }

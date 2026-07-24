@@ -9,9 +9,15 @@ import com.project.log_layer.dto.response.common.BatchOperationResponse;
 import com.project.log_layer.dto.response.common.PagedResponse;
 import com.project.log_layer.dto.response.log.LogResponse;
 import com.project.log_layer.entity.Log;
+import com.project.log_layer.enums.AnalysisStatus;
 import com.project.log_layer.exception.InvalidSearchCriteriaException;
 import com.project.log_layer.exception.LogNotFoundException;
+import com.project.log_layer.integration.client.MlInferenceClient;
+import com.project.log_layer.integration.dto.MlPredictionRequest;
+import com.project.log_layer.integration.dto.MlPredictionResponse;
+import com.project.log_layer.integration.exception.MlServiceException;
 import com.project.log_layer.mapper.LogMapper;
+import com.project.log_layer.mapper.MlPredictionMapper;
 import com.project.log_layer.parser.LogParser;
 import com.project.log_layer.parser.ParserFactory;
 import com.project.log_layer.parser.mapper.ParsedLogMapper;
@@ -20,6 +26,7 @@ import com.project.log_layer.repository.LogRepository;
 import com.project.log_layer.service.LogService;
 import com.project.log_layer.specification.LogSpecificationBuilder;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,8 +35,11 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -44,6 +54,10 @@ public class LogServiceImpl implements LogService {
     private final ParsedLogMapper parsedLogMapper;
 
     private final LogMapper logMapper;
+
+    private final MlInferenceClient mlInferenceClient;
+
+    private final MlPredictionMapper mlPredictionMapper;
 
     private UUID generateCorrelationId(
             LogIngestRequest request) {
@@ -67,6 +81,8 @@ public class LogServiceImpl implements LogService {
         Log log = parsedLogMapper.toEntity(parsedLogData);
 
         enrichLogEntity(log, request);
+
+        performMlAnalysis(log);   // ⭐ New step
 
         Log savedLog = logRepository.save(log);
 
@@ -97,6 +113,41 @@ public class LogServiceImpl implements LogService {
         );
 
     }
+
+    /**
+     * Sends the log to the ML service for prediction.
+     */
+    private void performMlAnalysis(Log logEntity) {
+
+        try {
+
+            MlPredictionRequest request =
+                    mlPredictionMapper.toRequest(logEntity);
+
+            MlPredictionResponse response =
+                    mlInferenceClient.predict(request);
+
+            logEntity.setPrediction(response.prediction());
+            logEntity.setPredictionLabel(response.predictionLabel());
+            logEntity.setDecisionScore(response.decisionScore());
+            logEntity.setModelVersion(response.modelVersion());
+
+            logEntity.setAnalysisStatus(AnalysisStatus.COMPLETED);
+            logEntity.setAnalyzedAt(LocalDateTime.now());
+
+        } catch (MlServiceException ex) {
+
+            logEntity.setAnalysisStatus(AnalysisStatus.FAILED);
+            logEntity.setAnalyzedAt(LocalDateTime.now());
+
+            log.error(
+                    "ML prediction failed for correlationId={}",
+                    logEntity.getCorrelationId(),
+                    ex
+            );
+        }
+    }
+
 
     /**
      * Not implemented in Version 1.
