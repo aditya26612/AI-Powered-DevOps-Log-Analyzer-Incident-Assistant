@@ -5,3 +5,5 @@ pydantic-settings
 numpy
 pandas
 python-dotenv
+joblib
+scikit-learn

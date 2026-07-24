@@ -14,7 +14,12 @@ class PredictionResponse(BaseModel):
 
     prediction: int = Field(
         ...,
-        description="Raw prediction returned by the ML model (1 or -1).",
+        description="Raw prediction returned by the ML model (-1 = Anomaly, 1 = Normal).",
+    )
+
+    prediction_label: str = Field(
+        ...,
+        description="Human-readable prediction label.",
     )
 
     is_anomaly: bool = Field(
@@ -25,4 +30,9 @@ class PredictionResponse(BaseModel):
     decision_score: float = Field(
         ...,
         description="Isolation Forest anomaly score.",
+    )
+
+    model_version: str = Field(
+        ...,
+        description="Version of the ML model used for inference.",
     )

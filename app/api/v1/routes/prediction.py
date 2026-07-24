@@ -2,16 +2,21 @@ from fastapi import APIRouter, Depends
 
 from app.api.v1.dependencies import get_prediction_service
 from app.api.v1.schemas.requests.prediction_request import PredictionRequest
-from app.api.v1.schemas.responses.prediction_response import PredictionResponse
 from app.api.v1.schemas.requests.batch_prediction_request import BatchPredictionRequest
+from app.api.v1.schemas.responses.prediction_response import PredictionResponse
 from app.api.v1.schemas.responses.batch_prediction_response import BatchPredictionResponse
+
+from app.core.constants import PREDICTION_LABELS
+
 from app.domain.log_entry import LogEntry
 from app.services.prediction_service import PredictionService
+
 
 router = APIRouter(
     prefix="/api/v1",
     tags=["Prediction"],
 )
+
 
 @router.post(
     "/predict",
@@ -33,8 +38,10 @@ def predict(
 
     return PredictionResponse(
         prediction=result.prediction,
+        prediction_label=PREDICTION_LABELS[result.prediction],
         is_anomaly=result.is_anomaly,
         decision_score=result.decision_score,
+        model_version=service.metadata.model_version,
     )
 
 
@@ -62,8 +69,10 @@ def predict_batch(
     predictions = [
         PredictionResponse(
             prediction=result.prediction,
+            prediction_label=PREDICTION_LABELS[result.prediction],
             is_anomaly=result.is_anomaly,
             decision_score=result.decision_score,
+            model_version=service.metadata.model_version,
         )
         for result in results
     ]

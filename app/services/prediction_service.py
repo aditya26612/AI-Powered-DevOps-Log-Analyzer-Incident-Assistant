@@ -28,6 +28,9 @@ from app.domain.log_entry import LogEntry
 from app.domain.prediction_result import PredictionResult
 from app.services.feature_matrix_builder import FeatureMatrixBuilder
 from app.services.preprocessing_service import PreprocessingService
+from app.domain.model_metadata import ModelMetadata
+
+
 
 
 class PredictionService:
@@ -40,7 +43,7 @@ class PredictionService:
         model: BaseEstimator,
         preprocessor: PreprocessingService,
         feature_builder: FeatureMatrixBuilder,
-        metadata: dict,
+        metadata: ModelMetadata,
     ) -> None:
         self._model = model
         self._preprocessor = preprocessor
@@ -56,6 +59,13 @@ class PredictionService:
             """
 
             return self.predict_batch([log])[0]
+
+    @property
+    def metadata(self) -> ModelMetadata:
+        """
+        Returns metadata of the currently loaded model.
+        """
+        return self._metadata
 
     def predict_batch(
         self,
