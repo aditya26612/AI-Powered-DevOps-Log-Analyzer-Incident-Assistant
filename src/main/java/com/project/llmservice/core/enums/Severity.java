@@ -1,4 +1,9 @@
 package com.project.llmservice.core.enums;
 
-public class Severity {
+public enum Severity {
+
+    LOW,
+    MEDIUM,
+    HIGH,
+    CRITICAL
 }

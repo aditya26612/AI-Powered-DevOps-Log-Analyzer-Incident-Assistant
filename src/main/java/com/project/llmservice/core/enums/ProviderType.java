@@ -1,4 +1,6 @@
 package com.project.llmservice.core.enums;
 
-public class ProviderType {
+public enum ProviderType {
+
+    OLLAMA
 }

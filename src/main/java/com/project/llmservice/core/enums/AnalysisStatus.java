@@ -1,4 +1,7 @@
 package com.project.llmservice.core.enums;
 
-public class AnalysisStatus {
+public enum AnalysisStatus {
+
+    SUCCESS,
+    FAILED
 }

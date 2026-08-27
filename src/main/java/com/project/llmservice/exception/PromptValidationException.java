@@ -1,6 +1,6 @@
 package com.project.llmservice.exception;
 
-public class PromptValidationException extends RuntimeException {
+public class PromptValidationException extends PromptException {
 
     public PromptValidationException(String message) {
         super(message);
