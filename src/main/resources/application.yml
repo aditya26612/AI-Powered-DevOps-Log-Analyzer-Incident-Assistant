@@ -8,10 +8,15 @@ spring:
   ai:
     ollama:
       base-url: http://localhost:11434
+
       chat:
         options:
-          model: llama2:latest
+          model: phi3:mini
           temperature: 0.2
+
+      embedding:
+        options:
+          model: nomic-embed-text:latest
 
 management:
   endpoints:

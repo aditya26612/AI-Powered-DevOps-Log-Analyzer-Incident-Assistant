@@ -1,4 +1,4 @@
-package com.project.llm.properties;
+package com.project.llmservice.properties;
 
 import lombok.Getter;
 import lombok.Setter;

@@ -1,4 +1,11 @@
 package com.project.llmservice.rag;
 
-public class Retriever {
+import java.util.List;
+
+public interface Retriever {
+
+    List<RetrievalResult> retrieve(
+            String query,
+            int topK
+    );
 }

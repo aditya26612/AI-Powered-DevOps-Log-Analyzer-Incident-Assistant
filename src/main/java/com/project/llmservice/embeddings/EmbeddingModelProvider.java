@@ -1,4 +1,6 @@
 package com.project.llmservice.embeddings;
 
-public class EmbeddingModelProvider {
+public interface EmbeddingModelProvider {
+
+    float[] embed(String text);
 }

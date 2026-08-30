@@ -1,4 +1,8 @@
 package com.project.llmservice.rag;
 
-public class DocumentLoader {
+import java.util.List;
+
+public interface DocumentLoader {
+
+    List<KnowledgeDocument> load();
 }
