@@ -23,6 +23,7 @@ class PromptIntegrationTest {
                 .level("ERROR")
                 .serviceName("payment-service")
                 .message("Database connection failed")
+                .retrievedContext("No additional retrieved knowledge available.")
                 .build();
 
         String prompt = builder.build(

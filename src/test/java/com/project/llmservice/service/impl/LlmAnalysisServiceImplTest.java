@@ -9,14 +9,22 @@ import com.project.llmservice.prompt.PromptContext;
 import com.project.llmservice.prompt.PromptType;
 import com.project.llmservice.provider.LlmProvider;
 import com.project.llmservice.provider.ProviderFactory;
+import com.project.llmservice.rag.KnowledgeDocument;
+import com.project.llmservice.rag.RetrievalResult;
+import com.project.llmservice.rag.Retriever;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +44,9 @@ class LlmAnalysisServiceImplTest {
     private ResponseParser responseParser;
 
     @Mock
+    private Retriever retriever;
+
+    @Mock
     private RequestMapper requestMapper;
 
     private LlmAnalysisServiceImpl service;
@@ -46,7 +57,8 @@ class LlmAnalysisServiceImplTest {
                 promptBuilder,
                 providerFactory,
                 responseParser,
-                requestMapper
+                requestMapper,
+                retriever
         );
     }
 
@@ -67,7 +79,35 @@ class LlmAnalysisServiceImplTest {
                 .message(request.getMessage())
                 .build();
 
+        KnowledgeDocument knowledgeDocument =
+                KnowledgeDocument.builder()
+                        .id("database")
+                        .content(
+                                "PostgreSQL database connectivity should be verified."
+                        )
+                        .metadata(null)
+                        .build();
+
+        RetrievalResult retrievalResult =
+                RetrievalResult.builder()
+                        .document(knowledgeDocument)
+                        .score(1.0)
+                        .build();
+
+        when(requestMapper.toPromptContext(request))
+                .thenReturn(context);
+
+        when(retriever.retrieve(
+                "ERROR payment-service Database connection failed",
+                3
+        )).thenReturn(List.of(retrievalResult));
+
         String prompt = "generated prompt";
+
+        when(promptBuilder.build(
+                eq(PromptType.ROOT_CAUSE_ANALYSIS),
+                any(PromptContext.class)
+        )).thenReturn(prompt);
 
         String rawResponse = """
                 {
@@ -85,14 +125,6 @@ class LlmAnalysisServiceImplTest {
                         .severity("CRITICAL")
                         .recommendation("Verify database availability.")
                         .build();
-
-        when(requestMapper.toPromptContext(request))
-                .thenReturn(context);
-
-        when(promptBuilder.build(
-                PromptType.ROOT_CAUSE_ANALYSIS,
-                context
-        )).thenReturn(prompt);
 
         when(providerFactory.getProvider())
                 .thenReturn(llmProvider);
@@ -112,9 +144,46 @@ class LlmAnalysisServiceImplTest {
         verify(requestMapper)
                 .toPromptContext(request);
 
+        verify(retriever)
+                .retrieve(
+                        "ERROR payment-service Database connection failed",
+                        3
+                );
+
+        ArgumentCaptor<PromptContext> contextCaptor =
+                ArgumentCaptor.forClass(PromptContext.class);
+
         verify(promptBuilder).build(
-                PromptType.ROOT_CAUSE_ANALYSIS,
-                context
+                eq(PromptType.ROOT_CAUSE_ANALYSIS),
+                contextCaptor.capture()
+        );
+
+        PromptContext enrichedContext =
+                contextCaptor.getValue();
+
+        assertEquals(
+                "PostgreSQL database connectivity should be verified.",
+                enrichedContext.getRetrievedContext()
+        );
+
+        assertEquals(
+                request.getTimestamp(),
+                enrichedContext.getTimestamp()
+        );
+
+        assertEquals(
+                request.getLevel(),
+                enrichedContext.getLevel()
+        );
+
+        assertEquals(
+                request.getServiceName(),
+                enrichedContext.getServiceName()
+        );
+
+        assertEquals(
+                request.getMessage(),
+                enrichedContext.getMessage()
         );
 
         verify(providerFactory)

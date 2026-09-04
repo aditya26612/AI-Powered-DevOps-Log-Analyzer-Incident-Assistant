@@ -14,6 +14,7 @@ public class RequestMapper {
                 .level(request.getLevel())
                 .serviceName(request.getServiceName())
                 .message(request.getMessage())
+                .retrievedContext(null)
                 .build();
     }
 }

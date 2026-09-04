@@ -18,7 +18,8 @@ public class PromptBuilder {
                 .replace("${timestamp}", context.getTimestamp())
                 .replace("${level}", context.getLevel())
                 .replace("${serviceName}", context.getServiceName())
-                .replace("${message}", context.getMessage());
+                .replace("${message}", context.getMessage())
+                .replace("${retrievedContext}", context.getRetrievedContext());
 
         promptValidator.validate(prompt);
 

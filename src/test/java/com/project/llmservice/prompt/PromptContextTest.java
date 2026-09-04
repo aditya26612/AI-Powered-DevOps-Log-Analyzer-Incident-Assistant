@@ -14,6 +14,7 @@ class PromptContextTest {
                 .level("ERROR")
                 .serviceName("payment-service")
                 .message("Database connection failed")
+                .retrievedContext("No additional retrieved knowledge available.")
                 .build();
 
         assertNotNull(context);

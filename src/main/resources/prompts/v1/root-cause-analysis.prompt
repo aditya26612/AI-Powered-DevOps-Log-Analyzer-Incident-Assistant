@@ -228,6 +228,27 @@ Correct response:
 }
 
 #############################################
+# RETRIEVED DEVOPS KNOWLEDGE
+#############################################
+
+Use the following retrieved knowledge as additional
+context when analyzing the log.
+
+The retrieved knowledge may help identify relevant
+DevOps concepts, troubleshooting patterns, or possible
+causes related to the supplied log.
+
+Do not treat retrieved knowledge as evidence that
+something occurred in the supplied log.
+
+Do not invent facts from the retrieved knowledge.
+
+Only use information that is relevant to the supplied log.
+
+Retrieved Knowledge:
+${retrievedContext}
+
+#############################################
 # LOG TO ANALYZE
 #############################################
 
@@ -248,6 +269,9 @@ ${message}
 #############################################
 
 Analyze the log above.
+
+Use the retrieved knowledge only as supporting context.
+The supplied log remains the primary source of evidence.
 
 Return ONLY the JSON object.
 

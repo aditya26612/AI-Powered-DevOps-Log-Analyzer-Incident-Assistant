@@ -9,9 +9,14 @@ import com.project.llmservice.prompt.PromptContext;
 import com.project.llmservice.prompt.PromptType;
 import com.project.llmservice.provider.ProviderFactory;
 import com.project.llmservice.provider.LlmProvider;
+import com.project.llmservice.rag.RetrievalResult;
+import com.project.llmservice.rag.Retriever;
 import com.project.llmservice.service.LlmAnalysisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +26,7 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
     private final ProviderFactory providerFactory;
     private final ResponseParser responseParser;
     private final RequestMapper requestMapper;
+    private final Retriever retriever;
 
     @Override
     public LlmAnalysisResponse analyze(LlmAnalysisRequest request) {
@@ -28,9 +34,30 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
         PromptContext context =
                 requestMapper.toPromptContext(request);
 
+        String query =
+                request.getLevel() + " " +
+                        request.getServiceName() + " " +
+                        request.getMessage();
+
+        List<RetrievalResult> results =
+                retriever.retrieve(query, 3);
+
+        String retrievedContext =
+                results.stream()
+                        .map(result -> result.getDocument().getContent())
+                        .collect(Collectors.joining("\n\n"));
+
+        PromptContext enrichedContext = PromptContext.builder()
+                .timestamp(context.getTimestamp())
+                .level(context.getLevel())
+                .serviceName(context.getServiceName())
+                .message(context.getMessage())
+                .retrievedContext(retrievedContext)
+                .build();
+
         String prompt = promptBuilder.build(
                 PromptType.ROOT_CAUSE_ANALYSIS,
-                context
+                enrichedContext
         );
 
         LlmProvider provider =
@@ -41,4 +68,5 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
 
         return responseParser.parse(rawResponse);
     }
+
 }

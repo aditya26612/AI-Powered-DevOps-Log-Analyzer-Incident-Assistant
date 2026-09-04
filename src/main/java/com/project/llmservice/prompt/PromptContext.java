@@ -15,4 +15,5 @@ public class PromptContext {
 
     private final String message;
 
+    private final String retrievedContext;
 }

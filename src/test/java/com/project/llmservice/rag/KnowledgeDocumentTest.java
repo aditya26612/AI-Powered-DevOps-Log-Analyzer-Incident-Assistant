@@ -5,45 +5,29 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class KnowledgeDocumentTest {
 
     @Test
-    void shouldCreateKnowledgeDocument() {
+    void shouldBuildKnowledgeDocumentSuccessfully() {
+
+        Map<String, String> metadata = Map.of(
+                "source", "runbook",
+                "service", "payment-service"
+        );
 
         KnowledgeDocument document =
                 KnowledgeDocument.builder()
                         .id("doc-001")
-                        .content("PostgreSQL connection troubleshooting")
-                        .metadata(
-                                Map.of(
-                                        "source", "database-guide",
-                                        "type", "troubleshooting"
-                                )
-                        )
+                        .content("Database connection troubleshooting")
+                        .metadata(metadata)
                         .build();
 
-        assertNotNull(document);
-
+        assertEquals("doc-001", document.getId());
         assertEquals(
-                "doc-001",
-                document.getId()
-        );
-
-        assertEquals(
-                "PostgreSQL connection troubleshooting",
+                "Database connection troubleshooting",
                 document.getContent()
         );
-
-        assertEquals(
-                "database-guide",
-                document.getMetadata().get("source")
-        );
-
-        assertEquals(
-                "troubleshooting",
-                document.getMetadata().get("type")
-        );
+        assertEquals(metadata, document.getMetadata());
     }
 }

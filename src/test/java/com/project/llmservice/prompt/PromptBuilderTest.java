@@ -39,6 +39,7 @@ class PromptBuilderTest {
                 .level("ERROR")
                 .serviceName("payment-service")
                 .message("Database connection failed")
+                .retrievedContext("No additional retrieved knowledge available.")
                 .build();
 
         String result = promptBuilder.build(
