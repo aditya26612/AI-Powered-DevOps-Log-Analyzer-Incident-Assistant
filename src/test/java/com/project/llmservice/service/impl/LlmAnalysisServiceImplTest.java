@@ -53,6 +53,7 @@ class LlmAnalysisServiceImplTest {
 
     @BeforeEach
     void setUp() {
+
         service = new LlmAnalysisServiceImpl(
                 promptBuilder,
                 providerFactory,
@@ -65,19 +66,33 @@ class LlmAnalysisServiceImplTest {
     @Test
     void shouldAnalyzeLogSuccessfully() {
 
-        LlmAnalysisRequest request = LlmAnalysisRequest.builder()
-                .timestamp("2026-08-27T01:00:00")
-                .level("ERROR")
-                .serviceName("payment-service")
-                .message("Database connection failed")
-                .build();
+        // --------------------------------------------------
+        // Request
+        // --------------------------------------------------
 
-        PromptContext context = PromptContext.builder()
-                .timestamp(request.getTimestamp())
-                .level(request.getLevel())
-                .serviceName(request.getServiceName())
-                .message(request.getMessage())
-                .build();
+        LlmAnalysisRequest request =
+                LlmAnalysisRequest.builder()
+                        .timestamp("2026-08-27T01:00:00")
+                        .level("ERROR")
+                        .serviceName("payment-service")
+                        .message("Database connection failed")
+                        .build();
+
+        // --------------------------------------------------
+        // Prompt Context created by RequestMapper
+        // --------------------------------------------------
+
+        PromptContext context =
+                PromptContext.builder()
+                        .timestamp(request.getTimestamp())
+                        .level(request.getLevel())
+                        .serviceName(request.getServiceName())
+                        .message(request.getMessage())
+                        .build();
+
+        // --------------------------------------------------
+        // Knowledge Document returned by RAG
+        // --------------------------------------------------
 
         KnowledgeDocument knowledgeDocument =
                 KnowledgeDocument.builder()
@@ -88,19 +103,35 @@ class LlmAnalysisServiceImplTest {
                         .metadata(null)
                         .build();
 
+        // --------------------------------------------------
+        // Retrieval Result
+        // --------------------------------------------------
+
         RetrievalResult retrievalResult =
                 RetrievalResult.builder()
                         .document(knowledgeDocument)
                         .score(1.0)
                         .build();
 
+        // --------------------------------------------------
+        // RequestMapper mock
+        // --------------------------------------------------
+
         when(requestMapper.toPromptContext(request))
                 .thenReturn(context);
+
+        // --------------------------------------------------
+        // Retriever mock
+        // --------------------------------------------------
 
         when(retriever.retrieve(
                 "ERROR payment-service Database connection failed",
                 3
         )).thenReturn(List.of(retrievalResult));
+
+        // --------------------------------------------------
+        // PromptBuilder mock
+        // --------------------------------------------------
 
         String prompt = "generated prompt";
 
@@ -108,6 +139,10 @@ class LlmAnalysisServiceImplTest {
                 eq(PromptType.ROOT_CAUSE_ANALYSIS),
                 any(PromptContext.class)
         )).thenReturn(prompt);
+
+        // --------------------------------------------------
+        // LLM raw response
+        // --------------------------------------------------
 
         String rawResponse = """
                 {
@@ -118,6 +153,10 @@ class LlmAnalysisServiceImplTest {
                 }
                 """;
 
+        // --------------------------------------------------
+        // Expected parsed response
+        // --------------------------------------------------
+
         LlmAnalysisResponse expectedResponse =
                 LlmAnalysisResponse.builder()
                         .summary("Database connection failed.")
@@ -126,29 +165,61 @@ class LlmAnalysisServiceImplTest {
                         .recommendation("Verify database availability.")
                         .build();
 
+        // --------------------------------------------------
+        // Provider mock
+        // --------------------------------------------------
+
         when(providerFactory.getProvider())
                 .thenReturn(llmProvider);
 
         when(llmProvider.generate(prompt))
                 .thenReturn(rawResponse);
 
+        // --------------------------------------------------
+        // ResponseParser mock
+        // --------------------------------------------------
+
         when(responseParser.parse(rawResponse))
                 .thenReturn(expectedResponse);
+
+        // --------------------------------------------------
+        // Execute service
+        // --------------------------------------------------
 
         LlmAnalysisResponse actualResponse =
                 service.analyze(request);
 
+        // --------------------------------------------------
+        // Verify final response
+        // --------------------------------------------------
+
         assertNotNull(actualResponse);
-        assertEquals(expectedResponse, actualResponse);
+
+        assertEquals(
+                expectedResponse,
+                actualResponse
+        );
+
+        // --------------------------------------------------
+        // Verify RequestMapper
+        // --------------------------------------------------
 
         verify(requestMapper)
                 .toPromptContext(request);
+
+        // --------------------------------------------------
+        // Verify Retriever
+        // --------------------------------------------------
 
         verify(retriever)
                 .retrieve(
                         "ERROR payment-service Database connection failed",
                         3
                 );
+
+        // --------------------------------------------------
+        // Capture PromptContext passed to PromptBuilder
+        // --------------------------------------------------
 
         ArgumentCaptor<PromptContext> contextCaptor =
                 ArgumentCaptor.forClass(PromptContext.class);
@@ -161,10 +232,9 @@ class LlmAnalysisServiceImplTest {
         PromptContext enrichedContext =
                 contextCaptor.getValue();
 
-        assertEquals(
-                "PostgreSQL database connectivity should be verified.",
-                enrichedContext.getRetrievedContext()
-        );
+        // --------------------------------------------------
+        // Verify original log information
+        // --------------------------------------------------
 
         assertEquals(
                 request.getTimestamp(),
@@ -186,11 +256,32 @@ class LlmAnalysisServiceImplTest {
                 enrichedContext.getMessage()
         );
 
+        // --------------------------------------------------
+        // Verify RAG retrieved context
+        // --------------------------------------------------
+
+        assertEquals(
+                "PostgreSQL database connectivity should be verified.",
+                enrichedContext.getRetrievedContext()
+        );
+
+        // --------------------------------------------------
+        // Verify ProviderFactory
+        // --------------------------------------------------
+
         verify(providerFactory)
                 .getProvider();
 
+        // --------------------------------------------------
+        // Verify LLM Provider
+        // --------------------------------------------------
+
         verify(llmProvider)
                 .generate(prompt);
+
+        // --------------------------------------------------
+        // Verify ResponseParser
+        // --------------------------------------------------
 
         verify(responseParser)
                 .parse(rawResponse);
