@@ -1,6 +1,7 @@
 package com.project.llmservice.rag;
 
 import com.project.llmservice.embeddings.EmbeddingService;
+import com.project.llmservice.properties.RagProperties;
 import com.project.llmservice.vectorstore.VectorStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -11,10 +12,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class VectorRetriever implements Retriever {
 
-    private static final double DEFAULT_SIMILARITY_THRESHOLD = 0.70;
-
     private final EmbeddingService embeddingService;
     private final VectorStore vectorStore;
+    private final RagProperties ragProperties;
 
     @Override
     public List<RetrievalResult> retrieve(
@@ -40,7 +40,7 @@ public class VectorRetriever implements Retriever {
                 .stream()
                 .filter(result ->
                         result.getScore()
-                                >= DEFAULT_SIMILARITY_THRESHOLD
+                                >= ragProperties.getSimilarityThreshold()
                 )
                 .toList();
     }

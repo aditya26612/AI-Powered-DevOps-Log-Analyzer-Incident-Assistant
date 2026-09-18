@@ -1,6 +1,7 @@
 package com.project.llmservice.vectorstore;
 
 import com.project.llmservice.embeddings.EmbeddingService;
+import com.project.llmservice.properties.RagProperties;
 import com.project.llmservice.rag.KnowledgeDocument;
 import com.project.llmservice.rag.RetrievalResult;
 import com.project.llmservice.rag.VectorRetriever;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 class VectorRetrieverIntegrationTest {
 
@@ -28,10 +30,16 @@ class VectorRetrieverIntegrationTest {
 
         vectorStore = new InMemoryVectorStore();
 
-        vectorRetriever = new VectorRetriever(
-                embeddingService,
-                vectorStore
-        );
+        RagProperties ragProperties = new RagProperties();
+
+        ragProperties.setSimilarityThreshold(0.70);
+
+        vectorRetriever =
+                new VectorRetriever(
+                        embeddingService,
+                        vectorStore,
+                        ragProperties
+                );
     }
 
     @Test
@@ -117,6 +125,72 @@ class VectorRetrieverIntegrationTest {
     }
 
     @Test
+    void shouldUseConfiguredSimilarityThreshold() {
+
+        KnowledgeDocument document =
+                KnowledgeDocument.builder()
+                        .id("configured-threshold-doc")
+                        .content(
+                                "Database connection troubleshooting"
+                        )
+                        .build();
+
+        vectorStore.add(
+                document,
+                new float[]{
+                        0.8f,
+                        0.6f,
+                        0.0f
+                }
+        );
+
+        when(
+                embeddingService.embed("database")
+        ).thenReturn(
+                new float[]{
+                        1.0f,
+                        0.0f,
+                        0.0f
+                }
+        );
+
+        RagProperties ragProperties =
+                new RagProperties();
+
+        ragProperties.setSimilarityThreshold(0.90);
+
+        VectorRetriever retriever =
+                new VectorRetriever(
+                        embeddingService,
+                        vectorStore,
+                        ragProperties
+                );
+
+        List<RetrievalResult> results =
+                retriever.retrieve(
+                        "database",
+                        3
+                );
+
+        assertTrue(
+                results.isEmpty()
+        );
+
+        ragProperties.setSimilarityThreshold(0.70);
+
+        results =
+                retriever.retrieve(
+                        "database",
+                        3
+                );
+
+        assertEquals(
+                1,
+                results.size()
+        );
+    }
+
+    @Test
     void shouldRespectTopK() {
 
         KnowledgeDocument document1 =
@@ -139,17 +213,29 @@ class VectorRetrieverIntegrationTest {
 
         vectorStore.add(
                 document1,
-                new float[]{1.0f, 0.0f, 0.0f}
+                new float[]{
+                        1.0f,
+                        0.0f,
+                        0.0f
+                }
         );
 
         vectorStore.add(
                 document2,
-                new float[]{0.8f, 0.2f, 0.0f}
+                new float[]{
+                        0.8f,
+                        0.2f,
+                        0.0f
+                }
         );
 
         vectorStore.add(
                 document3,
-                new float[]{0.0f, 1.0f, 0.0f}
+                new float[]{
+                        0.0f,
+                        1.0f,
+                        0.0f
+                }
         );
 
         String query =
@@ -157,7 +243,11 @@ class VectorRetrieverIntegrationTest {
 
         whenEmbedding(
                 query,
-                new float[]{1.0f, 0.0f, 0.0f}
+                new float[]{
+                        1.0f,
+                        0.0f,
+                        0.0f
+                }
         );
 
         List<RetrievalResult> results =
@@ -214,30 +304,47 @@ class VectorRetrieverIntegrationTest {
         KnowledgeDocument relevantDocument =
                 KnowledgeDocument.builder()
                         .id("relevant-doc")
-                        .content("PostgreSQL database troubleshooting")
+                        .content(
+                                "PostgreSQL database troubleshooting"
+                        )
                         .build();
 
         KnowledgeDocument irrelevantDocument =
                 KnowledgeDocument.builder()
                         .id("irrelevant-doc")
-                        .content("Kubernetes deployment")
+                        .content(
+                                "Kubernetes deployment"
+                        )
                         .build();
 
         vectorStore.add(
                 relevantDocument,
-                new float[]{1.0f, 0.0f, 0.0f}
+                new float[]{
+                        1.0f,
+                        0.0f,
+                        0.0f
+                }
         );
 
         vectorStore.add(
                 irrelevantDocument,
-                new float[]{0.0f, 1.0f, 0.0f}
+                new float[]{
+                        0.0f,
+                        1.0f,
+                        0.0f
+                }
         );
 
-        String query = "PostgreSQL connection error";
+        String query =
+                "PostgreSQL connection error";
 
         whenEmbedding(
                 query,
-                new float[]{0.9f, 0.1f, 0.0f}
+                new float[]{
+                        0.9f,
+                        0.1f,
+                        0.0f
+                }
         );
 
         List<RetrievalResult> results =
@@ -291,7 +398,7 @@ class VectorRetrieverIntegrationTest {
             float[] embedding
     ) {
 
-        org.mockito.Mockito.when(
+        when(
                 embeddingService.embed(query)
         ).thenReturn(embedding);
     }

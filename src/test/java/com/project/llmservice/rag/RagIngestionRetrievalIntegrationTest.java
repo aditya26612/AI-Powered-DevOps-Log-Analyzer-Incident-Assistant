@@ -1,65 +1,23 @@
 package com.project.llmservice.rag;
 
 import com.project.llmservice.embeddings.EmbeddingService;
-import com.project.llmservice.rag.splitter.DocumentSplitter;
+import com.project.llmservice.properties.RagProperties;
 import com.project.llmservice.rag.splitter.SimpleDocumentSplitter;
 import com.project.llmservice.vectorstore.InMemoryVectorStore;
 import com.project.llmservice.vectorstore.VectorStoreService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class RagIngestionRetrievalIntegrationTest {
 
-    private DocumentLoader documentLoader;
-
-    private DocumentSplitter documentSplitter;
-
-    private EmbeddingService embeddingService;
-
-    private InMemoryVectorStore vectorStore;
-
-    private RagIngestionService ragIngestionService;
-
-    private VectorRetriever vectorRetriever;
-
-    @BeforeEach
-    void setUp() {
-
-        documentLoader = mock(DocumentLoader.class);
-
-        documentSplitter = new SimpleDocumentSplitter();
-
-        embeddingService = mock(EmbeddingService.class);
-
-        vectorStore = new InMemoryVectorStore();
-
-        VectorStoreService vectorStoreService =
-                new VectorStoreService(
-                        embeddingService,
-                        vectorStore
-                );
-
-        ragIngestionService =
-                new RagIngestionService(
-                        documentLoader,
-                        documentSplitter,
-                        vectorStoreService
-                );
-
-        vectorRetriever =
-                new VectorRetriever(
-                        embeddingService,
-                        vectorStore
-                );
-    }
-
     @Test
-    void shouldIngestDocumentAndRetrieveIt() {
+    void shouldIngestAndRetrieveDocument() {
 
         KnowledgeDocument document =
                 KnowledgeDocument.builder()
@@ -69,46 +27,79 @@ class RagIngestionRetrievalIntegrationTest {
                         )
                         .build();
 
+        DocumentLoader documentLoader =
+                mock(DocumentLoader.class);
+
         when(documentLoader.load())
                 .thenReturn(List.of(document));
 
-        when(embeddingService.embed(anyString()))
-                .thenAnswer(invocation -> {
+        SimpleDocumentSplitter documentSplitter =
+                new SimpleDocumentSplitter();
 
-                    String text =
-                            invocation.getArgument(0);
+        EmbeddingService embeddingService =
+                mock(EmbeddingService.class);
 
-                    if (text.contains("PostgreSQL")) {
-                        return new float[]{
-                                1.0f,
-                                0.0f,
-                                0.0f
-                        };
-                    }
+        InMemoryVectorStore vectorStore =
+                new InMemoryVectorStore();
 
-                    return new float[]{
-                            0.9f,
-                            0.1f,
-                            0.0f
-                    };
-                });
+        VectorStoreService vectorStoreService =
+                new VectorStoreService(
+                        embeddingService,
+                        vectorStore
+                );
 
-        // Ingest document
-        ragIngestionService.ingest();
+        RagIngestionService ingestionService =
+                new RagIngestionService(
+                        documentLoader,
+                        documentSplitter,
+                        vectorStoreService
+                );
 
-        // Retrieve using a similar query
+        when(
+                embeddingService.embed(
+                        "PostgreSQL database connection troubleshooting"
+                )
+        ).thenReturn(
+                new float[]{
+                        1.0f,
+                        0.0f,
+                        0.0f
+                }
+        );
+
+        ingestionService.ingest();
+
+        when(
+                embeddingService.embed(
+                        "database connection"
+                )
+        ).thenReturn(
+                new float[]{
+                        1.0f,
+                        0.0f,
+                        0.0f
+                }
+        );
+
+        RagProperties ragProperties =
+                new RagProperties();
+
+        ragProperties.setSimilarityThreshold(0.70);
+
+        VectorRetriever vectorRetriever =
+                new VectorRetriever(
+                        embeddingService,
+                        vectorStore,
+                        ragProperties
+                );
+
         List<RetrievalResult> results =
                 vectorRetriever.retrieve(
-                        "PostgreSQL connection failed",
+                        "database connection",
                         1
                 );
 
-        assertNotNull(results);
-
-        assertEquals(
-                1,
-                results.size()
-        );
+        assertFalse(results.isEmpty());
 
         assertEquals(
                 "database-doc-chunk-0",
@@ -116,12 +107,5 @@ class RagIngestionRetrievalIntegrationTest {
                         .getDocument()
                         .getId()
         );
-
-        assertTrue(
-                results.get(0).getScore() > 0
-        );
-
-        verify(documentLoader)
-                .load();
     }
 }
