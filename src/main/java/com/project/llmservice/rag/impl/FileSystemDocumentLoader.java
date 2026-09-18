@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-@Component
+//@Component // ResourceDocumentLoader is specifically designed to load those documents.
 public class FileSystemDocumentLoader implements DocumentLoader {
 
     private static final String KNOWLEDGE_PATH = "knowledge/";

@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import java.util.Comparator;
 import java.util.List;
 
-@Component
+//@Component // as there are two bean of    Retriever, we need to use @Qualifier to specify which one to use
 public class SimpleRetriever implements Retriever {
 
     private final DocumentLoader documentLoader;
