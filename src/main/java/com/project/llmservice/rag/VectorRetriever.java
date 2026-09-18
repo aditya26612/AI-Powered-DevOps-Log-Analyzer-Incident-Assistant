@@ -11,6 +11,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class VectorRetriever implements Retriever {
 
+    private static final double DEFAULT_SIMILARITY_THRESHOLD = 0.70;
+
     private final EmbeddingService embeddingService;
     private final VectorStore vectorStore;
 
@@ -32,8 +34,14 @@ public class VectorRetriever implements Retriever {
                 embeddingService.embed(query);
 
         return vectorStore.search(
-                queryEmbedding,
-                topK
-        );
+                        queryEmbedding,
+                        topK
+                )
+                .stream()
+                .filter(result ->
+                        result.getScore()
+                                >= DEFAULT_SIMILARITY_THRESHOLD
+                )
+                .toList();
     }
 }

@@ -1,7 +1,9 @@
-package com.project.llmservice.rag;
+package com.project.llmservice.vectorstore;
 
 import com.project.llmservice.embeddings.EmbeddingService;
-import com.project.llmservice.vectorstore.InMemoryVectorStore;
+import com.project.llmservice.rag.KnowledgeDocument;
+import com.project.llmservice.rag.RetrievalResult;
+import com.project.llmservice.rag.VectorRetriever;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,8 +65,8 @@ class VectorRetrieverIntegrationTest {
         vectorStore.add(
                 kubernetesDocument,
                 new float[]{
-                        0.0f,
-                        1.0f,
+                        0.8f,
+                        0.6f,
                         0.0f
                 }
         );
@@ -203,6 +205,64 @@ class VectorRetrieverIntegrationTest {
 
         org.mockito.Mockito.verifyNoInteractions(
                 embeddingService
+        );
+    }
+
+    @Test
+    void shouldFilterDocumentsBelowSimilarityThreshold() {
+
+        KnowledgeDocument relevantDocument =
+                KnowledgeDocument.builder()
+                        .id("relevant-doc")
+                        .content("PostgreSQL database troubleshooting")
+                        .build();
+
+        KnowledgeDocument irrelevantDocument =
+                KnowledgeDocument.builder()
+                        .id("irrelevant-doc")
+                        .content("Kubernetes deployment")
+                        .build();
+
+        vectorStore.add(
+                relevantDocument,
+                new float[]{1.0f, 0.0f, 0.0f}
+        );
+
+        vectorStore.add(
+                irrelevantDocument,
+                new float[]{0.0f, 1.0f, 0.0f}
+        );
+
+        String query = "PostgreSQL connection error";
+
+        whenEmbedding(
+                query,
+                new float[]{0.9f, 0.1f, 0.0f}
+        );
+
+        List<RetrievalResult> results =
+                vectorRetriever.retrieve(
+                        query,
+                        2
+                );
+
+        assertNotNull(results);
+
+        assertEquals(
+                1,
+                results.size()
+        );
+
+        assertEquals(
+                "relevant-doc",
+                results.get(0)
+                        .getDocument()
+                        .getId()
+        );
+
+        assertTrue(
+                results.get(0).getScore()
+                        >= 0.70
         );
     }
 
