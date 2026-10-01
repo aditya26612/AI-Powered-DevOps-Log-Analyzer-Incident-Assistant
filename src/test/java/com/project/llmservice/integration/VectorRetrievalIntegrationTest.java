@@ -3,16 +3,23 @@ package com.project.llmservice.integration;
 import com.project.llmservice.embeddings.EmbeddingService;
 import com.project.llmservice.rag.RagIngestionService;
 import com.project.llmservice.rag.RetrievalResult;
+import com.project.llmservice.rag.Retriever;
 import com.project.llmservice.vectorstore.VectorStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
+
+
+
+
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 class VectorRetrievalIntegrationTest {
@@ -26,9 +33,171 @@ class VectorRetrievalIntegrationTest {
     @Autowired
     private VectorStore vectorStore;
 
+    @Autowired
+    private Retriever retriever;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @BeforeEach
     void setUp() {
         ragIngestionService.ingest();
+    }
+
+    private record BenchmarkQuery(
+            String query,
+            String expectedDocument
+    ) {
+    }
+
+
+
+    private List<BenchmarkQuery> loadBenchmark()
+            throws Exception {
+
+        InputStream inputStream =
+                getClass()
+                        .getClassLoader()
+                        .getResourceAsStream(
+                                "retrieval/retrieval-benchmark.json"
+                        );
+
+        assertNotNull(
+                inputStream,
+                "Retrieval benchmark file was not found"
+        );
+
+        return objectMapper.readValue(
+                inputStream,
+                new TypeReference<List<BenchmarkQuery>>() {
+                }
+        );
+    }
+
+    private int findRelevantRank(
+            List<RetrievalResult> results,
+            String expectedDocument
+    ) {
+
+        for (int i = 0; i < results.size(); i++) {
+
+            String documentId =
+                    results.get(i)
+                            .getDocument()
+                            .getId();
+
+            if (documentId.startsWith(expectedDocument)) {
+                return i + 1;
+            }
+        }
+
+        return -1;
+    }
+
+    private double percentage(
+            int value,
+            int total
+    ) {
+
+        return Math.round(
+                ((double) value / total) * 10000
+        ) / 100.0;
+    }
+
+    @Test
+    void shouldEvaluateDenseRetrievalBaseline() throws Exception {
+
+        List<BenchmarkQuery> benchmark =
+                loadBenchmark();
+
+        int hitAt1 = 0;
+        int hitAt3 = 0;
+        int hitAt5 = 0;
+
+        double reciprocalRankSum = 0.0;
+
+        for (BenchmarkQuery item : benchmark) {
+
+            float[] queryEmbedding =
+                    embeddingService.embed(
+                            item.query()
+                    );
+
+            List<RetrievalResult> results =
+                    vectorStore.search(
+                            queryEmbedding,
+                            5
+                    );
+
+            int rank =
+                    findRelevantRank(
+                            results,
+                            item.expectedDocument()
+                    );
+
+            if (rank == 1) {
+                hitAt1++;
+            }
+
+            if (rank > 0 && rank <= 3) {
+                hitAt3++;
+            }
+
+            if (rank > 0 && rank <= 5) {
+                hitAt5++;
+            }
+
+            if (rank > 0) {
+                reciprocalRankSum += 1.0 / rank;
+            }
+
+            System.out.println(
+                    item.query()
+                            + " | rank="
+                            + rank
+            );
+        }
+
+        double mrr =
+                reciprocalRankSum / benchmark.size();
+
+        System.out.println();
+        System.out.println("==============================================");
+        System.out.println("DENSE RETRIEVAL BASELINE");
+        System.out.println("==============================================");
+        System.out.println("Total queries : " + benchmark.size());
+        System.out.println(
+                "Hit@1        : "
+                        + hitAt1
+                        + "/"
+                        + benchmark.size()
+                        + " ("
+                        + percentage(hitAt1, benchmark.size())
+                        + "%)"
+        );
+        System.out.println(
+                "Hit@3        : "
+                        + hitAt3
+                        + "/"
+                        + benchmark.size()
+                        + " ("
+                        + percentage(hitAt3, benchmark.size())
+                        + "%)"
+        );
+        System.out.println(
+                "Hit@5        : "
+                        + hitAt5
+                        + "/"
+                        + benchmark.size()
+                        + " ("
+                        + percentage(hitAt5, benchmark.size())
+                        + "%)"
+        );
+        System.out.println(
+                "MRR          : "
+                        + String.format("%.4f", mrr)
+        );
+        System.out.println("==============================================");
     }
 
     @Test
@@ -73,19 +242,71 @@ class VectorRetrievalIntegrationTest {
         float[] queryEmbedding =
                 embeddingService.embed(query);
 
-        List<RetrievalResult> results =
+        // Raw vector search
+        List<RetrievalResult> rawResults =
                 vectorStore.search(
                         queryEmbedding,
                         5
                 );
 
-        assertFalse(
-                results.isEmpty(),
-                "No results returned for query: " + query
-        );
+        // Retrieval after similarity threshold
+        List<RetrievalResult> filteredResults =
+                retriever.retrieve(
+                        query,
+                        5
+                );
 
-        boolean relevantDocumentFound =
-                results.stream()
+        System.out.println();
+        System.out.println("==============================================");
+        System.out.println("QUERY: " + query);
+        System.out.println("EXPECTED: " + expectedDocumentPrefix);
+
+        System.out.println();
+        System.out.println("RAW TOP 5 RESULTS:");
+
+        for (int i = 0; i < rawResults.size(); i++) {
+
+            RetrievalResult result =
+                    rawResults.get(i);
+
+            System.out.println(
+                    (i + 1)
+                            + ". "
+                            + result.getDocument().getId()
+                            + " | Score: "
+                            + result.getScore()
+            );
+        }
+
+        System.out.println();
+        System.out.println("AFTER THRESHOLD (0.70):");
+
+        for (int i = 0; i < filteredResults.size(); i++) {
+
+            RetrievalResult result =
+                    filteredResults.get(i);
+
+            System.out.println(
+                    (i + 1)
+                            + ". "
+                            + result.getDocument().getId()
+                            + " | Score: "
+                            + result.getScore()
+            );
+        }
+
+        boolean foundInRaw =
+                rawResults.stream()
+                        .anyMatch(result ->
+                                result.getDocument()
+                                        .getId()
+                                        .startsWith(
+                                                expectedDocumentPrefix
+                                        )
+                        );
+
+        boolean foundAfterThreshold =
+                filteredResults.stream()
                         .anyMatch(result ->
                                 result.getDocument()
                                         .getId()
@@ -95,41 +316,28 @@ class VectorRetrievalIntegrationTest {
                         );
 
         System.out.println();
-        System.out.println("==============================================");
-        System.out.println("QUERY: " + query);
-        System.out.println("EXPECTED: " + expectedDocumentPrefix);
-        System.out.println("TOP RESULTS:");
-
-        for (int i = 0; i < results.size(); i++) {
-
-            RetrievalResult result =
-                    results.get(i);
-
-            System.out.println(
-                    (i + 1)
-                            + ". "
-                            + result.getDocument().getId()
-            );
-
-            System.out.println(
-                    "   Score: "
-                            + result.getScore()
-            );
-        }
+        System.out.println(
+                "Expected document found in raw top 5: "
+                        + foundInRaw
+        );
 
         System.out.println(
-                "Relevant document found in top 5: "
-                        + relevantDocumentFound
+                "Expected document found after threshold: "
+                        + foundAfterThreshold
         );
 
         System.out.println("==============================================");
 
-        assertTrue(
-                relevantDocumentFound,
-                "Expected relevant document '"
-                        + expectedDocumentPrefix
-                        + "' was not found in top 5 results for query: "
+        assertFalse(
+                rawResults.isEmpty(),
+                "Raw retrieval returned no results for query: "
                         + query
+        );
+
+        assertTrue(
+                foundInRaw,
+                "Expected document was not found in raw top 5: "
+                        + expectedDocumentPrefix
         );
     }
 }

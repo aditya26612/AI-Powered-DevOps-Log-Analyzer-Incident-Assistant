@@ -1,7 +1,8 @@
-package com.project.llmservice.rag;
+package com.project.llmservice.integration;
 
 import com.project.llmservice.embeddings.EmbeddingService;
 import com.project.llmservice.properties.RagProperties;
+import com.project.llmservice.rag.*;
 import com.project.llmservice.rag.splitter.SimpleDocumentSplitter;
 import com.project.llmservice.vectorstore.InMemoryVectorStore;
 import com.project.llmservice.vectorstore.VectorStoreService;

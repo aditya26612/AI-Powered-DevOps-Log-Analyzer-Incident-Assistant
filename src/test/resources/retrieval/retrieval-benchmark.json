@@ -1,0 +1,86 @@
+[
+  {
+    "query": "database connection failed",
+    "expectedDocument": "spring-boot-datasource-error"
+  },
+  {
+    "query": "Spring Boot cannot connect to the database",
+    "expectedDocument": "spring-boot-datasource-error"
+  },
+  {
+    "query": "Spring Boot datasource is not working",
+    "expectedDocument": "spring-boot-datasource-error"
+  },
+  {
+    "query": "application cannot bind to port",
+    "expectedDocument": "spring-boot-port-binding-error"
+  },
+  {
+    "query": "Spring Boot port is already in use",
+    "expectedDocument": "spring-boot-port-binding-error"
+  },
+
+  {
+    "query": "Docker container keeps restarting",
+    "expectedDocument": "docker-container-startup-failure"
+  },
+  {
+    "query": "Docker container fails during startup",
+    "expectedDocument": "docker-container-startup-failure"
+  },
+  {
+    "query": "Docker image cannot be pulled",
+    "expectedDocument": "docker-image-pull-error"
+  },
+  {
+    "query": "Docker container has networking problems",
+    "expectedDocument": "docker-container-network-error"
+  },
+  {
+    "query": "Docker volume cannot be mounted",
+    "expectedDocument": "docker-volume-mount-error"
+  },
+
+  {
+    "query": "Kubernetes pod is stuck pending",
+    "expectedDocument": "kubernetes-pod-pending"
+  },
+  {
+    "query": "Kubernetes pod keeps crashing",
+    "expectedDocument": "kubernetes-crashloopbackoff"
+  },
+  {
+    "query": "Kubernetes cannot pull the container image",
+    "expectedDocument": "kubernetes-imagepullbackoff"
+  },
+  {
+    "query": "Kubernetes service is unreachable",
+    "expectedDocument": "kubernetes-service-unreachable"
+  },
+  {
+    "query": "Kubernetes deployment is failing",
+    "expectedDocument": "kubernetes-deployment-failure"
+  },
+
+  {
+    "query": "Nginx upstream request is timing out",
+    "expectedDocument": "nginx-upstream-timeout"
+  },
+  {
+    "query": "Nginx returns bad gateway",
+    "expectedDocument": "nginx-bad-gateway"
+  },
+  {
+    "query": "Nginx cannot connect to upstream server",
+    "expectedDocument": "nginx-connection-refused"
+  },
+
+  {
+    "query": "PostgreSQL has too many database connections",
+    "expectedDocument": "postgresql-too-many-connections"
+  },
+  {
+    "query": "PostgreSQL authentication failed",
+    "expectedDocument": "postgresql-authentication-failure"
+  }
+]
