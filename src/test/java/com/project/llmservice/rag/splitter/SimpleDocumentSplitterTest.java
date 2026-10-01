@@ -1,6 +1,7 @@
 package com.project.llmservice.rag.splitter;
 
 import com.project.llmservice.rag.KnowledgeDocument;
+import com.project.llmservice.rag.ResourceDocumentLoader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -62,6 +63,25 @@ class SimpleDocumentSplitterTest {
                 IllegalArgumentException.class,
                 () -> splitter.split(null)
         );
+    }
+
+    @Test
+    void shouldSplitAllKnowledgeDocumentsIntoExpectedChunks() {
+
+        ResourceDocumentLoader loader =
+                new ResourceDocumentLoader();
+
+        List<KnowledgeDocument> documents =
+                loader.load();
+
+        int totalChunks = documents.stream()
+                .mapToInt(document ->
+                        splitter.split(document).size()
+                )
+                .sum();
+
+        assertEquals(21, documents.size());
+        assertEquals(189, totalChunks);
     }
 
     @Test
