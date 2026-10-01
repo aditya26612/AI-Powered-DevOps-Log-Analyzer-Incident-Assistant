@@ -8,27 +8,51 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ResourceDocumentLoaderTest {
 
+    private final ResourceDocumentLoader loader =
+            new ResourceDocumentLoader();
+
     @Test
-    void shouldLoadKnowledgeDocument() {
+    void shouldLoadAllKnowledgeDocuments() {
 
-        ResourceDocumentLoader loader =
-                new ResourceDocumentLoader();
+        List<KnowledgeDocument> documents = loader.load();
 
-        List<KnowledgeDocument> documents =
-                loader.load();
+        assertEquals(21, documents.size());
 
-        assertNotNull(documents);
-        assertFalse(documents.isEmpty());
+        assertTrue(
+                documents.stream()
+                        .allMatch(document ->
+                                document.getContent() != null &&
+                                        !document.getContent().isBlank())
+        );
 
-        KnowledgeDocument document = documents.get(0);
+        assertTrue(
+                documents.stream()
+                        .anyMatch(document ->
+                                document.getId().startsWith("docker-"))
+        );
 
-        assertNotNull(document.getId());
-        assertNotNull(document.getContent());
-        assertFalse(document.getContent().isBlank());
+        assertTrue(
+                documents.stream()
+                        .anyMatch(document ->
+                                document.getId().startsWith("kubernetes-"))
+        );
 
-        assertEquals(
-                document.getId(),
-                document.getMetadata().get("source")
+        assertTrue(
+                documents.stream()
+                        .anyMatch(document ->
+                                document.getId().startsWith("spring-boot-"))
+        );
+
+        assertTrue(
+                documents.stream()
+                        .anyMatch(document ->
+                                document.getId().startsWith("nginx-"))
+        );
+
+        assertTrue(
+                documents.stream()
+                        .anyMatch(document ->
+                                document.getId().startsWith("postgresql-"))
         );
     }
 }

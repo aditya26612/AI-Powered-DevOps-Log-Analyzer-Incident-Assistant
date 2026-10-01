@@ -12,8 +12,11 @@ import java.util.List;
 @Component
 public class ResourceDocumentLoader implements DocumentLoader {
 
+//    private static final String KNOWLEDGE_PATH =
+//            "classpath:/knowledge/*.md";
+
     private static final String KNOWLEDGE_PATH =
-            "classpath:/knowledge/*.md";
+            "classpath*:knowledge/**/*.md";
 
     private final PathMatchingResourcePatternResolver resolver =
             new PathMatchingResourcePatternResolver();
