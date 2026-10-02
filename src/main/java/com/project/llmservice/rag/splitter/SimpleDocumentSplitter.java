@@ -11,6 +11,7 @@ import java.util.Map;
 public class SimpleDocumentSplitter implements DocumentSplitter {
 
     private static final int DEFAULT_CHUNK_SIZE = 1000;
+//    private static final int DEFAULT_CHUNK_OVERLAP = 200;
 
     @Override
     public List<KnowledgeDocument> split(KnowledgeDocument document) {
@@ -37,19 +38,28 @@ public class SimpleDocumentSplitter implements DocumentSplitter {
                     content.length()
             );
 
-            String chunkContent = content.substring(start, end);
+            String chunkContent =
+                    content.substring(start, end);
 
             chunks.add(
                     KnowledgeDocument.builder()
-                            .id(document.getId() + "-chunk-" + chunkIndex)
+                            .id(document.getId()
+                                    + "-chunk-" + chunkIndex)
                             .content(chunkContent)
                             .metadata(Map.of(
-                                    "sourceDocumentId", document.getId(),
-                                    "chunkIndex", String.valueOf(chunkIndex)
+                                    "sourceDocumentId",
+                                    document.getId(),
+                                    "chunkIndex",
+                                    String.valueOf(chunkIndex)
                             ))
                             .build()
             );
 
+            if (end == content.length()) {
+                break;
+            }
+
+//            start = end - DEFAULT_CHUNK_OVERLAP;
             start = end;
             chunkIndex++;
         }

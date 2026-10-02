@@ -4,7 +4,6 @@ import com.project.llmservice.rag.bm25.BM25Retriever;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,22 +49,26 @@ public class HybridRetriever implements Retriever {
                 bm25Results
         );
 
-        return fusedResults.values()
-                .stream()
-                .sorted(
-                        (a, b) ->
-                                Double.compare(
-                                        b.score(),
-                                        a.score()
-                                )
-                )
+        List<RetrievalResult> candidates =
+                fusedResults.values()
+                        .stream()
+                        .sorted(
+                                (a, b) ->
+                                        Double.compare(
+                                                b.score(),
+                                                a.score()
+                                        )
+                        )
+                        .map(entry ->
+                                RetrievalResult.builder()
+                                        .document(entry.document())
+                                        .score(entry.score())
+                                        .build()
+                        )
+                        .toList();
+
+        return candidates.stream()
                 .limit(topK)
-                .map(entry ->
-                        RetrievalResult.builder()
-                                .document(entry.document())
-                                .score(entry.score())
-                                .build()
-                )
                 .toList();
     }
 

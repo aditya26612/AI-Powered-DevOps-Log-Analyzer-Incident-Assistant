@@ -3,10 +3,9 @@ package com.project.llmservice.integration;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.llmservice.rag.HybridRetriever;
-import com.project.llmservice.rag.KnowledgeDocument;
+import com.project.llmservice.rag.ResourceDocumentLoader;
 import com.project.llmservice.rag.RetrievalResult;
 import com.project.llmservice.rag.bm25.BM25Retriever;
-import com.project.llmservice.rag.ResourceDocumentLoader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,10 +87,12 @@ class HybridRetrievalBenchmarkTest {
                     "Query: "
                             + benchmarkQuery.query()
             );
+
             System.out.println(
                     "Expected: "
                             + benchmarkQuery.expectedDocument()
             );
+
             System.out.println(
                     "Rank: "
                             + rank
@@ -136,37 +137,43 @@ class HybridRetrievalBenchmarkTest {
                 "======================================"
         );
         System.out.println(
-                "Hybrid RRF Retrieval Benchmark"
+                "Final Hybrid RRF Retrieval Benchmark"
         );
         System.out.println(
                 "======================================"
         );
+
         System.out.printf(
                 "Total queries : %d%n",
                 totalQueries
         );
+
         System.out.printf(
                 "Hit@1        : %d/%d (%.1f%%)%n",
                 hitAt1,
                 totalQueries,
                 hitAt1Percentage
         );
+
         System.out.printf(
                 "Hit@3        : %d/%d (%.1f%%)%n",
                 hitAt3,
                 totalQueries,
                 hitAt3Percentage
         );
+
         System.out.printf(
                 "Hit@5        : %d/%d (%.1f%%)%n",
                 hitAt5,
                 totalQueries,
                 hitAt5Percentage
         );
+
         System.out.printf(
                 "MRR          : %.4f%n",
                 mrr
         );
+
         System.out.println(
                 "======================================"
         );
@@ -223,9 +230,7 @@ class HybridRetrievalBenchmarkTest {
 
         return objectMapper.readValue(
                 inputStream,
-                new TypeReference<
-                        List<BenchmarkQuery>
-                        >() {}
+                new TypeReference<List<BenchmarkQuery>>() {}
         );
     }
 
