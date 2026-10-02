@@ -32,7 +32,8 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
             ProviderFactory providerFactory,
             ResponseParser responseParser,
             RequestMapper requestMapper,
-            @Qualifier("vectorRetriever") Retriever retriever
+//            @Qualifier("vectorRetriever") Retriever retriever
+            @Qualifier("hybridRetriever") Retriever retriever
     ) {
         this.promptBuilder = promptBuilder;
         this.providerFactory = providerFactory;

@@ -29,6 +29,13 @@ class LlmAnalysisOllamaIntegrationTest {
         LlmAnalysisResponse response =
                 llmAnalysisService.analyze(request);
 
+        // for testing
+//        System.out.println("===== REAL LLM RESPONSE =====");
+//        System.out.println("Summary   : " + response.getSummary());
+//        System.out.println("RootCause : " + response.getRootCause());
+//        System.out.println("Severity  : " + response.getSeverity());
+//        System.out.println("=============================");
+
         assertNotNull(response);
 
         assertFalse(
