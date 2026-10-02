@@ -1,5 +1,6 @@
 package com.project.llmservice.provider;
 
+import com.project.llmservice.exception.ProviderException;
 import com.project.llmservice.properties.ApplicationProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -19,7 +20,7 @@ public class ProviderFactory {
             return ollamaProvider;
         }
 
-        throw new IllegalArgumentException(
+        throw new ProviderException(
                 "Unsupported provider: " + provider
         );
     }

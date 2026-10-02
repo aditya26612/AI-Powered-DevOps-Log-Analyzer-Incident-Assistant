@@ -33,8 +33,14 @@ public class OllamaProviderImpl implements OllamaProvider {
                         "LLM provider returned an empty response"
                 );
             }
+//
+//            System.out.println("===== RAW OLLAMA RESPONSE =====");
+//            System.out.println(response);
+//            System.out.println("===============================");
 
             return response;
+
+
 
         } catch (ProviderException e) {
 

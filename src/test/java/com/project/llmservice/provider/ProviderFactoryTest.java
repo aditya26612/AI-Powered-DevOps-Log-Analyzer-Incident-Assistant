@@ -1,5 +1,6 @@
 package com.project.llmservice.provider;
 
+import com.project.llmservice.exception.ProviderException;
 import com.project.llmservice.properties.ApplicationProperties;
 import org.junit.jupiter.api.Test;
 
@@ -70,9 +71,9 @@ class ProviderFactoryTest {
                         ollamaProvider
                 );
 
-        IllegalArgumentException exception =
+        ProviderException exception =
                 assertThrows(
-                        IllegalArgumentException.class,
+                        ProviderException.class,
                         factory::getProvider
                 );
 

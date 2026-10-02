@@ -70,21 +70,28 @@ Do not rename any fields.
 
 4. Keep the analysis concise and production-ready.
 
-5. If the root cause cannot be determined from the log,
-   set "rootCause" to null.
+5. Always provide a concise root-cause statement when the log
+   contains a clear failure or error condition.
 
-6. If no reliable recommendation can be determined,
+6. If the exact underlying cause is not explicitly stated,
+   describe the most directly supported cause without inventing
+   additional details.
+
+7. Use null for rootCause only when the supplied log contains
+   insufficient information to identify any meaningful cause.
+
+8. If no reliable recommendation can be determined,
    set "recommendation" to null.
 
-7. "summary" must describe the observed situation.
+9. "summary" must describe the observed situation.
 
-8. "rootCause" must describe the most likely cause supported
+10. "rootCause" must describe the most likely cause supported
    by the supplied log.
 
-9. "recommendation" must provide an actionable next step
+11. "recommendation" must provide an actionable next step
    only when supported by the log.
 
-10. Every JSON string must use valid JSON escaping.
+12. Every JSON string must use valid JSON escaping.
 
 #############################################
 # SEVERITY
