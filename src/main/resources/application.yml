@@ -36,14 +36,14 @@ logging:
 llm:
   provider: OLLAMA
 
-prompt:
-  max-context-length: 8000
-
-response:
-  max-tokens: 512
-
-timeout:
-  seconds: 60
+#prompt:
+#  max-context-length: 8000
+#
+#response:
+#  max-tokens: 512
+#
+#timeout:
+#  seconds: 60
 
 rag:
   retrieval:

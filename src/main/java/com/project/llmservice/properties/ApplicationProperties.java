@@ -11,11 +11,11 @@ public class ApplicationProperties {
 
     private String provider;
 
-    private Timeout timeout = new Timeout();
-
-    @Getter
-    @Setter
-    public static class Timeout {
-        private int seconds;
-    }
+//    private Timeout timeout = new Timeout();
+//
+//    @Getter
+//    @Setter
+//    public static class Timeout {
+//        private int seconds;
+//    }
 }

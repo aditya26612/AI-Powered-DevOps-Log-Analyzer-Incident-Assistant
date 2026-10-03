@@ -14,6 +14,9 @@ import com.project.llmservice.rag.Retriever;
 import com.project.llmservice.service.LlmAnalysisService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,6 +29,9 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
     private final ResponseParser responseParser;
     private final RequestMapper requestMapper;
     private final Retriever retriever;
+
+    private static final Logger logger =
+            LoggerFactory.getLogger(LlmAnalysisServiceImpl.class);
 
     public LlmAnalysisServiceImpl(
             PromptBuilder promptBuilder,
@@ -45,6 +51,14 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
     @Override
     public LlmAnalysisResponse analyze(LlmAnalysisRequest request) {
 
+        long startTime = System.currentTimeMillis();
+
+        logger.info(
+                "LLM analysis started: service={}, level={}",
+                request.getServiceName(),
+                request.getLevel()
+        );
+
         PromptContext context =
                 requestMapper.toPromptContext(request);
 
@@ -55,6 +69,11 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
 
         List<RetrievalResult> results =
                 retriever.retrieve(query, 3);
+
+        logger.info(
+                "RAG retrieval completed: resultCount={}",
+                results.size()
+        );
 
         String retrievedContext =
                 results.stream()
@@ -79,9 +98,27 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
         LlmProvider provider =
                 providerFactory.getProvider();
 
+        logger.info(
+                "LLM provider selected: provider={}",
+                provider.getClass().getSimpleName()
+        );
+
         String rawResponse =
                 provider.generate(prompt);
 
-        return responseParser.parse(rawResponse);
+        logger.info("LLM generation completed");
+
+        LlmAnalysisResponse response =
+                responseParser.parse(rawResponse);
+
+        long duration =
+                System.currentTimeMillis() - startTime;
+
+        logger.info(
+                "LLM analysis completed: durationMs={}",
+                duration
+        );
+
+        return response;
     }
 }
