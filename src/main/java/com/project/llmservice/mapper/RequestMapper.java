@@ -14,6 +14,10 @@ public class RequestMapper {
                 .level(request.getLevel())
                 .serviceName(request.getServiceName())
                 .message(request.getMessage())
+                .prediction(request.getPrediction())
+                .predictionLabel(request.getPredictionLabel())
+                .decisionScore(request.getDecisionScore())
+                .modelVersion(request.getModelVersion())
                 .retrievedContext(null)
                 .build();
     }

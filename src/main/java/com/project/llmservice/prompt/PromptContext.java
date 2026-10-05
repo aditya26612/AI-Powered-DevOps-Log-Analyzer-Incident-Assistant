@@ -15,5 +15,13 @@ public class PromptContext {
 
     private final String message;
 
+    private final Integer prediction;
+
+    private final String predictionLabel;
+
+    private final Double decisionScore;
+
+    private final String modelVersion;
+
     private final String retrievedContext;
 }

@@ -1,15 +1,13 @@
 package com.project.llmservice.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class LlmAnalysisRequest {
 
     @NotBlank
@@ -23,4 +21,12 @@ public class LlmAnalysisRequest {
 
     @NotBlank
     private String message;
+
+    private Integer prediction;
+
+    private String predictionLabel;
+
+    private Double decisionScore;
+
+    private String modelVersion;
 }

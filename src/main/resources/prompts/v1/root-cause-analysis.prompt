@@ -235,6 +235,31 @@ Correct response:
 }
 
 #############################################
+# ML ANALYSIS RESULT
+#############################################
+
+An ML model has already analyzed this log.
+
+Use the following ML result as supporting evidence.
+Do not blindly accept the ML result if it conflicts with
+the actual supplied log.
+
+Prediction:
+${prediction}
+
+Prediction Label:
+${predictionLabel}
+
+Decision Score:
+${decisionScore}
+
+Model Version:
+${modelVersion}
+
+The ML result is supporting evidence only.
+The supplied log remains the primary source of truth.
+
+#############################################
 # RETRIEVED DEVOPS KNOWLEDGE
 #############################################
 

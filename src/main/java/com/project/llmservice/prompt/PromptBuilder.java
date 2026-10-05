@@ -3,8 +3,6 @@ package com.project.llmservice.prompt;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-
-
 @Component
 @RequiredArgsConstructor
 public class PromptBuilder {
@@ -21,6 +19,10 @@ public class PromptBuilder {
                 .replace("${level}", context.getLevel())
                 .replace("${serviceName}", context.getServiceName())
                 .replace("${message}", context.getMessage())
+                .replace("${prediction}", String.valueOf(context.getPrediction()))
+                .replace("${predictionLabel}", String.valueOf(context.getPredictionLabel()))
+                .replace("${decisionScore}", String.valueOf(context.getDecisionScore()))
+                .replace("${modelVersion}", String.valueOf(context.getModelVersion()))
                 .replace("${retrievedContext}", context.getRetrievedContext());
 
         promptValidator.validate(prompt);
