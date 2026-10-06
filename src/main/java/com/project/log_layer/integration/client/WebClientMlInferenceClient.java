@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 @Slf4j
 @Service
@@ -17,7 +18,7 @@ public class WebClientMlInferenceClient implements MlInferenceClient {
     private final MlServiceProperties mlServiceProperties;
 
     public WebClientMlInferenceClient(
-            WebClient mlWebClient,
+            @Qualifier("mlWebClient") WebClient mlWebClient,
             MlServiceProperties mlServiceProperties
     ) {
         this.mlWebClient = mlWebClient;
