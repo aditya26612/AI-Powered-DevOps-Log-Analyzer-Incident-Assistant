@@ -1309,3 +1309,583 @@ Spring Boot ↔ FastAPI Integration
         # 🎯 Next Phase
 
         Proceed with integrating the **API Gateway** so that all client requests flow through a single entry point before reaching the Log Layer and other services.
+
+
+
+----
+
+# 📌 ML Integration & Secure API Gateway – Complete Implementation Notes
+
+---
+
+# 🎯 Objective
+
+Integrate the **Log Layer** with the **ML Pipeline** through the **API Gateway** while securing all protected endpoints using **JWT Authentication**.
+
+Final Architecture:
+
+```
+                   React Frontend
+                         │
+                         ▼
+                 API Gateway (8080)
+                         │
+        ┌────────────────┴────────────────┐
+        │                                 │
+        ▼                                 ▼
+ User Service (8081)             Log Layer (8082)
+        │                                 │
+        │                                 ▼
+        │                       PostgreSQL Database
+        │                                 │
+        │                                 ▼
+        │                       ML Pipeline (8004)
+        │                                 │
+        └──────────────Prediction─────────┘
+```
+
+---
+
+# Phase 1 : Log Layer ↔ ML Pipeline Integration
+
+## Objective
+
+Whenever a log is received:
+
+1. Parse the log.
+2. Save it in the database.
+3. Send it to the ML Pipeline.
+4. Receive prediction.
+5. Update the database.
+6. Return the enriched response.
+
+---
+
+# Integration Package Structure
+
+```
+integration
+│
+├── client
+│     ├── MlInferenceClient
+│     └── WebClientMlInferenceClient
+│
+├── config
+│     ├── MlServiceProperties
+│     └── WebClientConfig
+│
+├── dto
+│     ├── MlPredictionRequest
+│     └── MlPredictionResponse
+│
+├── mapper
+│     └── MlPredictionMapper
+│
+└── exception
+      └── MlServiceException
+```
+
+---
+
+# Components Added
+
+## 1. MlInferenceClient
+
+Created an interface to decouple the Log Layer from the ML implementation.
+
+Responsibilities:
+
+- Send log to ML service.
+- Receive prediction.
+- Hide WebClient implementation.
+
+---
+
+## 2. WebClientMlInferenceClient
+
+Implemented using Spring WebFlux WebClient.
+
+Responsibilities:
+
+- Call FastAPI ML endpoint.
+- Convert request DTO.
+- Parse response DTO.
+- Throw custom exception if required.
+
+---
+
+## 3. WebClientConfig
+
+Configured reusable WebClient bean.
+
+---
+
+## 4. MlServiceProperties
+
+Externalized ML configuration.
+
+Example:
+
+```yaml
+ml:
+  service:
+    base-url: http://localhost:8004
+```
+
+---
+
+## 5. DTOs
+
+### Request
+
+```
+MlPredictionRequest
+```
+
+Contains features sent to ML.
+
+---
+
+### Response
+
+```
+MlPredictionResponse
+```
+
+Contains:
+
+- prediction
+- predictionLabel
+- decisionScore
+- modelVersion
+
+---
+
+## 6. Mapper
+
+```
+MlPredictionMapper
+```
+
+Converts:
+
+```
+LogEntity
+        ↓
+MlPredictionRequest
+```
+
+---
+
+# Log Entity Updates
+
+Added ML-related columns:
+
+- prediction
+- predictionLabel
+- decisionScore
+- modelVersion
+- analysisStatus
+- analyzedAt
+
+---
+
+# LogResponse Updates
+
+Returned ML information back to the client.
+
+---
+
+# LogService Workflow
+
+```
+Receive Request
+        │
+        ▼
+Parse Log
+        │
+        ▼
+Save Log
+        │
+        ▼
+Map Entity → ML DTO
+        │
+        ▼
+Call ML Pipeline
+        │
+        ▼
+Receive Prediction
+        │
+        ▼
+Update Entity
+        │
+        ▼
+Return Response
+```
+
+---
+
+# Graceful Failure Handling
+
+Problem:
+
+If ML service was down,
+
+```
+WebClientRequestException
+```
+
+was thrown.
+
+The request failed.
+
+---
+
+## Solution
+
+Caught the exception and continued processing.
+
+Database record was still saved.
+
+Stored:
+
+```
+analysisStatus = FAILED
+predictionLabel = UNKNOWN
+decisionScore = 0.0
+```
+
+Client still received:
+
+```
+HTTP 201 Created
+```
+
+instead of an internal server error.
+
+---
+
+# Final ML Integration Result
+
+When ML service is available:
+
+```
+Request
+      │
+      ▼
+Log Layer
+      │
+      ▼
+ML Pipeline
+      │
+Prediction Generated
+      │
+      ▼
+Database Updated
+      │
+      ▼
+Response Returned
+```
+
+When ML service is unavailable:
+
+```
+Request
+      │
+      ▼
+Log Saved
+      │
+      ▼
+ML Call Fails
+      │
+      ▼
+Status = FAILED
+      │
+      ▼
+Response Returned Successfully
+```
+
+---
+
+# Phase 2 : API Gateway JWT Authentication
+
+## Initial Goal
+
+Protect every endpoint except authentication endpoints.
+
+Security configuration:
+
+```java
+.pathMatchers("/api/v1/auth/**")
+.permitAll()
+
+.anyExchange()
+.authenticated()
+```
+
+---
+
+# Initial Implementation
+
+Created:
+
+```
+JwtAuthenticationFilter
+```
+
+Implemented:
+
+```
+GatewayFilter
+```
+
+Responsibilities:
+
+- Read Authorization header.
+- Validate JWT.
+- Forward request.
+
+---
+
+# Problem Encountered
+
+Every protected endpoint returned:
+
+```
+401 Unauthorized
+```
+
+even though:
+
+- JWT token was valid.
+- Authorization header was correct.
+- JwtUtil worked correctly.
+- Gateway routing worked correctly.
+
+Changing:
+
+```java
+.anyExchange()
+    .permitAll()
+```
+
+made everything work.
+
+---
+
+# Root Cause
+
+A **GatewayFilter** executes after Spring Security.
+
+Flow:
+
+```
+Incoming Request
+        │
+        ▼
+Spring Security
+(.authenticated())
+        │
+No Authentication Found
+        │
+        ▼
+401 Unauthorized
+        │
+GatewayFilter Never Executed
+```
+
+The GatewayFilter only validated the JWT.
+
+It never authenticated the user.
+
+Therefore Spring Security always rejected the request.
+
+---
+
+# Solution
+
+Removed:
+
+```
+JwtAuthenticationFilter
+```
+
+Created:
+
+```
+JwtAuthenticationWebFilter
+```
+
+Implemented:
+
+```
+WebFilter
+```
+
+Responsibilities:
+
+- Read Authorization header.
+- Extract JWT.
+- Validate token.
+- Extract email.
+- Extract role.
+- Create Authentication object.
+- Store Authentication inside Reactive Security Context.
+
+Example:
+
+```java
+UsernamePasswordAuthenticationToken authentication =
+        new UsernamePasswordAuthenticationToken(
+                email,
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_" + role))
+        );
+
+return chain.filter(exchange)
+        .contextWrite(
+            ReactiveSecurityContextHolder.withAuthentication(authentication)
+        );
+```
+
+---
+
+# Updated Security Flow
+
+```
+Incoming Request
+        │
+        ▼
+JwtAuthenticationWebFilter
+        │
+Read JWT
+        │
+Validate JWT
+        │
+Create Authentication
+        │
+Store Authentication
+        │
+        ▼
+Spring Security
+(.authenticated())
+        │
+Authentication Found
+        │
+        ▼
+Gateway Routing
+        │
+        ▼
+Target Microservice
+```
+
+---
+
+# Gateway Responsibilities
+
+## Security
+
+Handled by:
+
+```
+JwtAuthenticationWebFilter
+```
+
+Responsibilities:
+
+- JWT validation
+- Authentication
+- Security Context population
+
+---
+
+## Routing
+
+Handled by:
+
+```
+GatewayConfig
+```
+
+Responsibilities:
+
+- Route requests.
+- No authentication logic.
+
+---
+
+# Final Secure Request Flow
+
+```
+React / Postman
+        │
+        ▼
+API Gateway
+        │
+        ▼
+JwtAuthenticationWebFilter
+        │
+Validate JWT
+        │
+Create Authentication
+        │
+Reactive Security Context
+        │
+        ▼
+Spring Security
+        │
+Authenticated
+        │
+        ▼
+Gateway Routes
+        │
+        ▼
+Log Layer
+        │
+Save Log
+        │
+        ▼
+ML Pipeline
+        │
+Prediction
+        │
+        ▼
+Database Updated
+        │
+        ▼
+Response Returned
+```
+
+---
+
+# Final Outcome
+
+✅ API Gateway secured using Spring Security WebFlux.
+
+✅ JWT authentication implemented using `WebFilter`.
+
+✅ Protected endpoints authenticated successfully.
+
+✅ Authentication integrated with Spring Security.
+
+✅ API Gateway routes requests securely.
+
+✅ Log Layer successfully communicates with the ML Pipeline.
+
+✅ ML predictions are stored in PostgreSQL.
+
+✅ Graceful handling of ML service failures.
+
+✅ End-to-end communication works successfully across all microservices.
+
+---
+
+# Key Learnings
+
+- Use **WebClient** for inter-service communication in reactive applications.
+- Keep ML communication behind an abstraction (`MlInferenceClient`).
+- Store ML-specific fields separately in the database.
+- Always implement graceful degradation when dependent services fail.
+- In **Spring Cloud Gateway (WebFlux)**, implement JWT authentication using a **WebFilter**, not a **GatewayFilter**.
+- A `GatewayFilter` can validate a token but cannot authenticate a user with Spring Security.
+- A `WebFilter` integrates with the Spring Security filter chain and populates the `ReactiveSecurityContext`, allowing `.authenticated()` to work correctly.
