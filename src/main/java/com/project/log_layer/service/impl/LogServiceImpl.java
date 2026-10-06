@@ -37,7 +37,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
-
+import com.project.log_layer.integration.client.LlmInferenceClient;
+import com.project.log_layer.integration.dto.LlmAnalysisRequest;
+import com.project.log_layer.integration.dto.LlmAnalysisResponse;
+import com.project.log_layer.integration.exception.LlmServiceException;
+import com.project.log_layer.mapper.LlmAnalysisMapper;
 
 @Slf4j
 @Service
@@ -58,6 +62,10 @@ public class LogServiceImpl implements LogService {
     private final MlInferenceClient mlInferenceClient;
 
     private final MlPredictionMapper mlPredictionMapper;
+
+    private final LlmInferenceClient llmInferenceClient;
+
+    private final LlmAnalysisMapper llmAnalysisMapper;
 
     private UUID generateCorrelationId(
             LogIngestRequest request) {
@@ -248,9 +256,42 @@ public class LogServiceImpl implements LogService {
             Long id,
             LogAnalysisRequest request) {
 
-        throw new UnsupportedOperationException(
-                "Log analysis is not implemented yet."
-        );
+        Log logEntity = getLogOrThrow(id);
+
+        try {
+            LlmAnalysisRequest llmRequest =
+                    llmAnalysisMapper.toRequest(logEntity);
+
+            LlmAnalysisResponse llmResponse =
+                    llmInferenceClient.analyze(llmRequest);
+
+            logEntity.setLlmAnalysisStatus(AnalysisStatus.COMPLETED);
+            logEntity.setLlmAnalyzedAt(LocalDateTime.now());
+
+            Log savedLog = logRepository.save(logEntity);
+
+            return LogAnalysisResponse.builder()
+                    .log(logMapper.toLogResponse(savedLog))
+                    .summary(llmResponse.summary())
+                    .probableRootCause(llmResponse.rootCause())
+                    .suggestedFix(llmResponse.recommendation())
+                    .build();
+
+        } catch (LlmServiceException ex) {
+
+            logEntity.setLlmAnalysisStatus(AnalysisStatus.FAILED);
+            logEntity.setLlmAnalyzedAt(LocalDateTime.now());
+
+            logRepository.save(logEntity);
+
+            log.error(
+                    "LLM analysis failed for logId={}",
+                    id,
+                    ex
+            );
+
+            throw ex;
+        }
     }
     /**
      * Validates the supplied search request.

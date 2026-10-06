@@ -138,4 +138,8 @@ public class LogResponse {
     private AnalysisStatus analysisStatus;
 
     private LocalDateTime analyzedAt;
+
+    private AnalysisStatus llmAnalysisStatus;
+
+    private LocalDateTime llmAnalyzedAt;
 }

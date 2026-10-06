@@ -217,6 +217,25 @@ public class Log {
     private LocalDateTime analyzedAt;
 
     /**
+     * Current LLM analysis lifecycle status.
+     *
+     * Independent of ML analysisStatus.
+     *
+     * AnalysisStatus tracks ML processing.
+     * llmAnalysisStatus tracks LLM processing.
+     */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "llm_analysis_status", length = 30)
+    private AnalysisStatus llmAnalysisStatus = AnalysisStatus.PENDING;
+
+    /**
+     * Timestamp when LLM analysis completed.
+     */
+    @Column(name = "llm_analyzed_at")
+    private LocalDateTime llmAnalyzedAt;
+
+    /**
      * Timestamp when the log was persisted.
      */
     @Column(name = "created_at", nullable = false, updatable = false)
