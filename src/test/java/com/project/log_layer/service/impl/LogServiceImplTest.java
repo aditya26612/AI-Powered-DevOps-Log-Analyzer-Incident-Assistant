@@ -1,6 +1,8 @@
 package com.project.log_layer.service.impl;
 
+import com.project.log_layer.dto.request.analysis.LogAnalysisRequest;
 import com.project.log_layer.dto.request.ingest.LogIngestRequest;
+import com.project.log_layer.dto.response.analysis.LogAnalysisResponse;
 import com.project.log_layer.dto.response.log.LogResponse;
 import com.project.log_layer.entity.Log;
 import com.project.log_layer.enums.AnalysisStatus;
@@ -9,40 +11,35 @@ import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.enums.LogSource;
 import com.project.log_layer.exception.InvalidSearchCriteriaException;
 import com.project.log_layer.exception.LogNotFoundException;
+import com.project.log_layer.integration.client.LlmInferenceClient;
 import com.project.log_layer.integration.client.MlInferenceClient;
+import com.project.log_layer.integration.dto.LlmAnalysisRequest;
+import com.project.log_layer.integration.dto.LlmAnalysisResponse;
 import com.project.log_layer.integration.dto.MlPredictionRequest;
-import com.project.log_layer.integration.dto.MlPredictionResponse;
+import com.project.log_layer.integration.exception.LlmServiceException;
 import com.project.log_layer.integration.exception.MlServiceException;
+import com.project.log_layer.mapper.LlmAnalysisMapper;
 import com.project.log_layer.mapper.LogMapper;
 import com.project.log_layer.mapper.MlPredictionMapper;
 import com.project.log_layer.parser.LogParser;
 import com.project.log_layer.parser.ParserFactory;
-import com.project.log_layer.parser.model.ParsedLogData;
 import com.project.log_layer.parser.mapper.ParsedLogMapper;
+import com.project.log_layer.parser.model.ParsedLogData;
 import com.project.log_layer.repository.LogRepository;
+import com.project.log_layer.service.LlmAnalysisFailureService;
 import com.project.log_layer.specification.LogSpecificationBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import com.project.log_layer.dto.request.analysis.LogAnalysisRequest;
-import com.project.log_layer.dto.response.analysis.LogAnalysisResponse;
-import com.project.log_layer.integration.client.LlmInferenceClient;
-import com.project.log_layer.integration.dto.LlmAnalysisRequest;
-import com.project.log_layer.integration.dto.LlmAnalysisResponse;
-import com.project.log_layer.integration.exception.LlmServiceException;
-import com.project.log_layer.mapper.LlmAnalysisMapper;
-
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,8 +75,12 @@ class LogServiceImplTest {
     @Mock
     private LlmAnalysisMapper llmAnalysisMapper;
 
+    @Mock
+    private LlmAnalysisFailureService llmAnalysisFailureService;
+
     @InjectMocks
     private LogServiceImpl logService;
+
 
     @Test
     void getById_shouldReturnLogResponse_whenLogExists() {
@@ -114,6 +115,7 @@ class LogServiceImplTest {
         verify(logRepository).findById(id);
         verify(logMapper).toLogResponse(log);
     }
+
 
     @Test
     void analyze_shouldReturnLlmAnalysis_whenAnalysisSucceeds() {
@@ -230,7 +232,11 @@ class LogServiceImplTest {
         verify(llmInferenceClient).analyze(llmRequest);
         verify(logRepository).save(log);
         verify(logMapper).toLogResponse(log);
+
+        // Failure service must not be called on successful analysis.
+        verifyNoInteractions(llmAnalysisFailureService);
     }
+
 
     @Test
     void analyze_shouldMarkLlmAnalysisFailed_whenLlmFails() {
@@ -293,12 +299,8 @@ class LogServiceImplTest {
                 () -> logService.analyze(id, request)
         );
 
-        assertEquals(
-                AnalysisStatus.FAILED,
-                log.getLlmAnalysisStatus()
-        );
-
-        assertNotNull(log.getLlmAnalyzedAt());
+        // LLM failure lifecycle is delegated to the independent failure service.
+        verify(llmAnalysisFailureService).markAsFailed(log);
 
         // ML lifecycle must remain untouched.
         assertEquals(
@@ -314,10 +316,13 @@ class LogServiceImplTest {
         verify(logRepository).findById(id);
         verify(llmAnalysisMapper).toRequest(log);
         verify(llmInferenceClient).analyze(llmRequest);
-        verify(logRepository).save(log);
+
+        // LogServiceImpl no longer directly saves the failed lifecycle.
+        verify(logRepository, never()).save(log);
 
         verify(logMapper, never()).toLogResponse(any());
     }
+
 
     @Test
     void analyze_shouldThrowException_whenLogDoesNotExist() {
@@ -346,7 +351,8 @@ class LogServiceImplTest {
         verifyNoInteractions(
                 llmAnalysisMapper,
                 llmInferenceClient,
-                logMapper
+                logMapper,
+                llmAnalysisFailureService
         );
     }
 
@@ -368,6 +374,7 @@ class LogServiceImplTest {
         verify(logMapper, never()).toLogResponse(any());
     }
 
+
     @Test
     void delete_shouldDeleteLog_whenLogExists() {
 
@@ -386,6 +393,7 @@ class LogServiceImplTest {
         verify(logRepository).delete(log);
     }
 
+
     @Test
     void delete_shouldThrowException_whenLogDoesNotExist() {
 
@@ -403,6 +411,7 @@ class LogServiceImplTest {
         verify(logRepository, never()).delete(any(Log.class));
     }
 
+
     @Test
     void exists_shouldReturnRepositoryResult() {
 
@@ -418,6 +427,7 @@ class LogServiceImplTest {
         verify(logRepository).existsById(id);
     }
 
+
     @Test
     void search_shouldRejectNullRequest() {
 
@@ -432,13 +442,20 @@ class LogServiceImplTest {
         );
     }
 
+
     @Test
     void search_shouldRejectInvalidTimeRange() {
 
-        var request = new com.project.log_layer.dto.request.search.LogFilterRequest();
+        var request =
+                new com.project.log_layer.dto.request.search.LogFilterRequest();
 
-        request.setStartTime(LocalDateTime.of(2026, 1, 10, 12, 0));
-        request.setEndTime(LocalDateTime.of(2026, 1, 9, 12, 0));
+        request.setStartTime(
+                LocalDateTime.of(2026, 1, 10, 12, 0)
+        );
+
+        request.setEndTime(
+                LocalDateTime.of(2026, 1, 9, 12, 0)
+        );
 
         assertThrows(
                 InvalidSearchCriteriaException.class,
@@ -458,7 +475,9 @@ class LogServiceImplTest {
         UUID correlationId = UUID.randomUUID();
 
         LogIngestRequest request = LogIngestRequest.builder()
-                .rawLog("2026-10-05 10:00:00 ERROR payment-service - Database connection failed")
+                .rawLog(
+                        "2026-10-05 10:00:00 ERROR payment-service - Database connection failed"
+                )
                 .source(LogSource.SPRING_BOOT)
                 .environment(Environment.DEVELOPMENT)
                 .applicationName("payment-service")
@@ -467,7 +486,9 @@ class LogServiceImplTest {
                 .build();
 
         ParsedLogData parsedData = ParsedLogData.builder()
-                .timestamp(LocalDateTime.of(2026, 10, 5, 10, 0))
+                .timestamp(
+                        LocalDateTime.of(2026, 10, 5, 10, 0)
+                )
                 .logLevel(LogLevel.ERROR)
                 .message("Database connection failed")
                 .source(LogSource.SPRING_BOOT)
@@ -490,12 +511,13 @@ class LogServiceImplTest {
                 .rawLog(parsedData.getRawLog())
                 .build();
 
-        MlPredictionRequest mlRequest = MlPredictionRequest.builder()
-                .timestamp(parsedData.getTimestamp().toString())
-                .level("ERROR")
-                .serviceName("payment-service")
-                .message("Database connection failed")
-                .build();
+        MlPredictionRequest mlRequest =
+                MlPredictionRequest.builder()
+                        .timestamp(parsedData.getTimestamp().toString())
+                        .level("ERROR")
+                        .serviceName("payment-service")
+                        .message("Database connection failed")
+                        .build();
 
         LogResponse expectedResponse = new LogResponse();
 
@@ -512,7 +534,11 @@ class LogServiceImplTest {
                 .thenReturn(mlRequest);
 
         when(mlInferenceClient.predict(mlRequest))
-                .thenThrow(new MlServiceException("ML Service unavailable."));
+                .thenThrow(
+                        new MlServiceException(
+                                "ML Service unavailable."
+                        )
+                );
 
         when(logRepository.save(log))
                 .thenReturn(log);
@@ -520,19 +546,25 @@ class LogServiceImplTest {
         when(logMapper.toLogResponse(log))
                 .thenReturn(expectedResponse);
 
-        LogResponse result = logService.ingest(request);
+        LogResponse result =
+                logService.ingest(request);
 
         assertSame(expectedResponse, result);
 
-        assertEquals(correlationId, log.getCorrelationId());
-        assertEquals(AnalysisStatus.FAILED, log.getAnalysisStatus());
+        assertEquals(
+                correlationId,
+                log.getCorrelationId()
+        );
+
+        assertEquals(
+                AnalysisStatus.FAILED,
+                log.getAnalysisStatus()
+        );
+
         assertNotNull(log.getAnalyzedAt());
 
         verify(mlInferenceClient).predict(mlRequest);
         verify(logRepository).save(log);
         verify(logMapper).toLogResponse(log);
     }
-
-
-    }
-
+}

@@ -3,6 +3,7 @@ package com.project.log_layer.advice;
 import com.project.log_layer.dto.response.common.ErrorResponse;
 import com.project.log_layer.enums.ErrorCode;
 import com.project.log_layer.exception.*;
+import com.project.log_layer.integration.exception.LlmServiceException;
 import com.project.log_layer.integration.exception.MlServiceException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -219,6 +220,27 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .badRequest()
+                .body(response);
+    }
+
+    @ExceptionHandler(LlmServiceException.class)
+    public ResponseEntity<ErrorResponse> handleLlmServiceException(
+            LlmServiceException ex,
+            HttpServletRequest request) {
+
+        log.error("LLM service error", ex);
+
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error(HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase())
+                .errorCode(ErrorCode.LLM_SERVICE_UNAVAILABLE)
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(response);
     }
 }

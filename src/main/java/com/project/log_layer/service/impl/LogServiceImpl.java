@@ -23,6 +23,7 @@ import com.project.log_layer.parser.ParserFactory;
 import com.project.log_layer.parser.mapper.ParsedLogMapper;
 import com.project.log_layer.parser.model.ParsedLogData;
 import com.project.log_layer.repository.LogRepository;
+import com.project.log_layer.service.LlmAnalysisFailureService;
 import com.project.log_layer.service.LogService;
 import com.project.log_layer.specification.LogSpecificationBuilder;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +67,8 @@ public class LogServiceImpl implements LogService {
     private final LlmInferenceClient llmInferenceClient;
 
     private final LlmAnalysisMapper llmAnalysisMapper;
+
+    private final LlmAnalysisFailureService llmAnalysisFailureService;
 
     private UUID generateCorrelationId(
             LogIngestRequest request) {
@@ -279,10 +282,7 @@ public class LogServiceImpl implements LogService {
 
         } catch (LlmServiceException ex) {
 
-            logEntity.setLlmAnalysisStatus(AnalysisStatus.FAILED);
-            logEntity.setLlmAnalyzedAt(LocalDateTime.now());
-
-            logRepository.save(logEntity);
+            llmAnalysisFailureService.markAsFailed(logEntity);
 
             log.error(
                     "LLM analysis failed for logId={}",
