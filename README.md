@@ -1,4 +1,3 @@
-````
 # AI-Powered DevOps Log Analyzer & Incident Assistant
 
 An AI-powered DevOps platform that ingests application logs, detects anomalies, analyzes incidents, and uses an LLM with a DevOps knowledge base to generate explanations and recommended actions.
