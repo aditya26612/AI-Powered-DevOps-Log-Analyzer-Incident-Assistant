@@ -1,0 +1,3 @@
+timestamp,level,service_name,message
+2026-01-01T10:00:00,INFO,user-service,Application started
+2026-01-01T10:01:00,ERROR,payment-service,SQLException while connecting
