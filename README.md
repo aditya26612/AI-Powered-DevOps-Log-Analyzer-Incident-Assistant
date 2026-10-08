@@ -1220,6 +1220,3 @@ BM25 retrieval
 Reciprocal Rank Fusion
 ```
 
-The next engineering phase is Docker Compose integration, followed by containerized verification and eventually Kubernetes deployment.
-
-````
