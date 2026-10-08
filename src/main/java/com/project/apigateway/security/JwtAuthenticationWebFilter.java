@@ -18,17 +18,23 @@ import java.util.List;
 @RequiredArgsConstructor
 public class JwtAuthenticationWebFilter implements WebFilter {
 
+    private static final String USER_EMAIL_HEADER =
+            "X-User-Email";
+
     private final JwtUtil jwtUtil;
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange,
-                             WebFilterChain chain) {
+    public Mono<Void> filter(
+            ServerWebExchange exchange,
+            WebFilterChain chain) {
 
         String header = exchange.getRequest()
                 .getHeaders()
                 .getFirst(HttpHeaders.AUTHORIZATION);
 
-        if (header == null || !header.startsWith("Bearer ")) {
+        if (header == null ||
+                !header.startsWith("Bearer ")) {
+
             return chain.filter(exchange);
         }
 
@@ -45,12 +51,39 @@ public class JwtAuthenticationWebFilter implements WebFilter {
                 new UsernamePasswordAuthenticationToken(
                         email,
                         null,
-                        List.of(new SimpleGrantedAuthority(role))
+                        List.of(
+                                new SimpleGrantedAuthority(role)
+                        )
                 );
 
-        return chain.filter(exchange)
+        /*
+         * Remove any client-supplied X-User-Email header
+         * before adding the trusted value extracted from JWT.
+         */
+        ServerWebExchange mutatedExchange =
+                exchange.mutate()
+                        .request(
+                                exchange.getRequest()
+                                        .mutate()
+                                        .headers(headers -> {
+                                            headers.remove(
+                                                    USER_EMAIL_HEADER
+                                            );
+
+                                            headers.add(
+                                                    USER_EMAIL_HEADER,
+                                                    email
+                                            );
+                                        })
+                                        .build()
+                        )
+                        .build();
+
+        return chain
+                .filter(mutatedExchange)
                 .contextWrite(
-                        ReactiveSecurityContextHolder.withAuthentication(authentication)
+                        ReactiveSecurityContextHolder
+                                .withAuthentication(authentication)
                 );
     }
 }
