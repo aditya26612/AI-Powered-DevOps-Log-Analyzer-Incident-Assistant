@@ -55,6 +55,16 @@ public class Log {
     private Long id;
 
     /**
+     *  User email associated with the log event.
+     *  This field is used for multi-tenant scenarios where logs are associated with specific users
+     */
+    @Column(name = "user_email",
+            nullable = false,
+            length = 255)
+    private String userEmail;
+
+
+    /**
      * Correlation identifier used for distributed tracing.
      */
     @Column(name = "correlation_id", nullable = false)
