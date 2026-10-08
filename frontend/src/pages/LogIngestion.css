@@ -1,0 +1,351 @@
+/* =========================================
+   LOG INGESTION PAGE
+   ========================================= */
+
+.log-ingestion-page {
+  width: 100%;
+}
+
+/* =========================================
+   HEADER
+   ========================================= */
+
+.ingestion-header {
+  margin-bottom: 22px;
+}
+
+.ingestion-header h2 {
+  margin: 0;
+
+  color: var(--text-primary);
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.ingestion-header p {
+  margin-top: 6px;
+
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* =========================================
+   FORM CARD
+   ========================================= */
+
+.ingestion-card {
+  padding: 22px;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  box-shadow: var(--shadow-sm);
+}
+
+/* =========================================
+   FORM GRID
+   ========================================= */
+
+.ingestion-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 18px 16px;
+}
+
+.ingestion-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ingestion-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.ingestion-field label {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ingestion-field input,
+.ingestion-field select,
+.ingestion-field textarea {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: white;
+  color: var(--text-primary);
+
+  font-family: inherit;
+  font-size: 12px;
+
+  outline: none;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ingestion-field input,
+.ingestion-field select {
+  height: 38px;
+  padding: 0 11px;
+}
+
+.ingestion-field textarea {
+  min-height: 180px;
+
+  padding: 12px;
+
+  resize: vertical;
+
+  line-height: 1.6;
+}
+
+.ingestion-field input::placeholder,
+.ingestion-field textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.ingestion-field input:focus,
+.ingestion-field select:focus,
+.ingestion-field textarea:focus {
+  border-color: var(--primary);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(37, 99, 235, 0.1);
+}
+
+/* =========================================
+   RAW LOG AREA
+   ========================================= */
+
+.raw-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.raw-log-hint {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.raw-log-help {
+  margin-top: 5px;
+
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* =========================================
+   OPTIONAL FIELDS
+   ========================================= */
+
+.optional-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.optional-badge {
+  padding: 2px 5px;
+
+  border-radius: 4px;
+
+  background: #f3f4f6;
+  color: #6b7280;
+
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* =========================================
+   FORM ACTIONS
+   ========================================= */
+
+.ingestion-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-top: 22px;
+  padding-top: 18px;
+
+  border-top: 1px solid var(--border-light);
+}
+
+.ingestion-cancel {
+  height: 36px;
+
+  padding: 0 13px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: white;
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.ingestion-cancel:hover {
+  background: #f9fafb;
+  color: var(--text-primary);
+}
+
+.ingestion-submit {
+  height: 38px;
+
+  padding: 0 16px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  border: 0;
+  border-radius: 7px;
+
+  background: var(--primary);
+  color: white;
+
+  font-size: 12px;
+  font-weight: 650;
+
+  cursor: pointer;
+}
+
+.ingestion-submit:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.ingestion-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* =========================================
+   SUCCESS
+   ========================================= */
+
+.ingestion-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+
+  margin-bottom: 16px;
+  padding: 12px 14px;
+
+  border: 1px solid #bbf7d0;
+  border-radius: 7px;
+
+  background: var(--success-soft);
+  color: var(--success);
+
+  font-size: 12px;
+}
+
+.ingestion-success strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* =========================================
+   ERROR
+   ========================================= */
+
+.ingestion-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+
+  margin-bottom: 16px;
+  padding: 12px 14px;
+
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+
+  background: var(--danger-soft);
+  color: var(--danger);
+
+  font-size: 12px;
+}
+
+/* =========================================
+   FORMAT EXAMPLE
+   ========================================= */
+
+.ingestion-example {
+  margin-top: 16px;
+
+  padding: 14px;
+
+  border: 1px solid var(--border-light);
+  border-radius: 7px;
+
+  background: #fafafa;
+}
+
+.ingestion-example-title {
+  margin-bottom: 7px;
+
+  color: var(--text-secondary);
+
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.ingestion-example pre {
+  margin: 0;
+
+  white-space: pre-wrap;
+  word-break: break-word;
+
+  color: var(--text-primary);
+
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+
+@media (max-width: 700px) {
+  .ingestion-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ingestion-field.full-width {
+    grid-column: auto;
+  }
+
+  .ingestion-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .ingestion-submit,
+  .ingestion-cancel {
+    width: 100%;
+  }
+}
