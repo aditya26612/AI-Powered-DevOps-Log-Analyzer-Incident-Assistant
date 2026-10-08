@@ -1,0 +1,50 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: llm-service
+
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+
+      chat:
+        options:
+          model: phi3:mini
+          temperature: 0.2
+
+      embedding:
+        options:
+          model: nomic-embed-text:latest
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: INFO
+    com.project.llm: DEBUG
+
+llm:
+  provider: OLLAMA
+
+#prompt:
+#  max-context-length: 8000
+#
+#response:
+#  max-tokens: 512
+#
+#timeout:
+#  seconds: 60
+
+rag:
+  retrieval:
+    similarity-threshold: 0.70

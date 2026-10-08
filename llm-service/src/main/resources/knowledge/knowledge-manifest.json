@@ -1,0 +1,625 @@
+{
+  "manifestVersion": "1.0",
+  "generated": "2026-10-01",
+  "knowledgeRoot": "src/main/resources/knowledge",
+  "documentCount": 21,
+  "documents": [
+    {
+      "documentId": "docker-container-startup-failure",
+      "filename": "docker/docker-container-startup-failure.md",
+      "technology": "docker",
+      "category": "container-lifecycle",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Container fails to start or exits immediately (exit codes 125/126/127/1/0, OCI runtime errors, exec format error)",
+      "primaryErrorTerms": [
+        "Exited (127)",
+        "executable file not found in $PATH",
+        "OCI runtime create failed",
+        "exec format error",
+        "exit code 126",
+        "exit code 125"
+      ],
+      "relatedTechnologies": [
+        "kubernetes",
+        "spring-boot"
+      ],
+      "sourceUrls": [
+        "https://docs.docker.com/engine/containers/run/",
+        "https://docs.docker.com/reference/cli/docker/container/ls/",
+        "https://docs.docker.com/reference/cli/docker/system/events/",
+        "https://github.com/moby/moby/issues/47847",
+        "https://github.com/moby/buildkit/blob/master/docs/multi-platform.md",
+        "https://docs.docker.com/engine/storage/bind-mounts/",
+        "https://docs.docker.com/reference/build-checks/json-args-recommended/",
+        "https://www.kernel.org/doc/man-pages/online/pages/man7/signal.7.html"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Exit codes 125/126/127 documented by Docker; 137/139/143 derived from the 128+N signal convention. runc message wording varies by version."
+    },
+    {
+      "documentId": "docker-container-network-error",
+      "filename": "docker/docker-container-network-error.md",
+      "technology": "docker",
+      "category": "networking",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Container-to-container or host connectivity failures (localhost misuse, networks, port publishing, bind address)",
+      "primaryErrorTerms": [
+        "connection refused",
+        "UnknownHostException",
+        "bad address",
+        "port is already allocated"
+      ],
+      "relatedTechnologies": [
+        "nginx",
+        "postgresql",
+        "spring-boot",
+        "kubernetes"
+      ],
+      "sourceUrls": [
+        "https://docs.docker.com/engine/network/",
+        "https://docs.docker.com/engine/network/drivers/bridge/",
+        "https://docs.docker.com/engine/network/port-publishing/",
+        "https://docs.docker.com/desktop/features/networking/networking-how-tos/"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "host.docker.internal is a Docker Desktop feature. Docker notes behavior change for localhost-published ports before 28.0.0. Client-side messages are representative."
+    },
+    {
+      "documentId": "docker-container-resource-error",
+      "filename": "docker/docker-container-resource-error.md",
+      "technology": "docker",
+      "category": "resources",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Memory/CPU limits, OOM kills (exit 137), disk exhaustion (no space left on device)",
+      "primaryErrorTerms": [
+        "OOMKilled",
+        "exit code 137",
+        "no space left on device",
+        "Killed",
+        "OutOfMemoryError"
+      ],
+      "relatedTechnologies": [
+        "kubernetes",
+        "spring-boot"
+      ],
+      "sourceUrls": [
+        "https://docs.docker.com/engine/containers/resource_constraints/",
+        "https://docs.docker.com/reference/cli/docker/system/df/",
+        "https://docs.docker.com/reference/cli/docker/container/ls/",
+        "https://docs.docker.com/engine/security/rootless/troubleshoot/",
+        "https://docs.docker.com/reference/cli/docker/system/events/"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "OOMKilled field semantics stable; JVM container awareness depends on JDK version (not version-pinned in doc)."
+    },
+    {
+      "documentId": "docker-image-pull-error",
+      "filename": "docker/docker-image-pull-error.md",
+      "technology": "docker",
+      "category": "images",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Image pull/build failures (not found, unauthorized, rate limit, platform, TLS)",
+      "primaryErrorTerms": [
+        "manifest unknown",
+        "pull access denied",
+        "toomanyrequests",
+        "429 Too Many Requests",
+        "no matching manifest",
+        "x509: certificate signed by unknown authority"
+      ],
+      "relatedTechnologies": [
+        "kubernetes"
+      ],
+      "sourceUrls": [
+        "https://docs.docker.com/docker-hub/usage/",
+        "https://docs.docker.com/docker-hub/troubleshoot/",
+        "https://docs.docker.com/reference/cli/docker/image/pull/",
+        "https://docs.docker.com/reference/cli/docker/manifest/inspect",
+        "https://docs.docker.com/build/building/multi-platform/",
+        "https://docs.docker.com/engine/security/certificates/",
+        "https://docs.docker.com/build/buildkit/"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Docker Hub rate-limit numbers change over time (doc cites current page values). docker manifest is experimental. BuildKit default since Engine 23.0 on Linux."
+    },
+    {
+      "documentId": "docker-volume-mount-error",
+      "filename": "docker/docker-volume-mount-error.md",
+      "technology": "docker",
+      "category": "storage",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Bind mount and volume errors (missing source, permissions, SELinux, rootless UID mapping)",
+      "primaryErrorTerms": [
+        "bind source path does not exist",
+        "invalid mount config",
+        "permission denied",
+        "Read-only file system"
+      ],
+      "relatedTechnologies": [
+        "postgresql",
+        "kubernetes"
+      ],
+      "sourceUrls": [
+        "https://docs.docker.com/engine/storage/bind-mounts/",
+        "https://docs.docker.com/engine/storage/volumes/",
+        "https://docs.docker.com/engine/security/rootless/uid-gid-mapping",
+        "https://docs.docker.com/engine/security/userns-remap"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "SELinux and rootless behavior depend on host configuration."
+    },
+    {
+      "documentId": "kubernetes-crashloopbackoff",
+      "filename": "kubernetes/kubernetes-crashloopbackoff.md",
+      "technology": "kubernetes",
+      "category": "container-lifecycle",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Container repeatedly terminates and is restarted with back-off",
+      "primaryErrorTerms": [
+        "CrashLoopBackOff",
+        "Back-off restarting failed container",
+        "OOMKilled",
+        "Liveness probe failed",
+        "Exit Code"
+      ],
+      "relatedTechnologies": [
+        "docker",
+        "spring-boot"
+      ],
+      "sourceUrls": [
+        "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/",
+        "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
+        "https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/",
+        "https://kubernetes.io/docs/concepts/workloads/pods/probes/",
+        "https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Back-off 10s doubling, 5 min cap, reset after 10 min per current docs; recent versions allow tuning via feature gates."
+    },
+    {
+      "documentId": "kubernetes-imagepullbackoff",
+      "filename": "kubernetes/kubernetes-imagepullbackoff.md",
+      "technology": "kubernetes",
+      "category": "images",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Kubelet cannot pull the container image",
+      "primaryErrorTerms": [
+        "ImagePullBackOff",
+        "ErrImagePull",
+        "Back-off pulling image",
+        "Failed to pull image",
+        "InvalidImageName",
+        "ErrImageNeverPull"
+      ],
+      "relatedTechnologies": [
+        "docker"
+      ],
+      "sourceUrls": [
+        "https://kubernetes.io/docs/concepts/containers/images/",
+        "https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Runtime-specific text follows \"Failed to pull image\"; reason tokens are stable."
+    },
+    {
+      "documentId": "kubernetes-pod-pending",
+      "filename": "kubernetes/kubernetes-pod-pending.md",
+      "technology": "kubernetes",
+      "category": "scheduling",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Pod not scheduled or waiting for volumes",
+      "primaryErrorTerms": [
+        "FailedScheduling",
+        "Insufficient cpu",
+        "Insufficient memory",
+        "untolerated taint",
+        "unbound immediate PersistentVolumeClaims"
+      ],
+      "relatedTechnologies": [
+        "docker"
+      ],
+      "sourceUrls": [
+        "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+        "https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/",
+        "https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/",
+        "https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/",
+        "https://kubernetes.io/docs/concepts/policy/resource-quotas/"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Full FailedScheduling event rendering varies by version; phrases are from scheduler source."
+    },
+    {
+      "documentId": "kubernetes-service-unreachable",
+      "filename": "kubernetes/kubernetes-service-unreachable.md",
+      "technology": "kubernetes",
+      "category": "networking",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Service has no ready endpoints, wrong targetPort, DNS or NetworkPolicy issue",
+      "primaryErrorTerms": [
+        "no endpoints",
+        "EndpointSlice",
+        "Readiness probe failed",
+        "connection refused",
+        "svc.cluster.local"
+      ],
+      "relatedTechnologies": [
+        "nginx",
+        "spring-boot",
+        "postgresql"
+      ],
+      "sourceUrls": [
+        "https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/",
+        "https://kubernetes.io/docs/concepts/services-networking/service/",
+        "https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/",
+        "https://kubernetes.io/docs/reference/kubernetes-api/core/endpoints-v1/",
+        "https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/",
+        "https://kubernetes.io/docs/concepts/services-networking/network-policies/",
+        "https://kubernetes.io/docs/concepts/workloads/pods/probes/"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Endpoints API deprecated in v1.33 in favor of EndpointSlices."
+    },
+    {
+      "documentId": "kubernetes-deployment-failure",
+      "filename": "kubernetes/kubernetes-deployment-failure.md",
+      "technology": "kubernetes",
+      "category": "rollout",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Deployment rollout stalls or fails (ProgressDeadlineExceeded, CreateContainerConfigError, FailedCreate)",
+      "primaryErrorTerms": [
+        "ProgressDeadlineExceeded",
+        "exceeded its progress deadline",
+        "ReplicaFailure",
+        "FailedCreate",
+        "CreateContainerConfigError"
+      ],
+      "relatedTechnologies": [
+        "docker"
+      ],
+      "sourceUrls": [
+        "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
+        "https://kubernetes.io/docs/concepts/policy/resource-quotas/"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "progressDeadlineSeconds default 600; maxSurge/maxUnavailable default 25%. CreateContainerConfigError event wording varies."
+    },
+    {
+      "documentId": "spring-boot-bean-creation-error",
+      "filename": "spring-boot/spring-boot-bean-creation-error.md",
+      "technology": "spring-boot",
+      "category": "application-context",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Bean cannot be created or wired during context refresh",
+      "primaryErrorTerms": [
+        "BeanCreationException",
+        "UnsatisfiedDependencyException",
+        "NoSuchBeanDefinitionException",
+        "No qualifying bean of type",
+        "form a cycle"
+      ],
+      "relatedTechnologies": [],
+      "sourceUrls": [
+        "https://docs.spring.io/spring-framework/docs/7.0.4/javadoc-api/org/springframework/beans/factory/BeanCreationException.html",
+        "https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/beans/factory/UnsatisfiedDependencyException.html",
+        "https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/beans/factory/NoSuchBeanDefinitionException.html",
+        "https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/beans/factory/NoUniqueBeanDefinitionException.html",
+        "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-2.6-Release-Notes",
+        "https://docs.spring.io/spring-boot/docs/3.2.12/reference/html/application-properties.html"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Circular references prohibited by default since Spring Boot 2.6; Boot 3 uses jakarta.* packages."
+    },
+    {
+      "documentId": "spring-boot-datasource-error",
+      "filename": "spring-boot/spring-boot-datasource-error.md",
+      "technology": "spring-boot",
+      "category": "database-client",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "DataSource not configurable, DB unreachable, or HikariCP pool exhausted",
+      "primaryErrorTerms": [
+        "Failed to configure a DataSource",
+        "Failed to determine a suitable driver class",
+        "HikariPool-1 - Exception during pool initialization",
+        "Connection is not available, request timed out",
+        "PSQLException"
+      ],
+      "relatedTechnologies": [
+        "postgresql",
+        "docker",
+        "kubernetes"
+      ],
+      "sourceUrls": [
+        "https://docs.spring.io/spring-boot/docs/3.2.12/reference/html/data.html",
+        "https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/jdbc/DataSourceProperties.java",
+        "https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/jdbc/DataSourceBeanCreationFailureAnalyzer.java",
+        "https://github.com/brettwooldridge/HikariCP#configuration-knobs-baby",
+        "https://github.com/pgjdbc/pgjdbc/blob/57ca33353bb1e05135063a79069c1c320662ae1c/pgjdbc/src/main/java/org/postgresql/core/v3/ConnectionFactoryImpl.java",
+        "https://docs.spring.io/spring-boot/docs/3.2.12/reference/html/actuator.html#actuator.endpoints"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Hikari message wording varies by version; defaults (pool 10, timeout 30000 ms) from HikariCP docs."
+    },
+    {
+      "documentId": "spring-boot-startup-error",
+      "filename": "spring-boot/spring-boot-startup-error.md",
+      "technology": "spring-boot",
+      "category": "application-startup",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Reading APPLICATION FAILED TO START, plus JVM/packaging failures before Spring starts",
+      "primaryErrorTerms": [
+        "APPLICATION FAILED TO START",
+        "Error starting ApplicationContext",
+        "UnsupportedClassVersionError",
+        "no main manifest attribute"
+      ],
+      "relatedTechnologies": [
+        "docker",
+        "kubernetes"
+      ],
+      "sourceUrls": [
+        "https://docs.spring.io/spring-boot/docs/3.2.12/reference/html/features.html#features.spring-application.startup-failure",
+        "https://docs.spring.io/spring-boot/docs/3.2.12/reference/html/howto.html#howto.application.troubleshoot-auto-configuration"
+      ],
+      "researchConfidence": "medium",
+      "versionNotes": "Spring Boot 3.x requires Java 17+. JVM launcher messages are standard JDK wording but not sourced from a cited official page; treated as representative."
+    },
+    {
+      "documentId": "spring-boot-configuration-error",
+      "filename": "spring-boot/spring-boot-configuration-error.md",
+      "technology": "spring-boot",
+      "category": "configuration",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Property binding, placeholders, profiles, env var mapping, config import",
+      "primaryErrorTerms": [
+        "Failed to bind properties under",
+        "Could not resolve placeholder",
+        "ConfigurationPropertiesBindException",
+        "No active profile set"
+      ],
+      "relatedTechnologies": [
+        "kubernetes",
+        "docker"
+      ],
+      "sourceUrls": [
+        "https://docs.spring.io/spring-boot/docs/3.2.12/reference/html/features.html#features.external-config",
+        "https://docs.spring.io/spring-boot/docs/3.2.12/reference/html/application-properties.html",
+        "https://docs.spring.io/spring-boot/3.5/api/java/org/springframework/boot/context/properties/ConfigurationPropertiesBindException.html",
+        "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.0-Migration-Guide",
+        "https://docs.spring.io/spring-boot/docs/3.2.12/reference/html/actuator.html#actuator.endpoints"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Actuator env/configprops sanitized by default in Boot 3."
+    },
+    {
+      "documentId": "spring-boot-port-binding-error",
+      "filename": "spring-boot/spring-boot-port-binding-error.md",
+      "technology": "spring-boot",
+      "category": "networking",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Embedded web server cannot bind its port or binds loopback only",
+      "primaryErrorTerms": [
+        "Web server failed to start. Port 8080 was already in use.",
+        "java.net.BindException: Address already in use",
+        "PortInUseException"
+      ],
+      "relatedTechnologies": [
+        "docker",
+        "kubernetes",
+        "nginx"
+      ],
+      "sourceUrls": [
+        "https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot/src/main/java/org/springframework/boot/diagnostics/analyzer/PortInUseFailureAnalyzer.java",
+        "https://github.com/spring-projects/spring-boot/blob/v3.2.12/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/ServerProperties.java",
+        "https://docs.spring.io/spring-boot/how-to/webserver.html",
+        "https://man7.org/linux/man-pages/man8/ss.8.html",
+        "https://man7.org/linux/man-pages/man8/lsof.8.html",
+        "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/netstat"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Canonical text from Boot 3.2 source; class packages may differ in later major versions."
+    },
+    {
+      "documentId": "nginx-bad-gateway",
+      "filename": "nginx/nginx-bad-gateway.md",
+      "technology": "nginx",
+      "category": "reverse-proxy",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "502 Bad Gateway triage across upstream failure types",
+      "primaryErrorTerms": [
+        "502 Bad Gateway",
+        "upstream prematurely closed connection",
+        "no live upstreams",
+        "could not be resolved",
+        "upstream sent too big header",
+        "Permission denied while connecting to upstream"
+      ],
+      "relatedTechnologies": [
+        "spring-boot",
+        "docker",
+        "kubernetes"
+      ],
+      "sourceUrls": [
+        "https://nginx.org/en/docs/http/ngx_http_proxy_module.html",
+        "https://nginx.org/en/docs/http/ngx_http_upstream_module.html",
+        "https://github.com/nginx/nginx/blob/master/src/http/ngx_http_upstream.c",
+        "https://trac.nginx.org/nginx/ticket/2045",
+        "https://docs.nginx.com/nginx-gateway-fabric/traffic-management/proxy-settings/",
+        "https://docs.nginx.com/nginx-one-console/agent/configure-instances/configure-selinux/",
+        "https://docs.nginx.com/nginx/admin-guide/security-controls/securing-http-traffic-upstream/",
+        "https://nginx.org/en/docs/http/ngx_http_limit_req_module.html",
+        "https://mailman.nginx.org/pipermail/nginx/2020-November/060167.html",
+        "https://nginx.org/en/docs/switches.html",
+        "https://hub.docker.com/_/nginx",
+        "https://github.com/nginx/nginx/pull/208"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "errno numbers are Linux values. Upstream server resolve parameter available in open source since 1.27.3."
+    },
+    {
+      "documentId": "nginx-upstream-timeout",
+      "filename": "nginx/nginx-upstream-timeout.md",
+      "technology": "nginx",
+      "category": "reverse-proxy",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "504 Gateway Timeout from connect/read/send timeouts",
+      "primaryErrorTerms": [
+        "upstream timed out (110: Connection timed out)",
+        "504 Gateway Timeout",
+        "proxy_read_timeout",
+        "proxy_connect_timeout"
+      ],
+      "relatedTechnologies": [
+        "spring-boot",
+        "postgresql"
+      ],
+      "sourceUrls": [
+        "https://nginx.org/en/docs/http/ngx_http_proxy_module.html",
+        "https://nginx.org/en/docs/http/ngx_http_upstream_module.html",
+        "https://nginx.org/en/docs/http/ngx_http_log_module.html",
+        "https://docs.nginx.com/nginx/admin-guide/load-balancer/http-health-check/"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Timeout defaults 60s; proxy_connect_timeout usually cannot exceed 75s."
+    },
+    {
+      "documentId": "nginx-connection-refused",
+      "filename": "nginx/nginx-connection-refused.md",
+      "technology": "nginx",
+      "category": "reverse-proxy",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "connect() failed (111: Connection refused) and host not found in upstream",
+      "primaryErrorTerms": [
+        "connect() failed (111: Connection refused) while connecting to upstream",
+        "host not found in upstream",
+        "no live upstreams"
+      ],
+      "relatedTechnologies": [
+        "spring-boot",
+        "docker",
+        "kubernetes"
+      ],
+      "sourceUrls": [
+        "https://nginx.org/en/docs/http/ngx_http_proxy_module.html",
+        "https://nginx.org/en/docs/http/ngx_http_upstream_module.html",
+        "https://trac.nginx.org/nginx/ticket/2163",
+        "https://github.com/nginx/docker-nginx/issues/669",
+        "https://github.com/nginx/nginx/pull/208",
+        "https://nginx.org/en/docs/switches.html"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Static proxy_pass hostnames resolved at config load; runtime re-resolution needs variables + resolver or resolve (1.27.3+ OSS)."
+    },
+    {
+      "documentId": "postgresql-connection-refused",
+      "filename": "postgresql/postgresql-connection-refused.md",
+      "technology": "postgresql",
+      "category": "database-server",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Server unreachable: not running, listen_addresses, wrong host/port, starting up, socket path",
+      "primaryErrorTerms": [
+        "Connection refused",
+        "Is the server running on that host and accepting TCP/IP connections",
+        "could not connect to server",
+        "the database system is starting up",
+        ".s.PGSQL.5432"
+      ],
+      "relatedTechnologies": [
+        "spring-boot",
+        "docker",
+        "kubernetes"
+      ],
+      "sourceUrls": [
+        "https://www.postgresql.org/docs/current/server-start.html",
+        "https://www.postgresql.org/docs/current/runtime-config-connection.html",
+        "https://www.postgresql.org/docs/current/app-pg-isready.html",
+        "https://www.postgresql.org/docs/current/errcodes-appendix.html",
+        "https://hub.docker.com/_/postgres",
+        "https://github.com/docker-library/postgres/blob/master/Dockerfile-debian.template"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "libpq message format changed in PostgreSQL 14. Exact shutdown message treated as representative."
+    },
+    {
+      "documentId": "postgresql-authentication-failure",
+      "filename": "postgresql/postgresql-authentication-failure.md",
+      "technology": "postgresql",
+      "category": "database-server",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Login rejected: password, pg_hba.conf, role/database missing, SCRAM, peer",
+      "primaryErrorTerms": [
+        "password authentication failed for user",
+        "no pg_hba.conf entry for host",
+        "role does not exist",
+        "Peer authentication failed",
+        "SCRAM authentication is not supported"
+      ],
+      "relatedTechnologies": [
+        "spring-boot",
+        "docker"
+      ],
+      "sourceUrls": [
+        "https://www.postgresql.org/docs/current/client-authentication-problems.html",
+        "https://www.postgresql.org/docs/current/auth-pg-hba-conf.html",
+        "https://www.postgresql.org/docs/current/auth-password.html",
+        "https://www.postgresql.org/docs/current/auth-peer.html",
+        "https://www.postgresql.org/docs/current/view-pg-hba-file-rules.html",
+        "https://www.postgresql.org/docs/current/errcodes-appendix.html",
+        "https://www.postgresql.org/docs/release/14.0/",
+        "https://github.com/pgjdbc/pgjdbc/commit/befea18d153dda7814daef4e036d3f5daf8de1e5",
+        "https://hub.docker.com/_/postgres"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "scram-sha-256 default password_encryption since PostgreSQL 14; pgjdbc SCRAM since 42.2.0. Encryption suffix of the pg_hba message varies."
+    },
+    {
+      "documentId": "postgresql-too-many-connections",
+      "filename": "postgresql/postgresql-too-many-connections.md",
+      "technology": "postgresql",
+      "category": "database-server",
+      "type": "troubleshooting",
+      "version": "current",
+      "problem": "Connection slots exhausted; pooling and session hygiene",
+      "primaryErrorTerms": [
+        "sorry, too many clients already",
+        "remaining connection slots are reserved",
+        "53300",
+        "max_connections",
+        "idle in transaction"
+      ],
+      "relatedTechnologies": [
+        "spring-boot"
+      ],
+      "sourceUrls": [
+        "https://www.postgresql.org/docs/current/runtime-config-connection.html",
+        "https://www.postgresql.org/docs/16/release-16.html",
+        "https://www.postgresql.org/docs/current/monitoring-stats.html",
+        "https://www.postgresql.org/docs/current/functions-admin.html",
+        "https://www.pgbouncer.org/usage",
+        "https://www.postgresql.org/docs/current/errcodes-appendix.html",
+        "https://github.com/brettwooldridge/HikariCP#configuration-knobs-baby"
+      ],
+      "researchConfidence": "high",
+      "versionNotes": "Reserved-slot message wording changed in PostgreSQL 16 (reserved_connections). idle_session_timeout requires PostgreSQL 14+."
+    }
+  ]
+}

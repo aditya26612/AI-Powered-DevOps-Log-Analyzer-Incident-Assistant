@@ -1,0 +1,13 @@
+package com.project.llmservice.constants;
+
+public final class ApiConstants {
+
+    private ApiConstants() {
+    }
+
+    public static final String API_V1 = "/api/v1";
+
+    public static final String LLM = API_V1 + "/llm";
+
+    public static final String LLM_ANALYZE = LLM + "/analyze";
+}
