@@ -32,21 +32,21 @@ The system follows a layered microservice architecture:
 The dashboard provides an overview of ingested logs, error/warning counts,
 AI analyses, and searchable log records.
 
-![DevInsight Dashboard](docs/assets/screenshots/dashboard.png)
+![DevInsight Dashboard](docs/screenshots/dashboard.png)
 
 ### Log Ingestion
 
 Logs can be submitted through the web interface together with their source,
 environment, application, and optional infrastructure metadata.
 
-![DevInsight Log Ingestion](docs/assets/screenshots/log-ingestion.png)
+![DevInsight Log Ingestion](docs/screenshots/log-ingestion.png)
 
 ### AI-Powered Log Investigation
 
 The investigation workflow combines ML detection with RAG-powered LLM
 analysis to produce a summary, probable root cause, and suggested fix.
 
-![DevInsight AI Analysis](docs/assets/screenshots/ai-analysis.png)
+![DevInsight AI Analysis](docs/screenshots/ai-analysis.png)
 
 ## Retrieval-Augmented Generation
 
