@@ -1,15 +1,31 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+
+import {
+  Brain,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  FileText,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
+
 import { deleteLog, searchLogs } from "../api/logApi";
+import "./Dashboard.css";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const location = useLocation();
 
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [successMessage, setSuccessMessage] = useState(
+    location.state?.successMessage || ""
+  );
 
   const [filters, setFilters] = useState({
     level: "",
@@ -24,18 +40,37 @@ const Dashboard = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
 
-  const loadLogs = async (currentPage = 0, currentFilters = filters) => {
+  // =========================================================
+  // SUCCESS MESSAGE FROM INGESTION
+  // =========================================================
+
+  useEffect(() => {
+    if (location.state?.successMessage) {
+      setSuccessMessage(location.state.successMessage);
+
+      navigate(location.pathname, {
+        replace: true,
+        state: null,
+      });
+    }
+  }, [location, navigate]);
+
+  // =========================================================
+  // LOAD LOGS
+  // =========================================================
+
+  const loadLogs = async (
+    currentPage = 0,
+    currentFilters = filters
+  ) => {
     try {
       setLoading(true);
       setError("");
 
       const request = {
         level: currentFilters.level || null,
-
         source: currentFilters.source || null,
-
         environment: currentFilters.environment || null,
-
         status: null,
 
         anomaly:
@@ -65,11 +100,7 @@ const Dashboard = () => {
         sortDirection: "DESC",
       };
 
-      console.log("Search request:", request);
-
       const response = await searchLogs(request);
-
-      console.log("Search response:", response);
 
       setLogs(response.content || []);
       setPage(response.page ?? currentPage);
@@ -87,70 +118,77 @@ const Dashboard = () => {
     }
   };
 
-  // Initial dashboard load
+  // =========================================================
+  // INITIAL DASHBOARD LOAD
+  // =========================================================
+
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
-  const fetchInitialLogs = async () => {
-    try {
-      setLoading(true);
-      setError("");
+    const fetchInitialLogs = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-      const request = {
-        level: null,
-        source: null,
-        environment: null,
-        status: null,
-        anomaly: null,
-        applicationName: null,
-        serviceName: null,
-        loggerName: null,
-        threadName: null,
-        hostName: null,
-        message: null,
-        correlationId: null,
-        startTime: null,
-        endTime: null,
-        page: 0,
-        size: 20,
-        sortBy: "TIMESTAMP",
-        sortDirection: "DESC",
-      };
+        const request = {
+          level: null,
+          source: null,
+          environment: null,
+          status: null,
+          anomaly: null,
+          applicationName: null,
+          serviceName: null,
+          loggerName: null,
+          threadName: null,
+          hostName: null,
+          message: null,
+          correlationId: null,
+          startTime: null,
+          endTime: null,
+          page: 0,
+          size: 20,
+          sortBy: "TIMESTAMP",
+          sortDirection: "DESC",
+        };
 
-      const response = await searchLogs(request);
+        const response = await searchLogs(request);
 
-      if (cancelled) {
-        return;
+        if (cancelled) {
+          return;
+        }
+
+        setLogs(response.content || []);
+        setPage(response.page ?? 0);
+        setTotalPages(response.totalPages ?? 0);
+        setTotalElements(response.totalElements ?? 0);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error("Failed to load logs:", error);
+
+        setError(
+          error.response?.data?.message ||
+            "Failed to load logs."
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
+    };
 
-      setLogs(response.content || []);
-      setPage(response.page ?? 0);
-      setTotalPages(response.totalPages ?? 0);
-      setTotalElements(response.totalElements ?? 0);
-    } catch (error) {
-      if (cancelled) {
-        return;
-      }
+    fetchInitialLogs();
 
-      console.error("Failed to load logs:", error);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-      setError(
-        error.response?.data?.message ||
-          "Failed to load logs."
-      );
-    } finally {
-      if (!cancelled) {
-        setLoading(false);
-      }
-    }
-  };
-
-  fetchInitialLogs();
-
-  return () => {
-    cancelled = true;
-  };
-}, []);
+  // =========================================================
+  // FILTERS
+  // =========================================================
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target;
@@ -164,6 +202,10 @@ const Dashboard = () => {
   const handleSearch = () => {
     loadLogs(0, filters);
   };
+
+  // =========================================================
+  // DELETE
+  // =========================================================
 
   const handleDelete = async (id) => {
     const confirmed = window.confirm(
@@ -190,6 +232,10 @@ const Dashboard = () => {
     }
   };
 
+  // =========================================================
+  // PAGINATION
+  // =========================================================
+
   const handlePrevious = () => {
     if (page > 0) {
       loadLogs(page - 1, filters);
@@ -202,280 +248,698 @@ const Dashboard = () => {
     }
   };
 
+  // =========================================================
+  // DASHBOARD STATISTICS
+  // =========================================================
+
+  const errorCount = logs.filter(
+    (log) => log.level === "ERROR"
+  ).length;
+
+  const warningCount = logs.filter(
+    (log) => log.level === "WARN"
+  ).length;
+
+  const anomalyCount = logs.filter(
+    (log) => log.anomaly === true
+  ).length;
+
+  const analyzedCount = logs.filter(
+    (log) => log.llmAnalysisStatus === "COMPLETED"
+  ).length;
+
+  // =========================================================
+  // HELPERS
+  // =========================================================
+
+  const getLevelClass = (level) => {
+    switch (level) {
+      case "ERROR":
+        return "error";
+
+      case "WARN":
+        return "warn";
+
+      case "INFO":
+        return "info";
+
+      case "DEBUG":
+        return "debug";
+
+      case "TRACE":
+        return "trace";
+
+      default:
+        return "unknown";
+    }
+  };
+
+  const getAnalysisClass = (status) => {
+    if (!status) {
+      return "unknown";
+    }
+
+    switch (status) {
+      case "COMPLETED":
+        return "completed";
+
+      case "FAILED":
+        return "failed";
+
+      case "PENDING":
+      case "PROCESSING":
+        return "pending";
+
+      default:
+        return "unknown";
+    }
+  };
+
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) {
+      return "Unknown time";
+    }
+
+    return timestamp.replace("T", " ");
+  };
+
+  // =========================================================
+  // UI
+  // =========================================================
+
   return (
-    <div>
-      <header>
-        <h1>DevInsight</h1>
+    <div className="dashboard-page">
 
-        <div>
-          <span>{user?.email}</span>{" "}
-          <span>{user?.role}</span>{" "}
+      {/* =====================================================
+          SUCCESS MESSAGE
+          ===================================================== */}
 
-          <button onClick={logout}>
-            Logout
-          </button>
+      {successMessage && (
+        <div className="dashboard-success">
+          <span>✓</span>
+          <span>{successMessage}</span>
         </div>
-      </header>
+      )}
 
-      <main>
-        <h2>Dashboard</h2>
+      {/* =====================================================
+          STATISTICS
+          ===================================================== */}
 
-        <p>AI-Powered DevOps Analyzer</p>
+      <section className="dashboard-stats">
 
-        <section>
-          <h3>Log Analysis</h3>
+        <div className="stat-card">
+          <div className="stat-label">
+            Total Logs
+          </div>
+
+          <div className="stat-value">
+            {totalElements}
+          </div>
+
+          <div className="stat-description">
+            Logs available in the system
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">
+            Errors
+          </div>
+
+          <div className="stat-value">
+            {errorCount}
+          </div>
+
+          <div className="stat-description">
+            Errors on current page
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">
+            Warnings
+          </div>
+
+          <div className="stat-value">
+            {warningCount}
+          </div>
+
+          <div className="stat-description">
+            Warnings on current page
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">
+            AI Analyses
+          </div>
+
+          <div className="stat-value">
+            {analyzedCount}
+          </div>
+
+          <div className="stat-description">
+            Analyzed logs on current page
+          </div>
+        </div>
+
+      </section>
+
+      {/* =====================================================
+          ANALYSIS BANNER
+          ===================================================== */}
+
+      <section className="analysis-banner">
+
+        <div className="analysis-banner-content">
+          <h3>
+            Log Analysis
+          </h3>
 
           <p>
-            Ingest and analyze application logs.
+            Ingest application logs and investigate
+            anomalies using ML and AI.
+          </p>
+        </div>
+
+        <button
+          className="primary-button"
+          onClick={() => navigate("/logs/ingest")}
+        >
+          <Upload size={15} />
+          Ingest Log
+        </button>
+
+      </section>
+
+      {/* =====================================================
+          SEARCH
+          ===================================================== */}
+
+      <section className="search-panel">
+
+        <div className="search-panel-header">
+
+          <h2>
+            Search &amp; Filter Logs
+          </h2>
+
+          <p>
+            Narrow down logs by level, source,
+            environment, application, or message.
           </p>
 
-          <button
-            onClick={() => navigate("/logs/ingest")}
-          >
-            Ingest Log
-          </button>
-        </section>
+        </div>
 
-        <hr />
-
-        <section>
-          <h2>Search Logs</h2>
+        <div className="filter-grid">
 
           {/* Level */}
-          <div>
-            <label>
-              Level:{" "}
-              <select
-                name="level"
-                value={filters.level}
-                onChange={handleFilterChange}
-              >
-                <option value="">All</option>
-                <option value="TRACE">TRACE</option>
-                <option value="DEBUG">DEBUG</option>
-                <option value="INFO">INFO</option>
-                <option value="WARN">WARN</option>
-                <option value="ERROR">ERROR</option>
-              </select>
+
+          <div className="filter-field">
+            <label htmlFor="level">
+              Level
             </label>
+
+            <select
+              id="level"
+              name="level"
+              value={filters.level}
+              onChange={handleFilterChange}
+            >
+              <option value="">
+                All levels
+              </option>
+
+              <option value="TRACE">
+                TRACE
+              </option>
+
+              <option value="DEBUG">
+                DEBUG
+              </option>
+
+              <option value="INFO">
+                INFO
+              </option>
+
+              <option value="WARN">
+                WARN
+              </option>
+
+              <option value="ERROR">
+                ERROR
+              </option>
+            </select>
           </div>
 
           {/* Source */}
-          <div>
-            <label>
-              Source:{" "}
-              <select
-                name="source"
-                value={filters.source}
-                onChange={handleFilterChange}
-              >
-                <option value="">All</option>
-                <option value="SPRING_BOOT">
-                  SPRING_BOOT
-                </option>
-                <option value="DOCKER">DOCKER</option>
-                <option value="NGINX">NGINX</option>
-                <option value="KUBERNETES">
-                  KUBERNETES
-                </option>
-                <option value="APACHE">APACHE</option>
-                <option value="JENKINS">JENKINS</option>
-                <option value="KAFKA">KAFKA</option>
-                <option value="REDIS">REDIS</option>
-                <option value="MYSQL">MYSQL</option>
-                <option value="SYSTEM">SYSTEM</option>
-                <option value="CUSTOM">CUSTOM</option>
-              </select>
+
+          <div className="filter-field">
+            <label htmlFor="source">
+              Source
             </label>
+
+            <select
+              id="source"
+              name="source"
+              value={filters.source}
+              onChange={handleFilterChange}
+            >
+              <option value="">
+                All sources
+              </option>
+
+              <option value="SPRING_BOOT">
+                SPRING_BOOT
+              </option>
+
+              <option value="DOCKER">
+                DOCKER
+              </option>
+
+              <option value="NGINX">
+                NGINX
+              </option>
+
+              <option value="KUBERNETES">
+                KUBERNETES
+              </option>
+
+              <option value="APACHE">
+                APACHE
+              </option>
+
+              <option value="JENKINS">
+                JENKINS
+              </option>
+
+              <option value="KAFKA">
+                KAFKA
+              </option>
+
+              <option value="REDIS">
+                REDIS
+              </option>
+
+              <option value="MYSQL">
+                MYSQL
+              </option>
+
+              <option value="SYSTEM">
+                SYSTEM
+              </option>
+
+              <option value="CUSTOM">
+                CUSTOM
+              </option>
+            </select>
           </div>
 
           {/* Environment */}
-          <div>
-            <label>
-              Environment:{" "}
-              <select
-                name="environment"
-                value={filters.environment}
-                onChange={handleFilterChange}
-              >
-                <option value="">All</option>
-                <option value="DEVELOPMENT">
-                  DEVELOPMENT
-                </option>
-                <option value="TESTING">TESTING</option>
-                <option value="QA">QA</option>
-                <option value="STAGING">STAGING</option>
-                <option value="PRODUCTION">
-                  PRODUCTION
-                </option>
-              </select>
+
+          <div className="filter-field">
+            <label htmlFor="environment">
+              Environment
             </label>
+
+            <select
+              id="environment"
+              name="environment"
+              value={filters.environment}
+              onChange={handleFilterChange}
+            >
+              <option value="">
+                All environments
+              </option>
+
+              <option value="DEVELOPMENT">
+                DEVELOPMENT
+              </option>
+
+              <option value="TESTING">
+                TESTING
+              </option>
+
+              <option value="QA">
+                QA
+              </option>
+
+              <option value="STAGING">
+                STAGING
+              </option>
+
+              <option value="PRODUCTION">
+                PRODUCTION
+              </option>
+            </select>
           </div>
 
           {/* Anomaly */}
-          <div>
-            <label>
-              Anomaly:{" "}
-              <select
-                name="anomaly"
-                value={filters.anomaly}
-                onChange={handleFilterChange}
-              >
-                <option value="">All</option>
-                <option value="true">
-                  Anomalies Only
-                </option>
-                <option value="false">
-                  Normal Only
-                </option>
-              </select>
+
+          <div className="filter-field">
+            <label htmlFor="anomaly">
+              Anomaly
             </label>
+
+            <select
+              id="anomaly"
+              name="anomaly"
+              value={filters.anomaly}
+              onChange={handleFilterChange}
+            >
+              <option value="">
+                All logs
+              </option>
+
+              <option value="true">
+                Anomalies only
+              </option>
+
+              <option value="false">
+                Normal only
+              </option>
+            </select>
           </div>
 
           {/* Application */}
-          <div>
-            <label>
-              Application:{" "}
-              <input
-                type="text"
-                name="applicationName"
-                value={filters.applicationName}
-                onChange={handleFilterChange}
-                placeholder="payment-service"
-              />
+
+          <div className="filter-field">
+            <label htmlFor="applicationName">
+              Application
             </label>
+
+            <input
+              id="applicationName"
+              type="text"
+              name="applicationName"
+              value={filters.applicationName}
+              onChange={handleFilterChange}
+              placeholder="payment-service"
+            />
           </div>
 
           {/* Message */}
-          <div>
-            <label>
-              Message:{" "}
-              <input
-                type="text"
-                name="message"
-                value={filters.message}
-                onChange={handleFilterChange}
-                placeholder="Search message"
-              />
+
+          <div className="filter-field">
+            <label htmlFor="message">
+              Message
             </label>
+
+            <input
+              id="message"
+              type="text"
+              name="message"
+              value={filters.message}
+              onChange={handleFilterChange}
+              placeholder="Search message"
+            />
           </div>
 
-          <button onClick={handleSearch}>
-            Search
+        </div>
+
+        <div className="search-actions">
+
+          <button
+            className="primary-button"
+            onClick={handleSearch}
+          >
+            <Search size={15} />
+            Search Logs
           </button>
-        </section>
 
-        <hr />
+        </div>
 
-        <section>
-          <h2>Logs</h2>
+      </section>
 
-          <p>
-            Total logs: {totalElements}
-          </p>
+      {/* =====================================================
+          ERROR
+          ===================================================== */}
 
-          {error && <p>{error}</p>}
+      {error && (
+        <div className="dashboard-error">
+          <CircleAlert size={15} />
+          <span>{error}</span>
+        </div>
+      )}
 
-          {loading && <p>Loading logs...</p>}
+      {/* =====================================================
+          LOGS
+          ===================================================== */}
 
-          {!loading && logs.length === 0 && (
-            <p>No logs found.</p>
-          )}
+      <section className="logs-section">
 
-          {!loading &&
-            logs.map((log) => (
-              <div key={log.id}>
-                <hr />
+        <div className="logs-header">
 
-                <h3>
-                  Log #{log.id}
-                </h3>
+          <div className="logs-title">
+            <h2>
+              Recent Logs
+            </h2>
 
-                <p>
-                  <strong>Time:</strong>{" "}
-                  {log.timestamp}
-                </p>
-
-                <p>
-                  <strong>Level:</strong>{" "}
-                  {log.level}
-                </p>
-
-                <p>
-                  <strong>Application:</strong>{" "}
-                  {log.applicationName}
-                </p>
-
-                <p>
-                  <strong>Source:</strong>{" "}
-                  {log.source}
-                </p>
-
-                <p>
-                  <strong>Environment:</strong>{" "}
-                  {log.environment}
-                </p>
-
-                <p>
-                  <strong>Message:</strong>{" "}
-                  {log.message}
-                </p>
-
-                <p>
-                  <strong>ML Prediction:</strong>{" "}
-                  {log.predictionLabel ||
-                    "Not analyzed"}
-                </p>
-
-                <p>
-                  <strong>Analysis Status:</strong>{" "}
-                  {log.analysisStatus || "N/A"}
-                </p>
-
-                <button
-                  onClick={() =>
-                    navigate(
-                      `/logs/${log.id}/analyze`
-                    )
-                  }
-                >
-                  Analyze
-                </button>
-
-                <button
-                  onClick={() =>
-                    handleDelete(log.id)
-                  }
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
-        </section>
-
-        {!loading && totalPages > 0 && (
-          <section>
-            <button
-              onClick={handlePrevious}
-              disabled={page === 0}
-            >
-              Previous
-            </button>
-
-            <span>
-              {" "}
-              Page {page + 1} of {totalPages}{" "}
+            <span className="logs-count">
+              {totalElements} total
             </span>
+          </div>
 
-            <button
-              onClick={handleNext}
-              disabled={page >= totalPages - 1}
-            >
-              Next
-            </button>
-          </section>
+        </div>
+
+        {/* Loading */}
+
+        {loading && (
+          <div className="dashboard-message">
+            Loading logs...
+          </div>
         )}
-      </main>
+
+        {/* Empty */}
+
+        {!loading && logs.length === 0 && (
+          <div className="dashboard-message">
+
+            <FileText size={24} />
+
+            <div style={{ marginTop: "8px" }}>
+              No logs found.
+            </div>
+
+          </div>
+        )}
+
+        {/* Log cards */}
+
+        {!loading &&
+          logs.map((log) => {
+
+            const levelClass =
+              getLevelClass(log.level);
+
+            const analysisClass =
+              getAnalysisClass(
+                log.analysisStatus
+              );
+
+            return (
+              <article
+                className="log-card"
+                key={log.id}
+              >
+
+                <div className="log-card-main">
+
+                  {/* Header */}
+
+                  <div className="log-card-header">
+
+                    <div className="log-identity">
+
+                      <span className="log-id">
+                        #{log.id}
+                      </span>
+
+                      <span className="log-time">
+                        {formatTimestamp(
+                          log.timestamp
+                        )}
+                      </span>
+
+                    </div>
+
+                    <span
+                      className={`log-level ${levelClass}`}
+                    >
+                      {log.level || "UNKNOWN"}
+                    </span>
+
+                  </div>
+
+                  {/* Metadata */}
+
+                  <div className="log-meta">
+
+                    <div className="log-meta-item">
+                      <span className="log-meta-label">
+                        Application
+                      </span>
+
+                      <span className="log-meta-value">
+                        {log.applicationName ||
+                          "Unknown"}
+                      </span>
+                    </div>
+
+                    <div className="log-meta-item">
+                      <span className="log-meta-label">
+                        Source
+                      </span>
+
+                      <span className="log-meta-value">
+                        {log.source || "Unknown"}
+                      </span>
+                    </div>
+
+                    <div className="log-meta-item">
+                      <span className="log-meta-label">
+                        Environment
+                      </span>
+
+                      <span className="log-meta-value">
+                        {log.environment ||
+                          "Unknown"}
+                      </span>
+                    </div>
+
+                    <div className="log-meta-item">
+                      <span className="log-meta-label">
+                        Prediction
+                      </span>
+
+                      <span className="log-meta-value">
+                        {log.predictionLabel ||
+                          "Not analyzed"}
+                      </span>
+                    </div>
+
+                  </div>
+
+                  {/* Message */}
+
+                  <div className="log-message">
+
+                    <span className="log-message-label">
+                      MESSAGE
+                    </span>
+
+                    <span className="log-message-text">
+                      {log.message ||
+                        "No message available"}
+                    </span>
+
+                  </div>
+
+                  {/* Analysis */}
+
+                  <div className="log-analysis">
+
+                    <span className="analysis-label">
+                      ML
+                    </span>
+
+                    <span
+                      className={`analysis-badge ${
+                        log.predictionLabel ===
+                        "Anomaly"
+                          ? "anomaly"
+                          : log.predictionLabel
+                            ? "normal"
+                            : "unknown"
+                      }`}
+                    >
+                      {log.predictionLabel ||
+                        "UNKNOWN"}
+                    </span>
+
+                    <span className="analysis-label">
+                      Analysis
+                    </span>
+
+                    <span
+                      className={`analysis-badge ${analysisClass}`}
+                    >
+                      {log.analysisStatus ||
+                        "N/A"}
+                    </span>
+
+                  </div>
+
+                </div>
+
+                {/* Actions */}
+
+                <div className="log-card-actions">
+
+                  <button
+                    className="secondary-button"
+                    onClick={() =>
+                      navigate(
+                        `/logs/${log.id}/analyze`
+                      )
+                    }
+                  >
+                    <Brain size={13} />
+                    Analyze
+                  </button>
+
+                  <button
+                    className="danger-button"
+                    onClick={() =>
+                      handleDelete(log.id)
+                    }
+                  >
+                    <Trash2 size={13} />
+                    Delete
+                  </button>
+
+                </div>
+
+              </article>
+            );
+          })}
+
+      </section>
+
+      {/* =====================================================
+          PAGINATION
+          ===================================================== */}
+
+      {!loading && totalPages > 0 && (
+        <section className="pagination">
+
+          <button
+            className="pagination-button"
+            onClick={handlePrevious}
+            disabled={page === 0}
+          >
+            <ChevronLeft size={14} />
+            Previous
+          </button>
+
+          <span className="pagination-info">
+            Page {page + 1} of {totalPages}
+          </span>
+
+          <button
+            className="pagination-button"
+            onClick={handleNext}
+            disabled={
+              page >= totalPages - 1
+            }
+          >
+            Next
+            <ChevronRight size={14} />
+          </button>
+
+        </section>
+      )}
+
     </div>
   );
 };

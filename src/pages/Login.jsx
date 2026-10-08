@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { Activity, Loader2 } from "lucide-react";
+
 import { useAuth } from "../context/AuthContext";
+import "./Auth.css";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -11,8 +14,8 @@ const Login = () => {
     password: "",
   });
 
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -38,7 +41,7 @@ const Login = () => {
 
       setError(
         error.response?.data?.message ||
-          "Login failed. Please check your email and password."
+          "Invalid email or password."
       );
     } finally {
       setLoading(false);
@@ -46,49 +49,123 @@ const Login = () => {
   };
 
   return (
-    <div>
-      <h1>Login</h1>
+    <div className="auth-page">
+      <div className="auth-container">
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="email">Email</label>
+        {/* Brand */}
 
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="Enter your email"
-            required
-          />
+        <div className="auth-brand">
+          <div className="auth-logo">
+            <Activity size={24} />
+          </div>
+
+          <h2 className="auth-brand-name">
+            DevInsight
+          </h2>
+
+          <p className="auth-brand-subtitle">
+            AI-Powered DevOps Analyzer
+          </p>
         </div>
 
-        <div>
-          <label htmlFor="password">Password</label>
+        {/* Login Card */}
 
-          <input
-            id="password"
-            name="password"
-            type="password"
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="Enter your password"
-            required
-          />
+        <div className="auth-card">
+          <h1>Welcome back</h1>
+
+          <p className="auth-description">
+            Sign in to monitor, analyze, and
+            investigate your application logs.
+          </p>
+
+          {error && (
+            <div className="auth-error">
+              {error}
+            </div>
+          )}
+
+          <form
+            className="auth-form"
+            onSubmit={handleSubmit}
+            autoComplete="off"
+          >
+
+            {/* Email */}
+
+            <div className="auth-field">
+              <label htmlFor="login-email">
+                Email
+              </label>
+
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                autoComplete="username"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            {/* Password */}
+
+            <div className="auth-field">
+              <label htmlFor="login-password">
+                Password
+              </label>
+
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+
+            {/* Submit */}
+
+            <button
+              type="submit"
+              className="auth-submit"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2
+                    size={15}
+                    className="loading-spinner"
+                  />
+
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
+            </button>
+
+          </form>
+
+          {/* Footer */}
+
+          <div className="auth-footer">
+            Don't have an account?{" "}
+
+            <button
+              type="button"
+              onClick={() => navigate("/register")}
+            >
+              Create one
+            </button>
+          </div>
+
         </div>
-
-        {error && <p>{error}</p>}
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
-
-      <p>
-        Don't have an account?{" "}
-        <Link to="/register">Register</Link>
-      </p>
+      </div>
     </div>
   );
 };

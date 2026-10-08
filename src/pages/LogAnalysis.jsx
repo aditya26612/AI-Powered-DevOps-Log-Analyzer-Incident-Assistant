@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Brain,
+  CheckCircle2,
+  Cpu,
+  FileSearch,
+  Lightbulb,
+  Loader2,
+  ShieldAlert,
+  Wrench,
+} from "lucide-react";
+
 import { analyzeLog, getLogById } from "../api/logApi";
+import "./LogAnalysis.css";
 
 const LogAnalysis = () => {
   const { id } = useParams();
@@ -29,6 +43,7 @@ const LogAnalysis = () => {
         setLog(response);
       } catch (error) {
         console.error(error);
+
         setError(
           error.response?.data?.message ||
             "Failed to load log."
@@ -80,16 +95,61 @@ const LogAnalysis = () => {
     }
   };
 
+  const getLevelClass = (level) => {
+    switch (level) {
+      case "ERROR":
+        return "error";
+
+      case "WARN":
+        return "warn";
+
+      case "INFO":
+        return "info";
+
+      case "DEBUG":
+        return "debug";
+
+      case "TRACE":
+        return "trace";
+
+      default:
+        return "unknown";
+    }
+  };
+
+  const prediction =
+    log?.predictionLabel || "UNKNOWN";
+
+  const predictionClass =
+    prediction.toLowerCase() === "anomaly"
+      ? "anomaly"
+      : prediction.toLowerCase() === "normal"
+        ? "normal"
+        : "unknown";
+
   if (loadingLog) {
-    return <p>Loading log...</p>;
+    return (
+      <div className="analysis-loading">
+        <Loader2 size={20} className="loading-spinner" />
+        <span>Loading log...</span>
+      </div>
+    );
   }
 
   if (!log) {
     return (
-      <div>
-        <p>{error || "Log not found."}</p>
+      <div className="analysis-empty">
+        <AlertCircle size={24} />
 
-        <button onClick={() => navigate("/dashboard")}>
+        <p>
+          {error || "Log not found."}
+        </p>
+
+        <button
+          className="primary-button"
+          onClick={() => navigate("/dashboard")}
+        >
+          <ArrowLeft size={15} />
           Back to Dashboard
         </button>
       </div>
@@ -97,187 +157,547 @@ const LogAnalysis = () => {
   }
 
   return (
-    <div>
-      <button onClick={() => navigate("/dashboard")}>
-        ← Back to Dashboard
+    <div className="log-analysis-page">
+
+      {/* =========================================
+          BACK
+          ========================================= */}
+
+      <button
+        className="analysis-back"
+        onClick={() => navigate("/dashboard")}
+      >
+        <ArrowLeft size={15} />
+        Back to Dashboard
       </button>
 
-      <h1>Analyze Log</h1>
+      {/* =========================================
+          HEADER
+          ========================================= */}
 
-      <h2>Log #{id}</h2>
+      <section className="analysis-header">
 
-      <div>
-        <h3>Log Details</h3>
+        <div className="analysis-header-left">
 
-        <p>
-          <strong>Application:</strong>{" "}
-          {log.applicationName}
-        </p>
+          <div className="analysis-title-row">
 
-        <p>
-          <strong>Source:</strong> {log.source}
-        </p>
+            <h2 className="analysis-title">
+              Log #{id}
+            </h2>
 
-        <p>
-          <strong>Environment:</strong>{" "}
-          {log.environment}
-        </p>
+            <span
+              className={`analysis-level ${getLevelClass(
+                log.level
+              )}`}
+            >
+              {log.level || "UNKNOWN"}
+            </span>
 
-        <p>
-        <strong>Log Message:</strong>
-      </p>
+          </div>
 
-      <pre>{log.message}</pre>
-      </div>
+          <p className="analysis-subtitle">
+            {log.applicationName || "Unknown application"}
+            {" • "}
+            {log.source || "Unknown source"}
+            {" • "}
+            {log.environment || "Unknown environment"}
+          </p>
 
-      <hr />
+        </div>
 
-      <div>
-        <h2>AI Analysis</h2>
+      </section>
 
-        <div>
-          <label htmlFor="model">
-            <strong>LLM Model</strong>
-          </label>
+      {/* =========================================
+          LOG DETAILS
+          ========================================= */}
 
-          <select
-            id="model"
-            value={model}
-            onChange={(event) => setModel(event.target.value)}
+      <section className="log-detail-card">
+
+        <div className="log-detail-header">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
           >
-            <option value="phi3:mini">phi3:mini</option>
-            <option value="llama3">llama3</option>
-            <option value="mistral">mistral</option>
-            <option value="phi4">phi4</option>
-          </select>
+            <FileSearch size={16} />
+            Log Details
+          </div>
         </div>
 
-        <div>
-          <h3>Analysis Types</h3>
+        <div className="log-detail-body">
 
-          <label>
-            <input
-              type="checkbox"
-              checked={analysisTypes.includes("SUMMARY")}
-              onChange={() =>
-                handleAnalysisTypeChange("SUMMARY")
-              }
-            />
-            Summary
-          </label>
+          <div className="log-detail-grid">
 
-          <br />
+            <div className="detail-item">
+              <span className="detail-label">
+                Application
+              </span>
 
-          <label>
-            <input
-              type="checkbox"
-              checked={analysisTypes.includes("ROOT_CAUSE")}
-              onChange={() =>
-                handleAnalysisTypeChange("ROOT_CAUSE")
-              }
-            />
-            Root Cause
-          </label>
+              <span className="detail-value">
+                {log.applicationName || "Unknown"}
+              </span>
+            </div>
 
-          <br />
+            <div className="detail-item">
+              <span className="detail-label">
+                Source
+              </span>
 
-          <label>
-            <input
-              type="checkbox"
-              checked={analysisTypes.includes("SUGGESTED_FIX")}
-              onChange={() =>
-                handleAnalysisTypeChange("SUGGESTED_FIX")
-              }
-            />
-            Suggested Fix
-          </label>
+              <span className="detail-value">
+                {log.source || "Unknown"}
+              </span>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">
+                Environment
+              </span>
+
+              <span className="detail-value">
+                {log.environment || "Unknown"}
+              </span>
+            </div>
+
+            <div className="detail-item">
+              <span className="detail-label">
+                Timestamp
+              </span>
+
+              <span className="detail-value">
+                {log.timestamp || "Unknown"}
+              </span>
+            </div>
+
+          </div>
+
+          <div className="log-message-box">
+
+            <span className="detail-label">
+              LOG MESSAGE
+            </span>
+
+            <pre>
+              {log.message || "No message available"}
+            </pre>
+
+          </div>
+
         </div>
 
-        {error && <p>{error}</p>}
+      </section>
 
-        <button
-          onClick={handleAnalyze}
-          disabled={loadingAnalysis || analysisTypes.length === 0}
-        >
-          {loadingAnalysis
-            ? "Analyzing..."
-            : "Analyze Log"}
-        </button>
-      </div>
+      {/* =========================================
+          ML + AI WORKSPACE
+          ========================================= */}
+
+      <section className="analysis-workspace">
+
+        {/* AI CONFIGURATION */}
+
+        <div className="analysis-config">
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <Brain size={17} />
+            <h3 className="panel-title">
+              AI Analysis
+            </h3>
+          </div>
+
+          <p className="panel-description">
+            Configure the AI analysis you want
+            to perform on this log.
+          </p>
+
+          {/* Model */}
+
+          <div className="model-field">
+
+            <label htmlFor="model">
+              LLM Model
+            </label>
+
+            <select
+              id="model"
+              value={model}
+              onChange={(event) =>
+                setModel(event.target.value)
+              }
+            >
+              <option value="phi3:mini">
+                phi3:mini
+              </option>
+
+              <option value="llama3">
+                llama3
+              </option>
+
+              <option value="mistral">
+                mistral
+              </option>
+
+              <option value="phi4">
+                phi4
+              </option>
+            </select>
+
+          </div>
+
+          {/* Analysis Types */}
+
+          <div className="analysis-options-title">
+            Analysis Types
+          </div>
+
+          <label className="analysis-option">
+            <input
+              type="checkbox"
+              checked={analysisTypes.includes(
+                "SUMMARY"
+              )}
+              onChange={() =>
+                handleAnalysisTypeChange(
+                  "SUMMARY"
+                )
+              }
+            />
+
+            <span>Summary</span>
+          </label>
+
+          <label className="analysis-option">
+            <input
+              type="checkbox"
+              checked={analysisTypes.includes(
+                "ROOT_CAUSE"
+              )}
+              onChange={() =>
+                handleAnalysisTypeChange(
+                  "ROOT_CAUSE"
+                )
+              }
+            />
+
+            <span>Root Cause</span>
+          </label>
+
+          <label className="analysis-option">
+            <input
+              type="checkbox"
+              checked={analysisTypes.includes(
+                "SUGGESTED_FIX"
+              )}
+              onChange={() =>
+                handleAnalysisTypeChange(
+                  "SUGGESTED_FIX"
+                )
+              }
+            />
+
+            <span>Suggested Fix</span>
+          </label>
+
+          {error && (
+            <div className="analysis-error">
+              <AlertCircle size={15} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <button
+            className="analysis-run-button"
+            onClick={handleAnalyze}
+            disabled={
+              loadingAnalysis ||
+              analysisTypes.length === 0
+            }
+          >
+            {loadingAnalysis ? (
+              <>
+                <Loader2
+                  size={15}
+                  className="loading-spinner"
+                />
+
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Brain size={15} />
+                Analyze Log
+              </>
+            )}
+          </button>
+
+        </div>
+
+        {/* ML DETECTION */}
+
+        <div className="ml-detection">
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <Cpu size={17} />
+
+            <h3 className="panel-title">
+              ML Detection
+            </h3>
+          </div>
+
+          <p className="panel-description">
+            Machine learning prediction for this log.
+          </p>
+
+          <div className="ml-detection-grid">
+
+            <div className="ml-item">
+
+              <span className="ml-item-label">
+                Prediction
+              </span>
+
+              <span
+                className={`ml-item-value ${predictionClass}`}
+              >
+                {prediction}
+              </span>
+
+            </div>
+
+            <div className="ml-item">
+
+              <span className="ml-item-label">
+                Decision Score
+              </span>
+
+              <span className="ml-item-value">
+                {log.decisionScore !== null &&
+                log.decisionScore !== undefined
+                  ? log.decisionScore
+                  : "N/A"}
+              </span>
+
+            </div>
+
+            <div className="ml-item">
+
+              <span className="ml-item-label">
+                Model Version
+              </span>
+
+              <span className="ml-item-value">
+                {log.modelVersion || "N/A"}
+              </span>
+
+            </div>
+
+            <div className="ml-item">
+
+              <span className="ml-item-label">
+                Analysis Status
+              </span>
+
+              <span className="ml-item-value">
+                {log.analysisStatus || "N/A"}
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* =========================================
+          AI RESULT
+          ========================================= */}
 
       {result && (
-        <>
-          <hr />
+        <section className="ai-result-section">
 
-          <div>
-            <h2>Analysis Result</h2>
+          <div className="ai-result-header">
+
+            <h2>
+              AI Analysis Result
+            </h2>
+
+            <p>
+              AI-generated investigation of Log #{id}
+            </p>
+
+          </div>
+
+          <div className="ai-result-card">
+
+            {/* Meta */}
+
+            {(result.severity ||
+              result.confidenceScore !== undefined) && (
+              <div className="ai-result-block">
+
+                <div className="result-meta">
+
+                  {result.severity && (
+                    <div className="result-meta-item">
+                      <ShieldAlert size={13} />
+
+                      <span className="result-meta-label">
+                        Severity
+                      </span>
+
+                      <span className="result-meta-value">
+                        {result.severity}
+                      </span>
+                    </div>
+                  )}
+
+                  {result.confidenceScore !== null &&
+                      result.confidenceScore !== undefined && (
+                    <div className="result-meta-item">
+                      <CheckCircle2 size={13} />
+
+                      <span className="result-meta-label">
+                        Confidence
+                      </span>
+
+                      <span className="result-meta-value">
+                        {result.confidenceScore}
+                      </span>
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+            )}
+
+            {/* Summary */}
 
             {result.summary && (
-              <div>
-                <h3>Summary</h3>
-                <p>{result.summary}</p>
+              <div className="ai-result-block">
+
+                <h3>
+                  <FileSearch
+                    size={14}
+                    style={{
+                      marginRight: "7px",
+                      verticalAlign: "middle",
+                    }}
+                  />
+
+                  Summary
+                </h3>
+
+                <p>
+                  {result.summary}
+                </p>
+
               </div>
             )}
 
-            {result.probableRootCause && (
-              <div>
-                <h3>Probable Root Cause</h3>
-                <p>{result.probableRootCause}</p>
+            {/* Root Cause */}
+
+            {(result.probableRootCause ||
+              result.rootCause) && (
+              <div className="ai-result-block">
+
+                <h3>
+                  <AlertCircle
+                    size={14}
+                    style={{
+                      marginRight: "7px",
+                      verticalAlign: "middle",
+                    }}
+                  />
+
+                  Probable Root Cause
+                </h3>
+
+                <p>
+                  {result.probableRootCause ||
+                    result.rootCause}
+                </p>
+
               </div>
             )}
 
-            {result.rootCause && (
-              <div>
-                <h3>Root Cause</h3>
-                <p>{result.rootCause}</p>
+            {/* Suggested Fix */}
+
+            {(result.suggestedFix ||
+              result.recommendation) && (
+              <div className="ai-result-block">
+
+                <h3>
+                  <Wrench
+                    size={14}
+                    style={{
+                      marginRight: "7px",
+                      verticalAlign: "middle",
+                    }}
+                  />
+
+                  Suggested Fix
+                </h3>
+
+                <p>
+                  {result.suggestedFix ||
+                    result.recommendation}
+                </p>
+
               </div>
             )}
 
-            {result.severity && (
-              <div>
-                <h3>Severity</h3>
-                <p>{result.severity}</p>
-              </div>
-            )}
-
-            {result.suggestedFix && (
-              <div>
-                <h3>Suggested Fix</h3>
-                <p>{result.suggestedFix}</p>
-              </div>
-            )}
-
-            {result.recommendation && (
-              <div>
-                <h3>Recommendation</h3>
-                <p>{result.recommendation}</p>
-              </div>
-            )}
-
-            {result.confidenceScore !== undefined && (
-              <div>
-                <h3>Confidence Score</h3>
-                <p>{result.confidenceScore}</p>
-              </div>
-            )}
+            {/* Recommended Actions */}
 
             {result.recommendedActions &&
               result.recommendedActions.length > 0 && (
-                <div>
-                  <h3>Recommended Actions</h3>
+                <div className="ai-result-block">
 
-                  <ul>
+                  <h3>
+                    <Lightbulb
+                      size={14}
+                      style={{
+                        marginRight: "7px",
+                        verticalAlign: "middle",
+                      }}
+                    />
+
+                    Recommended Actions
+                  </h3>
+
+                  <ol className="recommended-actions">
+
                     {result.recommendedActions.map(
                       (action, index) => (
-                        <li key={index}>{action}</li>
+                        <li key={index}>
+                          {action}
+                        </li>
                       )
                     )}
-                  </ul>
+
+                  </ol>
+
                 </div>
               )}
+
           </div>
-        </>
+
+        </section>
       )}
+
     </div>
   );
 };

@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Upload,
+} from "lucide-react";
+
 import { ingestLog } from "../api/logApi";
+import "./LogIngestion.css";
 
 const LogIngestion = () => {
   const navigate = useNavigate();
@@ -37,9 +45,13 @@ const LogIngestion = () => {
     try {
       const response = await ingestLog(formData);
 
-      console.log("Log created:", response);
+        console.log("Log created:", response);
 
-      setSuccess(`Log created successfully. ID: ${response.id}`);
+        navigate("/dashboard", {
+          state: {
+            successMessage: `Log created successfully. ID: ${response.id}`,
+          },
+        });
     } catch (error) {
       console.error(error);
 
@@ -53,124 +65,336 @@ const LogIngestion = () => {
   };
 
   return (
-    <div>
-      <button onClick={() => navigate("/dashboard")}>
-        ← Back to Dashboard
+    <div className="log-ingestion-page">
+
+      {/* =========================================
+          BACK
+          ========================================= */}
+
+      <button
+        className="analysis-back"
+        onClick={() => navigate("/dashboard")}
+      >
+        <ArrowLeft size={15} />
+        Back to Dashboard
       </button>
 
-      <h1>Ingest Log</h1>
+      {/* =========================================
+          HEADER
+          ========================================= */}
 
-      <form onSubmit={handleSubmit}>
-        {/* Raw Log */}
-        <div>
-          <label htmlFor="rawLog">Raw Log</label>
+      
 
-          <textarea
-            id="rawLog"
-            name="rawLog"
-            value={formData.rawLog}
-            onChange={handleChange}
-            placeholder="Enter application log..."
-            rows="8"
-            required
-          />
+      {/* =========================================
+          SUCCESS
+          ========================================= */}
+
+      {success && (
+        <div className="ingestion-success">
+          <CheckCircle2 size={17} />
+
+          <div>
+            <strong>Log ingested successfully</strong>
+            <div>{success}</div>
+          </div>
         </div>
+      )}
 
-        {/* Source */}
-        <div>
-          <label htmlFor="source">Source</label>
+      {/* =========================================
+          ERROR
+          ========================================= */}
 
-          <select
-            id="source"
-            name="source"
-            value={formData.source}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Select log source</option>
-            <option value="SPRING_BOOT">SPRING_BOOT</option>
-            <option value="DOCKER">DOCKER</option>
-            <option value="NGINX">NGINX</option>
-            <option value="KUBERNETES">KUBERNETES</option>
-            <option value="APACHE">APACHE</option>
-            <option value="JENKINS">JENKINS</option>
-            <option value="KAFKA">KAFKA</option>
-            <option value="REDIS">REDIS</option>
-            <option value="MYSQL">MYSQL</option>
-            <option value="SYSTEM">SYSTEM</option>
-            <option value="CUSTOM">CUSTOM</option>
-          </select>
+      {error && (
+        <div className="ingestion-error">
+          <AlertCircle size={17} />
+
+          <span>{error}</span>
         </div>
+      )}
 
-        {/* Environment */}
-        <div>
-          <label htmlFor="environment">Environment</label>
+      {/* =========================================
+          FORM
+          ========================================= */}
 
-          <select
-            id="environment"
-            name="environment"
-            value={formData.environment}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Select environment</option>
-            <option value="DEVELOPMENT">DEVELOPMENT</option>
-            <option value="TESTING">TESTING</option>
-            <option value="QA">QA</option>
-            <option value="STAGING">STAGING</option>
-            <option value="PRODUCTION">PRODUCTION</option>
-          </select>
-        </div>
+      <section className="ingestion-card">
 
-        {/* Application Name */}
-        <div>
-          <label htmlFor="applicationName">Application Name</label>
+        <form onSubmit={handleSubmit}>
 
-          <input
-            id="applicationName"
-            name="applicationName"
-            value={formData.applicationName}
-            onChange={handleChange}
-            placeholder="e.g. payment-service"
-            required
-          />
-        </div>
+          <div className="ingestion-grid">
 
-        {/* Host Name */}
-        <div>
-          <label htmlFor="hostName">Host Name</label>
+            {/* =====================================
+                RAW LOG
+                ===================================== */}
 
-          <input
-            id="hostName"
-            name="hostName"
-            value={formData.hostName}
-            onChange={handleChange}
-            placeholder="Optional"
-          />
-        </div>
+            <div className="ingestion-field full-width">
 
-        {/* Correlation ID */}
-        <div>
-          <label htmlFor="correlationId">Correlation ID</label>
+              <div className="raw-log-header">
 
-          <input
-            id="correlationId"
-            name="correlationId"
-            value={formData.correlationId}
-            onChange={handleChange}
-            placeholder="Optional"
-          />
-        </div>
+                <label htmlFor="rawLog">
+                  Raw Log
+                </label>
 
-        {/* Messages */}
-        {error && <p>{error}</p>}
-        {success && <p>{success}</p>}
+                <span className="raw-log-hint">
+                  Required
+                </span>
 
-        {/* Submit */}
-        <button type="submit" disabled={loading}>
-          {loading ? "Ingesting..." : "Ingest Log"}
-        </button>
-      </form>
+              </div>
+
+              <textarea
+                id="rawLog"
+                name="rawLog"
+                value={formData.rawLog}
+                onChange={handleChange}
+                placeholder={
+                  "2026-10-07T20:15:32.123+05:30 ERROR 12345 --- [main] com.project.service.PaymentService : Database connection failed"
+                }
+                required
+              />
+
+              <span className="raw-log-help">
+                Paste a valid application log entry.
+                DevInsight will parse and analyze it.
+              </span>
+
+            </div>
+
+            {/* =====================================
+                SOURCE
+                ===================================== */}
+
+            <div className="ingestion-field">
+
+              <label htmlFor="source">
+                Log Source
+              </label>
+
+              <select
+                id="source"
+                name="source"
+                value={formData.source}
+                onChange={handleChange}
+                required
+              >
+                <option value="">
+                  Select source
+                </option>
+
+                <option value="SPRING_BOOT">
+                  Spring Boot
+                </option>
+
+                <option value="DOCKER">
+                  Docker
+                </option>
+
+                <option value="NGINX">
+                  Nginx
+                </option>
+
+                <option value="KUBERNETES">
+                  Kubernetes
+                </option>
+
+                <option value="APACHE">
+                  Apache
+                </option>
+
+                <option value="JENKINS">
+                  Jenkins
+                </option>
+
+                <option value="KAFKA">
+                  Kafka
+                </option>
+
+                <option value="REDIS">
+                  Redis
+                </option>
+
+                <option value="MYSQL">
+                  MySQL
+                </option>
+
+                <option value="SYSTEM">
+                  System
+                </option>
+
+                <option value="CUSTOM">
+                  Custom
+                </option>
+              </select>
+
+            </div>
+
+            {/* =====================================
+                ENVIRONMENT
+                ===================================== */}
+
+            <div className="ingestion-field">
+
+              <label htmlFor="environment">
+                Environment
+              </label>
+
+              <select
+                id="environment"
+                name="environment"
+                value={formData.environment}
+                onChange={handleChange}
+                required
+              >
+                <option value="">
+                  Select environment
+                </option>
+
+                <option value="DEVELOPMENT">
+                  Development
+                </option>
+
+                <option value="TESTING">
+                  Testing
+                </option>
+
+                <option value="QA">
+                  QA
+                </option>
+
+                <option value="STAGING">
+                  Staging
+                </option>
+
+                <option value="PRODUCTION">
+                  Production
+                </option>
+              </select>
+
+            </div>
+
+            {/* =====================================
+                APPLICATION
+                ===================================== */}
+
+            <div className="ingestion-field">
+
+              <label htmlFor="applicationName">
+                Application Name
+              </label>
+
+              <input
+                id="applicationName"
+                name="applicationName"
+                value={formData.applicationName}
+                onChange={handleChange}
+                placeholder="e.g. payment-service"
+                required
+              />
+
+            </div>
+
+            {/* =====================================
+                HOST
+                ===================================== */}
+
+            <div className="ingestion-field">
+
+              <label
+                htmlFor="hostName"
+                className="optional-label"
+              >
+                Host Name
+
+                <span className="optional-badge">
+                  Optional
+                </span>
+              </label>
+
+              <input
+                id="hostName"
+                name="hostName"
+                value={formData.hostName}
+                onChange={handleChange}
+                placeholder="e.g. app-server-01"
+              />
+
+            </div>
+
+            {/* =====================================
+                CORRELATION ID
+                ===================================== */}
+
+            <div className="ingestion-field">
+
+              <label
+                htmlFor="correlationId"
+                className="optional-label"
+              >
+                Correlation ID
+
+                <span className="optional-badge">
+                  Optional
+                </span>
+              </label>
+
+              <input
+                id="correlationId"
+                name="correlationId"
+                value={formData.correlationId}
+                onChange={handleChange}
+                placeholder="e.g. TXN-12345"
+              />
+
+            </div>
+
+          </div>
+
+          {/* =====================================
+              EXAMPLE
+              ===================================== */}
+
+          <div className="ingestion-example">
+
+            <div className="ingestion-example-title">
+              SUPPORTED SPRING BOOT LOG FORMAT
+            </div>
+
+            <pre>
+{`2026-10-07T20:15:32.123+05:30 ERROR 12345 --- [main] com.project.service.PaymentService : Database connection failed`}
+            </pre>
+
+          </div>
+
+          {/* =====================================
+              ACTIONS
+              ===================================== */}
+
+          <div className="ingestion-actions">
+
+            <button
+              type="button"
+              className="ingestion-cancel"
+              onClick={() => navigate("/dashboard")}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="ingestion-submit"
+              disabled={loading}
+            >
+              <Upload size={15} />
+
+              {loading
+                ? "Ingesting..."
+                : "Ingest Log"}
+            </button>
+
+          </div>
+
+        </form>
+
+      </section>
+
     </div>
   );
 };

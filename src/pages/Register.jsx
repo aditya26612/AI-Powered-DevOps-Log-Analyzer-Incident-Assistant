@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { Activity, Loader2 } from "lucide-react";
+
 import { useAuth } from "../context/AuthContext";
+import "./Auth.css";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -12,8 +15,8 @@ const Register = () => {
     role: "DEVELOPER",
   });
 
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const handleChange = (event) => {
@@ -35,7 +38,9 @@ const Register = () => {
     try {
       await register(formData);
 
-      setSuccess("Registration successful. Redirecting to login...");
+      setSuccess(
+        "Registration successful. You can now sign in."
+      );
 
       setTimeout(() => {
         navigate("/login");
@@ -53,65 +58,152 @@ const Register = () => {
   };
 
   return (
-    <div>
-      <h1>Register</h1>
+    <div className="auth-page">
+      <div className="auth-container">
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="email">Email</label>
+        {/* Brand */}
 
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="Enter your email"
-            required
-          />
+        <div className="auth-brand">
+          <div className="auth-logo">
+            <Activity size={24} />
+          </div>
+
+          <h2 className="auth-brand-name">
+            DevInsight
+          </h2>
+
+          <p className="auth-brand-subtitle">
+            AI-Powered DevOps Analyzer
+          </p>
         </div>
 
-        <div>
-          <label htmlFor="password">Password</label>
+        {/* Register Card */}
 
-          <input
-            id="password"
-            name="password"
-            type="password"
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="Enter your password"
-            required
-          />
-        </div>
+        <div className="auth-card">
+          <h1>Create your account</h1>
 
-        <div>
-          <label htmlFor="role">Role</label>
+          <p className="auth-description">
+            Start monitoring and analyzing your
+            application logs with DevInsight.
+          </p>
 
-          <select
-            id="role"
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
+          {error && (
+            <div className="auth-error">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="auth-success">
+              {success}
+            </div>
+          )}
+
+          <form
+            className="auth-form"
+            onSubmit={handleSubmit}
+            autoComplete="off"
           >
-            <option value="DEVELOPER">DEVELOPER</option>
-        <option value="DEVOPS">DEVOPS</option>
-          </select>
+
+            {/* Email */}
+
+            <div className="auth-field">
+              <label htmlFor="register-email">
+                Email
+              </label>
+
+              <input
+                id="register-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            {/* Password */}
+
+            <div className="auth-field">
+              <label htmlFor="register-password">
+                Password
+              </label>
+
+              <input
+                id="register-password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Create a password"
+                required
+              />
+            </div>
+
+            {/* Role */}
+
+            <div className="auth-field">
+              <label htmlFor="role">
+                Role
+              </label>
+
+              <select
+                id="role"
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+              >
+                <option value="DEVELOPER">
+                  Developer
+                </option>
+
+                <option value="DEVOPS">
+                  DevOps
+                </option>
+              </select>
+            </div>
+
+            {/* Submit */}
+
+            <button
+              type="submit"
+              className="auth-submit"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2
+                    size={15}
+                    className="loading-spinner"
+                  />
+
+                  Creating account...
+                </>
+              ) : (
+                "Create Account"
+              )}
+            </button>
+
+          </form>
+
+          {/* Footer */}
+
+          <div className="auth-footer">
+            Already have an account?{" "}
+
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+            >
+              Sign in
+            </button>
+          </div>
+
         </div>
-
-        {error && <p>{error}</p>}
-
-        {success && <p>{success}</p>}
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Registering..." : "Register"}
-        </button>
-      </form>
-
-      <p>
-        Already have an account?{" "}
-        <Link to="/login">Login</Link>
-      </p>
+      </div>
     </div>
   );
 };
