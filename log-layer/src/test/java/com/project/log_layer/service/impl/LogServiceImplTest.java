@@ -1,6 +1,7 @@
 package com.project.log_layer.service.impl;
 
 import com.project.log_layer.dto.request.analysis.LogAnalysisRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import com.project.log_layer.dto.request.ingest.LogIngestRequest;
 import com.project.log_layer.dto.response.analysis.LogAnalysisResponse;
 import com.project.log_layer.dto.response.log.LogResponse;
@@ -28,6 +29,7 @@ import com.project.log_layer.parser.model.ParsedLogData;
 import com.project.log_layer.repository.LogRepository;
 import com.project.log_layer.service.LlmAnalysisFailureService;
 import com.project.log_layer.specification.LogSpecificationBuilder;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -73,6 +75,9 @@ class LogServiceImplTest {
     private LlmInferenceClient llmInferenceClient;
 
     @Mock
+    private HttpServletRequest httpServletRequest;
+
+    @Mock
     private LlmAnalysisMapper llmAnalysisMapper;
 
     @Mock
@@ -81,6 +86,12 @@ class LogServiceImplTest {
     @InjectMocks
     private LogServiceImpl logService;
 
+    @BeforeEach
+    void setUp() {
+        lenient()
+                .when(httpServletRequest.getHeader("X-User-Email"))
+                .thenReturn("test@example.com");
+    }
 
     @Test
     void getById_shouldReturnLogResponse_whenLogExists() {
@@ -91,6 +102,7 @@ class LogServiceImplTest {
                 .id(id)
                 .correlationId(UUID.randomUUID())
                 .applicationName("payment-service")
+                .userEmail("test@example.com")
                 .timestamp(LocalDateTime.now())
                 .level(LogLevel.ERROR)
                 .serviceName("payment-service")
@@ -116,7 +128,6 @@ class LogServiceImplTest {
         verify(logMapper).toLogResponse(log);
     }
 
-
     @Test
     void analyze_shouldReturnLlmAnalysis_whenAnalysisSucceeds() {
 
@@ -128,6 +139,7 @@ class LogServiceImplTest {
         Log log = Log.builder()
                 .id(id)
                 .applicationName("payment-service")
+                .userEmail("test@example.com")
                 .serviceName("payment-service")
                 .timestamp(LocalDateTime.of(2026, 10, 5, 10, 0))
                 .level(LogLevel.ERROR)
@@ -237,7 +249,6 @@ class LogServiceImplTest {
         verifyNoInteractions(llmAnalysisFailureService);
     }
 
-
     @Test
     void analyze_shouldMarkLlmAnalysisFailed_whenLlmFails() {
 
@@ -249,6 +260,7 @@ class LogServiceImplTest {
         Log log = Log.builder()
                 .id(id)
                 .applicationName("payment-service")
+                .userEmail("test@example.com")
                 .serviceName("payment-service")
                 .timestamp(LocalDateTime.of(2026, 10, 5, 10, 0))
                 .level(LogLevel.ERROR)
@@ -323,7 +335,6 @@ class LogServiceImplTest {
         verify(logMapper, never()).toLogResponse(any());
     }
 
-
     @Test
     void analyze_shouldThrowException_whenLogDoesNotExist() {
 
@@ -356,7 +367,6 @@ class LogServiceImplTest {
         );
     }
 
-
     @Test
     void getById_shouldThrowException_whenLogDoesNotExist() {
 
@@ -374,7 +384,6 @@ class LogServiceImplTest {
         verify(logMapper, never()).toLogResponse(any());
     }
 
-
     @Test
     void delete_shouldDeleteLog_whenLogExists() {
 
@@ -382,6 +391,7 @@ class LogServiceImplTest {
 
         Log log = Log.builder()
                 .id(id)
+                .userEmail("test@example.com")
                 .build();
 
         when(logRepository.findById(id))
@@ -392,7 +402,6 @@ class LogServiceImplTest {
         verify(logRepository).findById(id);
         verify(logRepository).delete(log);
     }
-
 
     @Test
     void delete_shouldThrowException_whenLogDoesNotExist() {
@@ -411,20 +420,24 @@ class LogServiceImplTest {
         verify(logRepository, never()).delete(any(Log.class));
     }
 
-
     @Test
     void exists_shouldReturnRepositoryResult() {
 
         Long id = 1L;
 
-        when(logRepository.existsById(id))
-                .thenReturn(true);
+        Log log = Log.builder()
+                .id(id)
+                .userEmail("test@example.com")
+                .build();
+
+        when(logRepository.findById(id))
+                .thenReturn(Optional.of(log));
 
         boolean result = logService.exists(id);
 
         assertTrue(result);
 
-        verify(logRepository).existsById(id);
+        verify(logRepository).findById(id);
     }
 
 
@@ -441,7 +454,6 @@ class LogServiceImplTest {
                 logSpecificationBuilder
         );
     }
-
 
     @Test
     void search_shouldRejectInvalidTimeRange() {
@@ -467,7 +479,6 @@ class LogServiceImplTest {
                 logSpecificationBuilder
         );
     }
-
 
     @Test
     void ingest_shouldMarkMlAnalysisFailed_whenMlFails() {
