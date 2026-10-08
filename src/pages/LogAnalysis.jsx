@@ -179,31 +179,31 @@ const LogAnalysis = () => {
 
         <div className="analysis-header-left">
 
-          <div className="analysis-title-row">
+        <div className="analysis-title-row">
 
-            <h2 className="analysis-title">
-              Log #{id}
-            </h2>
+          <h2 className="analysis-title">
+            Log #{id}
+          </h2>
 
-            <span
-              className={`analysis-level ${getLevelClass(
-                log.level
-              )}`}
-            >
-              {log.level || "UNKNOWN"}
-            </span>
-
-          </div>
-
-          <p className="analysis-subtitle">
-            {log.applicationName || "Unknown application"}
-            {" • "}
-            {log.source || "Unknown source"}
-            {" • "}
-            {log.environment || "Unknown environment"}
-          </p>
+          <span
+            className={`analysis-level ${getLevelClass(
+              log.level
+            )}`}
+          >
+            {log.level || "UNKNOWN"}
+          </span>
 
         </div>
+
+        <p className="analysis-subtitle">
+          {log.applicationName || "Unknown application"}
+          {" • "}
+          {log.source || "Unknown source"}
+          {" • "}
+          {log.environment || "Unknown environment"}
+        </p>
+
+      </div>
 
       </section>
 
@@ -544,8 +544,11 @@ const LogAnalysis = () => {
 
             {/* Meta */}
 
-            {(result.severity ||
-              result.confidenceScore !== undefined) && (
+            {(
+                result.severity ||
+                (result.confidenceScore !== null &&
+                  result.confidenceScore !== undefined)
+              ) && (
               <div className="ai-result-block">
 
                 <div className="result-meta">

@@ -706,9 +706,6 @@
 }
 
 @media (max-width: 650px) {
-  
-
-  
 
   .dashboard-stats {
     grid-template-columns: 1fr;
@@ -749,4 +746,124 @@
   .log-card-actions button {
     flex: 1;
   }
+
+/* =========================================================
+   LOG EXPLORER REFINEMENT
+   ========================================================= */
+
+.logs-title {
+  align-items: flex-start;
+}
+
+.logs-title > div {
+  min-width: 0;
+}
+
+.logs-title h2 {
+  margin: 0;
+}
+
+.logs-title p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.logs-count {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+
+/* =========================================================
+   LOG CARD REFINEMENT
+   ========================================================= */
+
+.log-card {
+  position: relative;
+}
+
+.log-card-header {
+  margin-bottom: 15px;
+}
+
+.log-identity {
+  gap: 10px;
+  min-width: 0;
+}
+
+.log-id {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.log-time {
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+
+
+/* =========================================================
+   MESSAGE EMPHASIS
+   ========================================================= */
+
+.log-message {
+  padding: 15px 0;
+}
+
+.log-message-text {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  font-size: 12px;
+  line-height: 1.65;
+
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   ANALYSIS STATUS
+   ========================================================= */
+
+.log-analysis {
+  padding-top: 4px;
+}
+
+.analysis-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+
+/* =========================================================
+   CARD ACTION AREA
+   ========================================================= */
+
+.log-card-actions {
+  min-height: 30px;
+}
+
+.log-card-actions button {
+  transition:
+    transform 0.12s ease,
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.log-card-actions button:hover {
+  transform: translateY(-1px);
+}
+
 }

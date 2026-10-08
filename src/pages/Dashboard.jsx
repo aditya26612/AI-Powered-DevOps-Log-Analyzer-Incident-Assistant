@@ -683,21 +683,28 @@ const Dashboard = () => {
       )}
 
       {/* =====================================================
-          LOGS
-          ===================================================== */}
+    LOGS
+    ===================================================== */}
 
       <section className="logs-section">
 
         <div className="logs-header">
 
           <div className="logs-title">
-            <h2>
-              Recent Logs
-            </h2>
+
+            <div>
+              <h2>Log Explorer</h2>
+
+              <p>
+                Application events detected by DevInsight
+              </p>
+            </div>
 
             <span className="logs-count">
-              {totalElements} total
+              {totalElements}{" "}
+              {totalElements === 1 ? "result" : "results"}
             </span>
+
           </div>
 
         </div>
@@ -751,6 +758,12 @@ const Dashboard = () => {
 
                     <div className="log-identity">
 
+                      <span
+                        className={`log-level ${levelClass}`}
+                      >
+                        {log.level || "UNKNOWN"}
+                      </span>
+
                       <span className="log-id">
                         #{log.id}
                       </span>
@@ -763,12 +776,6 @@ const Dashboard = () => {
 
                     </div>
 
-                    <span
-                      className={`log-level ${levelClass}`}
-                    >
-                      {log.level || "UNKNOWN"}
-                    </span>
-
                   </div>
 
                   {/* Metadata */}
@@ -776,6 +783,7 @@ const Dashboard = () => {
                   <div className="log-meta">
 
                     <div className="log-meta-item">
+
                       <span className="log-meta-label">
                         Application
                       </span>
@@ -784,9 +792,11 @@ const Dashboard = () => {
                         {log.applicationName ||
                           "Unknown"}
                       </span>
+
                     </div>
 
                     <div className="log-meta-item">
+
                       <span className="log-meta-label">
                         Source
                       </span>
@@ -794,9 +804,11 @@ const Dashboard = () => {
                       <span className="log-meta-value">
                         {log.source || "Unknown"}
                       </span>
+
                     </div>
 
                     <div className="log-meta-item">
+
                       <span className="log-meta-label">
                         Environment
                       </span>
@@ -805,9 +817,11 @@ const Dashboard = () => {
                         {log.environment ||
                           "Unknown"}
                       </span>
+
                     </div>
 
                     <div className="log-meta-item">
+
                       <span className="log-meta-label">
                         Prediction
                       </span>
@@ -816,6 +830,7 @@ const Dashboard = () => {
                         {log.predictionLabel ||
                           "Not analyzed"}
                       </span>
+
                     </div>
 
                   </div>

@@ -611,4 +611,254 @@
   .ml-detection-grid {
     grid-template-columns: 1fr;
   }
+
+  /* =========================================================
+   INVESTIGATION WORKSPACE REFINEMENT
+   ========================================================= */
+
+.log-analysis-page {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+
+/* =========================================================
+   BACK NAVIGATION
+   ========================================================= */
+
+.analysis-back {
+  margin-bottom: 14px;
+  padding: 4px 0;
+}
+
+
+/* =========================================================
+   INVESTIGATION HEADER
+   ========================================================= */
+
+.analysis-header {
+  margin-bottom: 18px;
+  padding: 2px 0;
+}
+
+.analysis-title-row {
+  gap: 10px;
+}
+
+.analysis-title {
+  font-size: 22px;
+  letter-spacing: -0.4px;
+}
+
+.analysis-subtitle {
+  margin-top: 6px;
+}
+
+
+/* =========================================================
+   LOG DETAILS
+   ========================================================= */
+
+.log-detail-card {
+  margin-bottom: 18px;
+}
+
+.log-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.log-detail-body {
+  padding: 18px;
+}
+
+.detail-value {
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   LOG MESSAGE
+   ========================================================= */
+
+.log-message-box {
+  background: #f8fafc;
+}
+
+.log-message-box pre {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+
+/* =========================================================
+   ANALYSIS WORKSPACE
+   ========================================================= */
+
+.analysis-workspace {
+  align-items: stretch;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+
+.analysis-config,
+.ml-detection {
+  min-width: 0;
+}
+
+.analysis-config {
+  position: relative;
+}
+
+.ml-detection {
+  position: relative;
+}
+
+
+/* =========================================================
+   PANEL HEADERS
+   ========================================================= */
+
+.panel-title {
+  font-size: 14px;
+}
+
+.panel-description {
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   ANALYSIS OPTIONS
+   ========================================================= */
+
+.analysis-option {
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.analysis-option:hover {
+  transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   ML DETECTION
+   ========================================================= */
+
+.ml-item {
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.ml-item:hover {
+  border-color: #d5d9e0;
+  background: #ffffff;
+}
+
+.ml-item-value {
+  word-break: break-word;
+}
+
+
+/* =========================================================
+   AI RESULT
+   ========================================================= */
+
+.ai-result-section {
+  margin-top: 4px;
+}
+
+.ai-result-header {
+  margin-bottom: 12px;
+}
+
+.ai-result-header h2 {
+  font-size: 16px;
+}
+
+.ai-result-card {
+  box-shadow: var(--shadow-sm);
+}
+
+.ai-result-block {
+  padding: 18px 20px;
+}
+
+.ai-result-block h3 {
+  display: flex;
+  align-items: center;
+}
+
+.ai-result-block p {
+  margin: 0;
+}
+
+
+/* =========================================================
+   RESULT META
+   ========================================================= */
+
+.result-meta-item {
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.result-meta-item:hover {
+  border-color: #d5d9e0;
+  background: #ffffff;
+}
+
+
+/* =========================================================
+   RECOMMENDED ACTIONS
+   ========================================================= */
+
+.recommended-actions li {
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.recommended-actions li:hover {
+  border-color: #bfdbfe;
+  background: var(--primary-soft);
+}
+
+
+/* =========================================================
+   RESPONSIVE REFINEMENT
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .analysis-workspace {
+    gap: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .analysis-title {
+    font-size: 19px;
+  }
+
+  .analysis-subtitle {
+    line-height: 1.5;
+  }
+}
+
+
 }
