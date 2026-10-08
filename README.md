@@ -1,8 +1,69 @@
+````
 # AI-Powered DevOps Log Analyzer & Incident Assistant
 
 An AI-powered DevOps platform that ingests application logs, detects anomalies, analyzes incidents, and uses an LLM with a DevOps knowledge base to generate explanations and recommended actions.
 
 The project is organized as a monorepo containing the backend services, ML pipeline, LLM/RAG service, and React frontend.
+
+---
+
+## Architecture
+
+![AI-Powered DevOps Analyzer Architecture](docs/assets/architecture.png)
+
+
+The system follows a layered microservice architecture:
+
+- **Frontend** — React/Vite interface for log ingestion, exploration, and investigation.
+- **API Gateway** — Spring Cloud Gateway for routing, authentication, authorization, and CORS handling.
+- **User Service** — JWT-based authentication and user management.
+- **Log Layer** — log ingestion, parsing, persistence, search, and orchestration of ML/LLM analysis.
+- **ML Pipeline** — FastAPI-based anomaly detection and feature extraction.
+- **LLM Service** — RAG-based investigation using BM25, dense retrieval, and Ollama.
+- **PostgreSQL** — persistent storage for users and logs.
+- **Ollama** — local LLM inference.
+
+
+---
+
+## Application Preview
+
+### Dashboard
+
+The dashboard provides an overview of ingested logs, error/warning counts,
+AI analyses, and searchable log records.
+
+![DevInsight Dashboard](docs/assets/screenshots/dashboard.png)
+
+### Log Ingestion
+
+Logs can be submitted through the web interface together with their source,
+environment, application, and optional infrastructure metadata.
+
+![DevInsight Log Ingestion](docs/assets/screenshots/log-ingestion.png)
+
+### AI-Powered Log Investigation
+
+The investigation workflow combines ML detection with RAG-powered LLM
+analysis to produce a summary, probable root cause, and suggested fix.
+
+![DevInsight AI Analysis](docs/assets/screenshots/ai-analysis.png)
+
+## Retrieval-Augmented Generation
+
+The LLM service uses a hybrid retrieval architecture combining:
+
+- Dense retrieval
+- BM25 lexical retrieval
+- Reciprocal Rank Fusion (RRF)
+- Experimental reranking approaches
+
+The retrieval pipeline was evaluated on a fixed internal benchmark before selecting the current configuration.
+
+For the complete experiment methodology, measurements, negative results, and final design decision, see:
+
+[→ RAG Retrieval Experiments & Final Decision](docs/rag_retrieval_experiments_and_final_decision.md)
+
 
 ---
 
@@ -86,8 +147,7 @@ AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/
 │
 ├── docs/                 # Project documentation
 ├── README.md
-├── .gitignore
-└── docker-compose.yml    # Planned / next deployment phase
+└── .gitignore
 ```
 
 The repositories were migrated using Git subtree so the original Git histories remain available inside the monorepo.
@@ -816,7 +876,7 @@ while treating the lexical and TF-IDF-inspired rerankers as experimental approac
 The detailed experiment documentation is included in:
 
 ```text
-docs/hybrid_rag.md
+docs/rag_retrieval_experiments_and_final_decision.md
 ```
 
 ---
@@ -1093,7 +1153,7 @@ Important documentation includes:
 
 ```text
 README.md
-docs/hybrid_rag.md
+docs/rag_retrieval_experiments_and_final_decision.md
 ```
 
 The RAG experiment note contains the detailed retrieval experiments, benchmark results, chunk-overlap evaluation, BM25 evaluation, Hybrid RRF evaluation, and reranker experiments.
@@ -1162,3 +1222,5 @@ Reciprocal Rank Fusion
 ```
 
 The next engineering phase is Docker Compose integration, followed by containerized verification and eventually Kubernetes deployment.
+
+````
