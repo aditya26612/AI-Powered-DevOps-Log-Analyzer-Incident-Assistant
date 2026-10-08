@@ -281,4 +281,69 @@
   .auth-card {
     padding: 22px;
   }
+
+/* =========================================================
+   AUTH DESIGN SYSTEM ALIGNMENT
+   ========================================================= */
+
+.auth-page {
+  background: var(--bg);
+}
+
+.auth-container {
+  max-width: 420px;
+}
+
+.auth-logo {
+  background: var(--primary);
+}
+
+.auth-brand-name,
+.auth-card h1 {
+  color: var(--text-primary);
+}
+
+.auth-brand-subtitle,
+.auth-description,
+.auth-footer {
+  color: var(--text-secondary);
+}
+
+.auth-card {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+.auth-field label {
+  color: var(--text-primary);
+}
+
+.auth-field input,
+.auth-field select {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.auth-field input:focus,
+.auth-field select:focus {
+  border-color: var(--primary);
+  box-shadow:
+    0 0 0 3px var(--primary-soft);
+}
+
+.auth-submit {
+  background: var(--primary);
+}
+
+.auth-submit:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.auth-footer button {
+  color: var(--primary);
+}  
+
+
 }
