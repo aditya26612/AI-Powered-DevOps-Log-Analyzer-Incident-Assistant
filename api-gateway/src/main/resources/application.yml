@@ -12,6 +12,10 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: 86400000
 
+gateway:
+  user-service-url: ${USER_SERVICE_URL:http://localhost:8081}
+  log-service-url: ${LOG_SERVICE_URL:http://localhost:8082}
+
 logging:
   level:
     org.springframework.cloud.gateway: INFO
