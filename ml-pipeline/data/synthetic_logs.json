@@ -14976,14 +14976,6 @@
     "is_true_anomaly": false
   },
   {
-    "log_id": "b771283d-53ea-4241-8efc-2e4a31f4d84e",
-    "timestamp": "2026-07-06T21:15:31.834203Z",
-    "level": "ERROR",
-    "service_name": "user-service",
-    "message": "JWT signature verification failed token=ey...85047fc13e1b expected_iss=devinsight got=unknown",
-    "is_true_anomaly": true
-  },
-  {
     "log_id": "658113c2-632c-412e-b28d-eedee0ce4865",
     "timestamp": "2026-07-06T21:15:33.574203Z",
     "level": "INFO",
