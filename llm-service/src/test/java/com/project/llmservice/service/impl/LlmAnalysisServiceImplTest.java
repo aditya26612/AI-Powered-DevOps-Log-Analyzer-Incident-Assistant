@@ -76,6 +76,10 @@ class LlmAnalysisServiceImplTest {
                         .level("ERROR")
                         .serviceName("payment-service")
                         .message("Database connection failed")
+                        .prediction(1)
+                        .predictionLabel("ANOMALOUS")
+                        .decisionScore(-0.73)
+                        .modelVersion("isolation-forest-v2")
                         .build();
 
         // --------------------------------------------------
@@ -88,6 +92,10 @@ class LlmAnalysisServiceImplTest {
                         .level(request.getLevel())
                         .serviceName(request.getServiceName())
                         .message(request.getMessage())
+                        .prediction(request.getPrediction())
+                        .predictionLabel(request.getPredictionLabel())
+                        .decisionScore(request.getDecisionScore())
+                        .modelVersion(request.getModelVersion())
                         .build();
 
         // --------------------------------------------------
@@ -265,6 +273,28 @@ class LlmAnalysisServiceImplTest {
                 enrichedContext.getRetrievedContext()
         );
 
+        // Verify ML prediction context
+
+        assertEquals(
+                1,
+                enrichedContext.getPrediction()
+        );
+
+        assertEquals(
+                "ANOMALOUS",
+                enrichedContext.getPredictionLabel()
+        );
+
+        assertEquals(
+                -0.73,
+                enrichedContext.getDecisionScore()
+        );
+
+        assertEquals(
+                "isolation-forest-v2",
+                enrichedContext.getModelVersion()
+        );
+
         // --------------------------------------------------
         // Verify ProviderFactory
         // --------------------------------------------------
@@ -285,5 +315,8 @@ class LlmAnalysisServiceImplTest {
 
         verify(responseParser)
                 .parse(rawResponse);
+
+
+
     }
 }

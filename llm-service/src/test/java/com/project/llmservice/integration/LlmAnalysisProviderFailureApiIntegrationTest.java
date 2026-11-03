@@ -41,7 +41,7 @@ class LlmAnalysisProviderFailureApiIntegrationTest {
                 {
                     "timestamp": "2026-08-27T18:00:00",
                     "level": "ERROR",
-                    "serviceName": "payment-service",
+                   "service_name": "payment-service",
                     "message": "Database connection failed"
                 }
                 """;
