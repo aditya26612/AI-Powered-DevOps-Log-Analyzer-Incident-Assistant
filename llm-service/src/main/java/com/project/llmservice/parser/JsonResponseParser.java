@@ -1,3 +1,4 @@
+
 package com.project.llmservice.parser;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -24,8 +25,10 @@ public class JsonResponseParser implements ResponseParser {
 
         try {
 
+            String cleanedResponse = removeMarkdownCodeFences(response);
+
             return objectMapper.readValue(
-                    response,
+                    cleanedResponse,
                     LlmAnalysisResponse.class
             );
 
@@ -36,5 +39,34 @@ public class JsonResponseParser implements ResponseParser {
                     e
             );
         }
+    }
+
+    private String removeMarkdownCodeFences(String response) {
+
+        String cleaned = response.trim();
+
+        // Remove opening Markdown code fence.
+        if (cleaned.startsWith("```")) {
+
+            int firstNewLine = cleaned.indexOf('\n');
+
+            if (firstNewLine == -1) {
+                throw new ResponseParsingException(
+                        "Invalid Markdown code fence in LLM response"
+                );
+            }
+
+            cleaned = cleaned.substring(firstNewLine + 1).trim();
+
+            // Remove closing Markdown code fence.
+            if (cleaned.endsWith("```")) {
+                cleaned = cleaned.substring(
+                        0,
+                        cleaned.length() - 3
+                ).trim();
+            }
+        }
+
+        return cleaned;
     }
 }

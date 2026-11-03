@@ -1,8 +1,8 @@
+
 package com.project.llmservice.rag;
 
-import com.project.llmservice.embeddings.EmbeddingService;
 import com.project.llmservice.properties.RagProperties;
-import com.project.llmservice.vectorstore.VectorStore;
+import com.project.llmservice.vectorstore.VectorStoreService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -12,8 +12,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class VectorRetriever implements Retriever {
 
-    private final EmbeddingService embeddingService;
-    private final VectorStore vectorStore;
+    private final VectorStoreService vectorStoreService;
     private final RagProperties ragProperties;
 
     @Override
@@ -22,21 +21,11 @@ public class VectorRetriever implements Retriever {
             int topK
     ) {
 
-        if (query == null || query.isBlank()) {
+        if (query == null || query.isBlank() || topK <= 0) {
             return List.of();
         }
 
-        if (topK <= 0) {
-            return List.of();
-        }
-
-        float[] queryEmbedding =
-                embeddingService.embed(query);
-
-        return vectorStore.search(
-                        queryEmbedding,
-                        topK
-                )
+        return vectorStoreService.search(query, topK)
                 .stream()
                 .filter(result ->
                         result.getScore()
