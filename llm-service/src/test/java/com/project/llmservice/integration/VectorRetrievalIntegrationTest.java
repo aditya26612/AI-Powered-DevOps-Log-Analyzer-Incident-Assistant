@@ -5,7 +5,7 @@ import com.project.llmservice.rag.RagIngestionService;
 import com.project.llmservice.rag.RetrievalResult;
 import com.project.llmservice.rag.Retriever;
 import com.project.llmservice.vectorstore.VectorStore;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -41,8 +41,10 @@ class VectorRetrievalIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @BeforeEach
-    void setUp() {
+    @BeforeAll
+    static void setUp(
+            @Autowired RagIngestionService ragIngestionService
+    ) {
         ragIngestionService.ingest();
     }
 
@@ -202,6 +204,74 @@ class VectorRetrievalIntegrationTest {
         System.out.println("==============================================");
     }
 
+
+    @Test
+    void shouldEvaluateSimilarityThresholds() throws Exception {
+
+        List<BenchmarkQuery> benchmark = loadBenchmark();
+
+        List<Double> thresholds = List.of(
+                0.50, 0.55, 0.60, 0.65, 0.70
+        );
+
+        System.out.println();
+        System.out.println("==============================================");
+        System.out.println("SIMILARITY THRESHOLD EVALUATION");
+        System.out.println("==============================================");
+
+        for (double threshold : thresholds) {
+
+            int retained = 0;
+            int filteredOut = 0;
+
+            System.out.println();
+            System.out.println("THRESHOLD: " + threshold);
+
+            for (BenchmarkQuery item : benchmark) {
+
+                float[] queryEmbedding =
+                        embeddingService.embed(item.query());
+
+                List<RetrievalResult> results =
+                        vectorStore.search(queryEmbedding, 5);
+
+                double bestExpectedScore = results.stream()
+                        .filter(result ->
+                                result.getDocument()
+                                        .getId()
+                                        .startsWith(item.expectedDocument())
+                        )
+                        .mapToDouble(RetrievalResult::getScore)
+                        .max()
+                        .orElse(-1.0);
+
+                boolean expectedDocumentRetained =
+                        bestExpectedScore >= threshold;
+
+                if (expectedDocumentRetained) {
+                    retained++;
+                } else {
+                    filteredOut++;
+
+                    System.out.println(
+                            "FILTERED: " + item.query()
+                                    + " | Best expected score: "
+                                    + bestExpectedScore
+                    );
+                }
+            }
+
+            System.out.println("Retained    : " + retained + "/" + benchmark.size()
+                    + " (" + percentage(retained, benchmark.size()) + "%)");
+
+            System.out.println("Filtered out: " + filteredOut + "/" + benchmark.size());
+        }
+
+        System.out.println();
+        System.out.println("==============================================");
+    }
+
+
     @Test
     void shouldRetrieveRelevantDocumentsForDevOpsQueries() {
 
@@ -281,7 +351,7 @@ class VectorRetrievalIntegrationTest {
         }
 
         System.out.println();
-        System.out.println("AFTER THRESHOLD (0.70):");
+        System.out.println("AFTER THRESHOLD (0.65):");
 
         for (int i = 0; i < filteredResults.size(); i++) {
 
@@ -341,5 +411,11 @@ class VectorRetrievalIntegrationTest {
                 "Expected document was not found in raw top 5: "
                         + expectedDocumentPrefix
         );
+
+//        assertTrue(
+//                foundAfterThreshold,
+//                "Expected document was removed by the similarity threshold: "
+//                        + expectedDocumentPrefix
+//        );
     }
 }

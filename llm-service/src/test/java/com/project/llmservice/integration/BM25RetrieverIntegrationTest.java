@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import java.util.ArrayList;
 
 import java.util.List;
 
@@ -26,14 +27,25 @@ class BM25RetrieverIntegrationTest {
     @Autowired
     private BM25Retriever bm25Retriever;
 
+
     @BeforeEach
     void setUp() {
 
         List<KnowledgeDocument> documents =
                 documentLoader.load();
 
-        bm25Retriever.indexDocuments(documents);
+        List<KnowledgeDocument> allChunks =
+                new ArrayList<>();
+
+        for (KnowledgeDocument document : documents) {
+            allChunks.addAll(
+                    documentSplitter.split(document)
+            );
+        }
+
+        bm25Retriever.rebuildIndex(allChunks);
     }
+
 
     @Test
     void shouldRetrieveRelevantDocumentForDatabaseQuery() {

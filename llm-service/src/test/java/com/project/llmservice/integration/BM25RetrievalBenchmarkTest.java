@@ -1,16 +1,20 @@
+
 package com.project.llmservice.integration;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.llmservice.rag.KnowledgeDocument;
 import com.project.llmservice.rag.ResourceDocumentLoader;
 import com.project.llmservice.rag.RetrievalResult;
 import com.project.llmservice.rag.bm25.BM25Retriever;
+import com.project.llmservice.rag.splitter.DocumentSplitter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,27 +31,44 @@ class BM25RetrievalBenchmarkTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private DocumentSplitter documentSplitter;
+
     private List<BenchmarkQuery> benchmarkQueries;
 
     @BeforeEach
     void setUp() throws Exception {
 
-        bm25Retriever.indexDocuments(
-                documentLoader.load()
-        );
+        List<KnowledgeDocument> documents =
+                documentLoader.load();
+
+        List<KnowledgeDocument> allChunks =
+                new ArrayList<>();
+
+        for (KnowledgeDocument document : documents) {
+            allChunks.addAll(
+                    documentSplitter.split(document)
+            );
+        }
+
+        bm25Retriever.rebuildIndex(allChunks);
 
         try (InputStream inputStream =
-                     getClass()
-                             .getClassLoader()
+                     getClass().getClassLoader()
                              .getResourceAsStream(
                                      "retrieval/retrieval-benchmark.json"
                              )) {
 
-            benchmarkQueries =
-                    objectMapper.readValue(
-                            inputStream,
-                            new TypeReference<>() {}
-                    );
+            if (inputStream == null) {
+                throw new IllegalStateException(
+                        "Benchmark file not found"
+                );
+            }
+
+            benchmarkQueries = objectMapper.readValue(
+                    inputStream,
+                    new TypeReference<List<BenchmarkQuery>>() {}
+            );
         }
     }
 

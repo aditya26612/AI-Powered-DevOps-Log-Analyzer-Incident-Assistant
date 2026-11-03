@@ -1,0 +1,747 @@
+{
+  "benchmarkVersion": "2.0-draft",
+  "description": "Draft 80-query relevance benchmark grounded in the 21 Markdown troubleshooting documents in the supplied knowledge base.",
+  "sourceKnowledgeBase": {
+    "documentCount": 21,
+    "documentIds": [
+      "docker-container-startup-failure",
+      "docker-container-network-error",
+      "docker-container-resource-error",
+      "docker-image-pull-error",
+      "docker-volume-mount-error",
+      "kubernetes-crashloopbackoff",
+      "kubernetes-imagepullbackoff",
+      "kubernetes-pod-pending",
+      "kubernetes-service-unreachable",
+      "kubernetes-deployment-failure",
+      "spring-boot-bean-creation-error",
+      "spring-boot-datasource-error",
+      "spring-boot-startup-error",
+      "spring-boot-configuration-error",
+      "spring-boot-port-binding-error",
+      "nginx-bad-gateway",
+      "nginx-upstream-timeout",
+      "nginx-connection-refused",
+      "postgresql-connection-refused",
+      "postgresql-authentication-failure",
+      "postgresql-too-many-connections"
+    ]
+  },
+  "relevanceScale": {
+    "3": "Highly relevant: directly addresses the incident or error.",
+    "2": "Relevant: covers a closely related diagnostic layer or explicitly linked cause.",
+    "1": "Partially relevant: useful supporting or adjacent troubleshooting context.",
+    "0": "Not relevant: omitted from relevantDocuments."
+  },
+  "labelingNotes": [
+    "These are draft judgments for human review before benchmark implementation.",
+    "For ambiguous queries, multiple documents are graded because the knowledge base explicitly describes cross-layer diagnosis and related documents.",
+    "A retrieved document is considered relevant for Hit@K and MRR when its grade is at least 1.",
+    "Precision@K counts documents with grade at least 1; Recall@K uses all documents listed in relevantDocuments as the relevant set.",
+    "NDCG uses graded gain 2^relevance - 1."
+  ],
+  "queries": [
+    {
+      "id": "Q001",
+      "category": "EXACT_ERROR",
+      "query": "Web server failed to start. Port 8080 was already in use.",
+      "relevantDocuments": {
+        "spring-boot-port-binding-error": 3
+      }
+    },
+    {
+      "id": "Q002",
+      "category": "EXACT_ERROR",
+      "query": "java.net.BindException: Address already in use",
+      "relevantDocuments": {
+        "spring-boot-port-binding-error": 3
+      }
+    },
+    {
+      "id": "Q003",
+      "category": "EXACT_ERROR",
+      "query": "Failed to configure a DataSource: 'url' attribute is not specified",
+      "relevantDocuments": {
+        "spring-boot-datasource-error": 3,
+        "spring-boot-configuration-error": 1
+      }
+    },
+    {
+      "id": "Q004",
+      "category": "EXACT_ERROR",
+      "query": "HikariPool-1 - Connection is not available, request timed out after 30000ms",
+      "relevantDocuments": {
+        "spring-boot-datasource-error": 3,
+        "postgresql-too-many-connections": 1
+      }
+    },
+    {
+      "id": "Q005",
+      "category": "EXACT_ERROR",
+      "query": "FATAL: password authentication failed for user app",
+      "relevantDocuments": {
+        "postgresql-authentication-failure": 3,
+        "spring-boot-datasource-error": 1
+      }
+    },
+    {
+      "id": "Q006",
+      "category": "EXACT_ERROR",
+      "query": "FATAL: sorry, too many clients already",
+      "relevantDocuments": {
+        "postgresql-too-many-connections": 3,
+        "spring-boot-datasource-error": 1
+      }
+    },
+    {
+      "id": "Q007",
+      "category": "EXACT_ERROR",
+      "query": "connect() failed (111: Connection refused) while connecting to upstream",
+      "relevantDocuments": {
+        "nginx-connection-refused": 3,
+        "nginx-bad-gateway": 2
+      }
+    },
+    {
+      "id": "Q008",
+      "category": "EXACT_ERROR",
+      "query": "upstream timed out (110: Connection timed out) while reading response header",
+      "relevantDocuments": {
+        "nginx-upstream-timeout": 3
+      }
+    },
+    {
+      "id": "Q009",
+      "category": "EXACT_ERROR",
+      "query": "502 Bad Gateway",
+      "relevantDocuments": {
+        "nginx-bad-gateway": 3,
+        "nginx-connection-refused": 2,
+        "nginx-upstream-timeout": 1
+      }
+    },
+    {
+      "id": "Q010",
+      "category": "EXACT_ERROR",
+      "query": "504 Gateway Timeout",
+      "relevantDocuments": {
+        "nginx-upstream-timeout": 3
+      }
+    },
+    {
+      "id": "Q011",
+      "category": "EXACT_ERROR",
+      "query": "CrashLoopBackOff",
+      "relevantDocuments": {
+        "kubernetes-crashloopbackoff": 3
+      }
+    },
+    {
+      "id": "Q012",
+      "category": "EXACT_ERROR",
+      "query": "ImagePullBackOff",
+      "relevantDocuments": {
+        "kubernetes-imagepullbackoff": 3,
+        "docker-image-pull-error": 2
+      }
+    },
+    {
+      "id": "Q013",
+      "category": "EXACT_ERROR",
+      "query": "0/3 nodes are available: 3 Insufficient cpu",
+      "relevantDocuments": {
+        "kubernetes-pod-pending": 3
+      }
+    },
+    {
+      "id": "Q014",
+      "category": "EXACT_ERROR",
+      "query": "ProgressDeadlineExceeded",
+      "relevantDocuments": {
+        "kubernetes-deployment-failure": 3
+      }
+    },
+    {
+      "id": "Q015",
+      "category": "EXACT_ERROR",
+      "query": "manifest unknown: manifest unknown",
+      "relevantDocuments": {
+        "docker-image-pull-error": 3,
+        "kubernetes-imagepullbackoff": 1
+      }
+    },
+    {
+      "id": "Q016",
+      "category": "NATURAL_LANGUAGE",
+      "query": "My Spring Boot application starts but cannot establish a connection to PostgreSQL.",
+      "relevantDocuments": {
+        "spring-boot-datasource-error": 3,
+        "postgresql-connection-refused": 2,
+        "postgresql-authentication-failure": 1
+      }
+    },
+    {
+      "id": "Q017",
+      "category": "NATURAL_LANGUAGE",
+      "query": "The application is trying to use a database but no JDBC URL seems to be configured.",
+      "relevantDocuments": {
+        "spring-boot-datasource-error": 3,
+        "spring-boot-configuration-error": 2
+      }
+    },
+    {
+      "id": "Q018",
+      "category": "NATURAL_LANGUAGE",
+      "query": "The database accepts network connections but rejects the username or password.",
+      "relevantDocuments": {
+        "postgresql-authentication-failure": 3,
+        "spring-boot-datasource-error": 1
+      }
+    },
+    {
+      "id": "Q019",
+      "category": "NATURAL_LANGUAGE",
+      "query": "Our PostgreSQL server refuses new clients because all connection slots are occupied.",
+      "relevantDocuments": {
+        "postgresql-too-many-connections": 3,
+        "spring-boot-datasource-error": 2
+      }
+    },
+    {
+      "id": "Q020",
+      "category": "NATURAL_LANGUAGE",
+      "query": "A second Spring Boot instance cannot start because another process is already listening on its port.",
+      "relevantDocuments": {
+        "spring-boot-port-binding-error": 3
+      }
+    },
+    {
+      "id": "Q021",
+      "category": "NATURAL_LANGUAGE",
+      "query": "The service fails during startup because a required dependency bean is missing.",
+      "relevantDocuments": {
+        "spring-boot-bean-creation-error": 3,
+        "spring-boot-startup-error": 1
+      }
+    },
+    {
+      "id": "Q022",
+      "category": "NATURAL_LANGUAGE",
+      "query": "The application cannot load a required property from its active configuration.",
+      "relevantDocuments": {
+        "spring-boot-configuration-error": 3,
+        "spring-boot-bean-creation-error": 1
+      }
+    },
+    {
+      "id": "Q023",
+      "category": "NATURAL_LANGUAGE",
+      "query": "A Docker container exits immediately because its configured startup command cannot be found.",
+      "relevantDocuments": {
+        "docker-container-startup-failure": 3
+      }
+    },
+    {
+      "id": "Q024",
+      "category": "NATURAL_LANGUAGE",
+      "query": "Docker cannot download an image from the registry because the image name or access is invalid.",
+      "relevantDocuments": {
+        "docker-image-pull-error": 3,
+        "kubernetes-imagepullbackoff": 1
+      }
+    },
+    {
+      "id": "Q025",
+      "category": "NATURAL_LANGUAGE",
+      "query": "A container can start, but it cannot communicate with another container by using localhost.",
+      "relevantDocuments": {
+        "docker-container-network-error": 3,
+        "postgresql-connection-refused": 1
+      }
+    },
+    {
+      "id": "Q026",
+      "category": "NATURAL_LANGUAGE",
+      "query": "The container cannot access a host directory because the mount path or permissions are wrong.",
+      "relevantDocuments": {
+        "docker-volume-mount-error": 3
+      }
+    },
+    {
+      "id": "Q027",
+      "category": "NATURAL_LANGUAGE",
+      "query": "A Kubernetes pod remains unscheduled because the cluster does not have enough memory.",
+      "relevantDocuments": {
+        "kubernetes-pod-pending": 3,
+        "docker-container-resource-error": 1
+      }
+    },
+    {
+      "id": "Q028",
+      "category": "NATURAL_LANGUAGE",
+      "query": "A Kubernetes service exists, but requests do not reach any healthy application pods.",
+      "relevantDocuments": {
+        "kubernetes-service-unreachable": 3,
+        "nginx-connection-refused": 1
+      }
+    },
+    {
+      "id": "Q029",
+      "category": "NATURAL_LANGUAGE",
+      "query": "Nginx receives no response from the backend before its configured timeout expires.",
+      "relevantDocuments": {
+        "nginx-upstream-timeout": 3
+      }
+    },
+    {
+      "id": "Q030",
+      "category": "NATURAL_LANGUAGE",
+      "query": "The JVM cannot run the packaged application because the runtime Java version is too old.",
+      "relevantDocuments": {
+        "spring-boot-startup-error": 3,
+        "docker-container-startup-failure": 1
+      }
+    },
+    {
+      "id": "Q031",
+      "category": "PARAPHRASE",
+      "query": "The embedded server cannot claim its configured socket.",
+      "relevantDocuments": {
+        "spring-boot-port-binding-error": 3
+      }
+    },
+    {
+      "id": "Q032",
+      "category": "PARAPHRASE",
+      "query": "Spring's connection pool waits for a free database connection and eventually gives up.",
+      "relevantDocuments": {
+        "spring-boot-datasource-error": 3,
+        "postgresql-too-many-connections": 2
+      }
+    },
+    {
+      "id": "Q033",
+      "category": "PARAPHRASE",
+      "query": "Postgres is reachable, but its host-based authentication rules do not permit this client.",
+      "relevantDocuments": {
+        "postgresql-authentication-failure": 3
+      }
+    },
+    {
+      "id": "Q034",
+      "category": "PARAPHRASE",
+      "query": "The database daemon is down or listening on an interface different from the one the client uses.",
+      "relevantDocuments": {
+        "postgresql-connection-refused": 3,
+        "spring-boot-datasource-error": 1
+      }
+    },
+    {
+      "id": "Q035",
+      "category": "PARAPHRASE",
+      "query": "A rollout has stopped making progress and the deployment controller marks it as failed.",
+      "relevantDocuments": {
+        "kubernetes-deployment-failure": 3,
+        "kubernetes-crashloopbackoff": 1
+      }
+    },
+    {
+      "id": "Q036",
+      "category": "PARAPHRASE",
+      "query": "The scheduler cannot place the workload because its resource requests cannot be satisfied.",
+      "relevantDocuments": {
+        "kubernetes-pod-pending": 3
+      }
+    },
+    {
+      "id": "Q037",
+      "category": "PARAPHRASE",
+      "query": "The node agent repeatedly backs off after failing to fetch the requested container artifact.",
+      "relevantDocuments": {
+        "kubernetes-imagepullbackoff": 3,
+        "docker-image-pull-error": 2
+      }
+    },
+    {
+      "id": "Q038",
+      "category": "PARAPHRASE",
+      "query": "The reverse proxy cannot open a TCP connection to the configured backend listener.",
+      "relevantDocuments": {
+        "nginx-connection-refused": 3,
+        "nginx-bad-gateway": 2
+      }
+    },
+    {
+      "id": "Q039",
+      "category": "PARAPHRASE",
+      "query": "The upstream application takes longer to return headers than the proxy allows.",
+      "relevantDocuments": {
+        "nginx-upstream-timeout": 3
+      }
+    },
+    {
+      "id": "Q040",
+      "category": "PARAPHRASE",
+      "query": "The proxy reports a gateway error because the upstream closes the connection unexpectedly.",
+      "relevantDocuments": {
+        "nginx-bad-gateway": 3,
+        "nginx-connection-refused": 1
+      }
+    },
+    {
+      "id": "Q041",
+      "category": "PARAPHRASE",
+      "query": "A container process is killed after exceeding its memory limit.",
+      "relevantDocuments": {
+        "docker-container-resource-error": 3,
+        "kubernetes-crashloopbackoff": 2
+      }
+    },
+    {
+      "id": "Q042",
+      "category": "PARAPHRASE",
+      "query": "A bind mount points to a source directory that is absent on the Docker host.",
+      "relevantDocuments": {
+        "docker-volume-mount-error": 3
+      }
+    },
+    {
+      "id": "Q043",
+      "category": "PARAPHRASE",
+      "query": "The framework cannot instantiate a component because dependency injection cannot satisfy its constructor.",
+      "relevantDocuments": {
+        "spring-boot-bean-creation-error": 3
+      }
+    },
+    {
+      "id": "Q044",
+      "category": "PARAPHRASE",
+      "query": "A configuration value cannot be converted to the target property type during application startup.",
+      "relevantDocuments": {
+        "spring-boot-configuration-error": 3,
+        "spring-boot-startup-error": 1
+      }
+    },
+    {
+      "id": "Q045",
+      "category": "PARAPHRASE",
+      "query": "The process never reaches Spring initialization because the executable archive or launcher is incorrect.",
+      "relevantDocuments": {
+        "spring-boot-startup-error": 3,
+        "docker-container-startup-failure": 1
+      }
+    },
+    {
+      "id": "Q046",
+      "category": "SHORT_INCOMPLETE",
+      "query": "port 8080 occupied",
+      "relevantDocuments": {
+        "spring-boot-port-binding-error": 3,
+        "docker-container-network-error": 1
+      }
+    },
+    {
+      "id": "Q047",
+      "category": "SHORT_INCOMPLETE",
+      "query": "Hikari timeout",
+      "relevantDocuments": {
+        "spring-boot-datasource-error": 3,
+        "postgresql-too-many-connections": 1
+      }
+    },
+    {
+      "id": "Q048",
+      "category": "SHORT_INCOMPLETE",
+      "query": "postgres password rejected",
+      "relevantDocuments": {
+        "postgresql-authentication-failure": 3
+      }
+    },
+    {
+      "id": "Q049",
+      "category": "SHORT_INCOMPLETE",
+      "query": "too many clients",
+      "relevantDocuments": {
+        "postgresql-too-many-connections": 3
+      }
+    },
+    {
+      "id": "Q050",
+      "category": "SHORT_INCOMPLETE",
+      "query": "nginx upstream timeout",
+      "relevantDocuments": {
+        "nginx-upstream-timeout": 3
+      }
+    },
+    {
+      "id": "Q051",
+      "category": "SHORT_INCOMPLETE",
+      "query": "502 upstream closed",
+      "relevantDocuments": {
+        "nginx-bad-gateway": 3
+      }
+    },
+    {
+      "id": "Q052",
+      "category": "SHORT_INCOMPLETE",
+      "query": "pod pending cpu",
+      "relevantDocuments": {
+        "kubernetes-pod-pending": 3
+      }
+    },
+    {
+      "id": "Q053",
+      "category": "SHORT_INCOMPLETE",
+      "query": "image pull backoff",
+      "relevantDocuments": {
+        "kubernetes-imagepullbackoff": 3,
+        "docker-image-pull-error": 2
+      }
+    },
+    {
+      "id": "Q054",
+      "category": "SHORT_INCOMPLETE",
+      "query": "container exit 137",
+      "relevantDocuments": {
+        "docker-container-resource-error": 3,
+        "kubernetes-crashloopbackoff": 2
+      }
+    },
+    {
+      "id": "Q055",
+      "category": "SHORT_INCOMPLETE",
+      "query": "bean not found",
+      "relevantDocuments": {
+        "spring-boot-bean-creation-error": 3
+      }
+    },
+    {
+      "id": "Q056",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "The application cannot connect to PostgreSQL from inside Docker.",
+      "relevantDocuments": {
+        "spring-boot-datasource-error": 3,
+        "postgresql-connection-refused": 2,
+        "docker-container-network-error": 2
+      }
+    },
+    {
+      "id": "Q057",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "A backend is unavailable and Nginx returns 502.",
+      "relevantDocuments": {
+        "nginx-bad-gateway": 3,
+        "nginx-connection-refused": 2,
+        "kubernetes-service-unreachable": 1
+      }
+    },
+    {
+      "id": "Q058",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "A Kubernetes workload keeps restarting after it fails to start.",
+      "relevantDocuments": {
+        "kubernetes-crashloopbackoff": 3,
+        "spring-boot-startup-error": 2,
+        "docker-container-startup-failure": 1
+      }
+    },
+    {
+      "id": "Q059",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "The pod cannot start because its image is unavailable.",
+      "relevantDocuments": {
+        "kubernetes-imagepullbackoff": 3,
+        "docker-image-pull-error": 2,
+        "kubernetes-deployment-failure": 1
+      }
+    },
+    {
+      "id": "Q060",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "The service is unreachable even though its Kubernetes Service object exists.",
+      "relevantDocuments": {
+        "kubernetes-service-unreachable": 3,
+        "nginx-connection-refused": 1,
+        "postgresql-connection-refused": 1
+      }
+    },
+    {
+      "id": "Q061",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "Database requests are timing out under load.",
+      "relevantDocuments": {
+        "spring-boot-datasource-error": 3,
+        "postgresql-too-many-connections": 2,
+        "nginx-upstream-timeout": 1
+      }
+    },
+    {
+      "id": "Q062",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "The application fails to start after configuration changes.",
+      "relevantDocuments": {
+        "spring-boot-configuration-error": 3,
+        "spring-boot-bean-creation-error": 2,
+        "spring-boot-startup-error": 1
+      }
+    },
+    {
+      "id": "Q063",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "A container exits and Kubernetes continuously restarts it with back-off.",
+      "relevantDocuments": {
+        "kubernetes-crashloopbackoff": 3,
+        "docker-container-startup-failure": 2,
+        "docker-container-resource-error": 1
+      }
+    },
+    {
+      "id": "Q064",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "Connections to the backend are refused and the proxy reports an error.",
+      "relevantDocuments": {
+        "nginx-connection-refused": 3,
+        "nginx-bad-gateway": 2,
+        "spring-boot-port-binding-error": 1
+      }
+    },
+    {
+      "id": "Q065",
+      "category": "AMBIGUOUS_INCIDENT",
+      "query": "The database is rejecting connections from a Spring Boot service.",
+      "relevantDocuments": {
+        "spring-boot-datasource-error": 2,
+        "postgresql-connection-refused": 2,
+        "postgresql-authentication-failure": 2,
+        "postgresql-too-many-connections": 1
+      }
+    },
+    {
+      "id": "Q066",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Docker reports OCI runtime create failed and exit code 127.",
+      "relevantDocuments": {
+        "docker-container-startup-failure": 3
+      }
+    },
+    {
+      "id": "Q067",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Docker daemon returns 429 Too Many Requests while pulling an image.",
+      "relevantDocuments": {
+        "docker-image-pull-error": 3,
+        "kubernetes-imagepullbackoff": 1
+      }
+    },
+    {
+      "id": "Q068",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Docker reports no space left on device and the container exits with code 137.",
+      "relevantDocuments": {
+        "docker-container-resource-error": 3,
+        "kubernetes-crashloopbackoff": 1
+      }
+    },
+    {
+      "id": "Q069",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Docker reports invalid mount config and bind source path does not exist.",
+      "relevantDocuments": {
+        "docker-volume-mount-error": 3
+      }
+    },
+    {
+      "id": "Q070",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Docker container DNS lookup returns UnknownHostException on a user-defined network.",
+      "relevantDocuments": {
+        "docker-container-network-error": 3
+      }
+    },
+    {
+      "id": "Q071",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Kubernetes event shows FailedScheduling and an unbound immediate PersistentVolumeClaims condition.",
+      "relevantDocuments": {
+        "kubernetes-pod-pending": 3,
+        "docker-volume-mount-error": 1
+      }
+    },
+    {
+      "id": "Q072",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Kubernetes container status is OOMKilled and restart count keeps increasing.",
+      "relevantDocuments": {
+        "kubernetes-crashloopbackoff": 3,
+        "docker-container-resource-error": 2
+      }
+    },
+    {
+      "id": "Q073",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Kubernetes reports ErrImagePull followed by ImagePullBackOff.",
+      "relevantDocuments": {
+        "kubernetes-imagepullbackoff": 3,
+        "docker-image-pull-error": 2
+      }
+    },
+    {
+      "id": "Q074",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Kubernetes deployment condition is ReplicaFailure with CreateContainerConfigError.",
+      "relevantDocuments": {
+        "kubernetes-deployment-failure": 3,
+        "kubernetes-crashloopbackoff": 1
+      }
+    },
+    {
+      "id": "Q075",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Kubernetes EndpointSlice has no ready endpoints for the Service.",
+      "relevantDocuments": {
+        "kubernetes-service-unreachable": 3
+      }
+    },
+    {
+      "id": "Q076",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Spring throws NoSuchBeanDefinitionException and UnsatisfiedDependencyException.",
+      "relevantDocuments": {
+        "spring-boot-bean-creation-error": 3
+      }
+    },
+    {
+      "id": "Q077",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "Spring reports ConfigurationPropertiesBindException and Failed to bind properties.",
+      "relevantDocuments": {
+        "spring-boot-configuration-error": 3
+      }
+    },
+    {
+      "id": "Q078",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "The JVM throws UnsupportedClassVersionError because class file version 65 is not supported.",
+      "relevantDocuments": {
+        "spring-boot-startup-error": 3,
+        "docker-container-startup-failure": 1
+      }
+    },
+    {
+      "id": "Q079",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "PostgreSQL returns SQLSTATE 53300 and remaining connection slots are reserved.",
+      "relevantDocuments": {
+        "postgresql-too-many-connections": 3
+      }
+    },
+    {
+      "id": "Q080",
+      "category": "TECHNICAL_TERMS_CODES",
+      "query": "PostgreSQL reports no pg_hba.conf entry and SCRAM authentication is not supported.",
+      "relevantDocuments": {
+        "postgresql-authentication-failure": 3
+      }
+    }
+  ]
+}
