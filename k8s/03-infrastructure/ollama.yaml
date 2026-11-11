@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: devinsight
+  labels:
+    app.kubernetes.io/name: devinsight
+    app.kubernetes.io/component: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+        app.kubernetes.io/name: devinsight
+        app.kubernetes.io/component: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+              name: http
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1024Mi
+            limits:
+              cpu: 2000m
+              memory: 4096Mi
+          readinessProbe:
+            tcpSocket:
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 11434
+            initialDelaySeconds: 30
+            periodSeconds: 15
+      volumes:
+        - name: ollama-data
+          persistentVolumeClaim:
+            claimName: ollama-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: devinsight
+  labels:
+    app.kubernetes.io/name: devinsight
+    app.kubernetes.io/component: ollama
+spec:
+  type: ClusterIP
+  selector:
+    app: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: 11434
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-model-puller
+  namespace: devinsight
+  labels:
+    app.kubernetes.io/name: devinsight
+    app.kubernetes.io/component: ollama-model-puller
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: ollama-model-puller
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: model-puller
+          image: ollama/ollama:latest
+          env:
+            - name: OLLAMA_HOST
+              value: "ollama:11434"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Ollama service to become responsive..."
+              sleep 8
+              echo "Pulling phi3:mini..."
+              ollama pull phi3:mini
+              echo "Pulling nomic-embed-text..."
+              ollama pull nomic-embed-text:latest
+              echo "All models successfully ready in cluster!"

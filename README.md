@@ -1923,7 +1923,7 @@ These are potential improvements and should not be interpreted as already implem
 | Live Log Inspector Sandbox UI | Implemented |
 | Multi-stage Dockerfiles | Implemented |
 | Docker Compose Full Stack Orchestration | Implemented |
-| Kubernetes deployment | Planned |
+| Kubernetes Manifests (Local & AWS EKS) | Implemented |
 
 ---
 

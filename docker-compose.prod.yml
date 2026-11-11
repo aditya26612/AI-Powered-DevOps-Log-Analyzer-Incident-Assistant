@@ -228,3 +228,4 @@ volumes:
 networks:
   devinsight-prod-net:
     driver: bridge
+
