@@ -43,6 +43,8 @@ spec:
                 configMapKeyRef:
                   name: devinsight-config
                   key: OLLAMA_BASE_URL
+            - name: RAG_VECTOR_STORE
+              value: "memory"
           resources:
             requests:
               cpu: 250m

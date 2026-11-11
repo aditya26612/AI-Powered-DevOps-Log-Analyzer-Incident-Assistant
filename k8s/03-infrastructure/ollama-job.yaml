@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-model-puller
+  namespace: devinsight
+  labels:
+    app.kubernetes.io/name: devinsight
+    app.kubernetes.io/component: ollama-model-puller
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: ollama-model-puller
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: model-puller
+          image: ollama/ollama:latest
+          env:
+            - name: OLLAMA_HOST
+              value: "ollama:11434"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until ollama list; do
+                echo "Waiting for Ollama daemon to become available..."
+                sleep 3
+              done
+              echo "Pulling nomic-embed-text..."
+              ollama pull nomic-embed-text:latest
+              echo "Pulling phi3:mini..."
+              ollama pull phi3:mini
+              echo "All models successfully ready in cluster!"
