@@ -94,10 +94,13 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Waiting for Ollama service to become responsive..."
-              sleep 8
-              echo "Pulling phi3:mini..."
-              ollama pull phi3:mini
+              until ollama list; do
+                echo "Waiting for Ollama daemon to become available..."
+                sleep 3
+              done
               echo "Pulling nomic-embed-text..."
               ollama pull nomic-embed-text:latest
+              echo "Pulling phi3:mini..."
+              ollama pull phi3:mini
               echo "All models successfully ready in cluster!"
+

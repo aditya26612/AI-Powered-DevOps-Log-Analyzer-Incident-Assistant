@@ -51,16 +51,15 @@ spec:
               cpu: 1500m
               memory: 1536Mi
           readinessProbe:
-            httpGet:
-              path: /actuator/health
+            tcpSocket:
               port: 8084
-            initialDelaySeconds: 25
+            initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8084
-            initialDelaySeconds: 45
+            initialDelaySeconds: 30
             periodSeconds: 15
 
 ---
@@ -80,3 +79,4 @@ spec:
     - name: http
       port: 8084
       targetPort: 8084
+

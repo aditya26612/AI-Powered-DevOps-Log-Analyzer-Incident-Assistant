@@ -115,3 +115,4 @@ kubectl rollout restart deployment/log-layer -n devinsight
 # Completely remove all DevInsight resources from the cluster:
 kubectl delete -k k8s/
 ```
+

@@ -5,3 +5,4 @@ metadata:
   labels:
     app.kubernetes.io/name: devinsight
     app.kubernetes.io/part-of: devinsight-platform
+
