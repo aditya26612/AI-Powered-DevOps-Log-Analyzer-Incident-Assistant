@@ -1,0 +1,187 @@
+services:
+  # ==============================================================================
+  # 1. PostgreSQL Database
+  # ==============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: devinsight-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devinsight-net
+
+  # ==============================================================================
+  # 2. Ollama Local LLM Runtime
+  # ==============================================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: devinsight-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - devinsight-net
+
+  # Optional auto-puller for Ollama models on startup
+  ollama-model-puller:
+    image: ollama/ollama:latest
+    container_name: devinsight-ollama-puller
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    entrypoint: /bin/sh -c
+    command: >
+      "echo 'Waiting for Ollama daemon to initialize...' &&
+       sleep 5 &&
+       echo 'Pulling phi3:mini...' &&
+       ollama pull phi3:mini &&
+       echo 'Pulling nomic-embed-text...' &&
+       ollama pull nomic-embed-text:latest &&
+       echo 'All Ollama models downloaded successfully!'"
+    networks:
+      - devinsight-net
+    restart: "no"
+
+  # ==============================================================================
+  # 3. ML Pipeline (FastAPI Anomaly Detector)
+  # ==============================================================================
+  ml-pipeline:
+    build:
+      context: ./ml-pipeline
+      dockerfile: Dockerfile
+    container_name: devinsight-ml-pipeline
+    ports:
+      - "8000:8000"
+    environment:
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-devinsight_internal_ml_key_secret_12345}
+      ENVIRONMENT: production
+    networks:
+      - devinsight-net
+
+  # ==============================================================================
+  # 4. User Service (Authentication & JWT)
+  # ==============================================================================
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: devinsight-user-service
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - devinsight-net
+
+  # ==============================================================================
+  # 5. LLM Service (RAG + Ollama Incident Assistant)
+  # ==============================================================================
+  llm-service:
+    build:
+      context: ./llm-service
+      dockerfile: Dockerfile
+    container_name: devinsight-llm-service
+    ports:
+      - "8084:8084"
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - devinsight-net
+
+  # ==============================================================================
+  # 6. Log Layer (Parsing, Orchestration & Real-Time Analyzer)
+  # ==============================================================================
+  log-layer:
+    build:
+      context: ./log-layer
+      dockerfile: Dockerfile
+    container_name: devinsight-log-layer
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-devinsight_internal_ml_key_secret_12345}
+      ML_SERVICE_URL: http://ml-pipeline:8000
+      LLM_SERVICE_URL: http://llm-service:8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-pipeline:
+        condition: service_started
+    networks:
+      - devinsight-net
+
+  # ==============================================================================
+  # 7. API Gateway (Spring Cloud Gateway)
+  # ==============================================================================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: devinsight-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      USER_SERVICE_URL: http://user-service:8081
+      LOG_SERVICE_URL: http://log-layer:8082
+      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+    depends_on:
+      - user-service
+      - log-layer
+    networks:
+      - devinsight-net
+
+  # ==============================================================================
+  # 8. React Frontend (Vite + Nginx)
+  # ==============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: devinsight-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - devinsight-net
+
+# ==============================================================================
+# Volumes & Networks
+# ==============================================================================
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  devinsight-net:
+    driver: bridge

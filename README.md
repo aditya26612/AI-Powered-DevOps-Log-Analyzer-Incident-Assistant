@@ -1505,6 +1505,63 @@ http://localhost:5173
 
 ---
 
+## One-Click Orchestration Scripts
+
+Instead of opening 6 terminal windows manually, you can use the automated orchestration scripts:
+
+### Windows (PowerShell)
+```powershell
+# Start all 6 microservices in parallel with auto pre-flight checks:
+.\start-all.ps1
+
+# Stop and gracefully terminate all running DevInsight services:
+.\stop-all.ps1
+```
+
+### Linux / macOS / WSL (Bash)
+```bash
+chmod +x start-all.sh
+./start-all.sh
+```
+
+---
+
+## Running with Docker Compose
+
+DevInsight is fully containerized with multi-stage Dockerfiles and a production-grade `docker-compose.yml`.
+
+### Architecture of Containers:
+1. `devinsight-postgres` (PostgreSQL 16 Alpine with multi-database initialization)
+2. `devinsight-ollama` (Ollama local inference runtime + volume persistence)
+3. `devinsight-ollama-puller` (Automated puller for `phi3:mini` and `nomic-embed-text`)
+4. `devinsight-ml-pipeline` (Python 3.11 FastAPI with preloaded Isolation Forest model)
+5. `devinsight-user-service` (Java 21 Temurin Alpine microservice)
+6. `devinsight-llm-service` (Java 21 Spring AI + pgvector RAG microservice)
+7. `devinsight-log-layer` (Java 21 Log parsing, anomaly orchestration & live analyzer)
+8. `devinsight-api-gateway` (Reactive Spring Cloud Gateway reverse proxy)
+9. `devinsight-frontend` (Multi-stage Node.js 20 build served via Alpine Nginx)
+
+### Launching the Complete Stack:
+```bash
+# 1. Start Docker Desktop (if not already running)
+
+# 2. Build and launch all services in detached mode
+docker compose up --build -d
+
+# 3. View live logs across all containers
+docker compose logs -f
+
+# 4. View logs for a specific service
+docker compose logs -f log-layer
+
+# 5. Stop the entire stack
+docker compose down
+```
+
+Once running, navigate to `http://localhost:5173` to access the DevInsight web interface.
+
+---
+
 # 18. Frontend
 
 The frontend is implemented using React and Vite.
@@ -1561,6 +1618,20 @@ Users can inspect the analysis associated with a log, including:
 - Summary.
 - Probable root cause.
 - Severity.
+- Remediation.
+- Extracted commands.
+- Retrieved context.
+
+### Live Log Inspector & Incident Sandbox (`/analyzer`)
+
+The dedicated Live Inspector interface empowers DevOps engineers to test raw logs or stack traces interactively without manual pre-formatting:
+- **Application Type Selection**: `SPRING_BOOT`, `DOCKER`, `KUBERNETES`, `NGINX`, `CUSTOM`.
+- **Analysis Execution Mode**:
+  - `FAST`: Sub-50ms heuristic & ML Isolation Forest triage without LLM call.
+  - `AUTO`: Automatically triggers deep RAG + Ollama analysis only when an anomaly/error is detected.
+  - `FORCE_DEEP`: Forces comprehensive RAG root-cause diagnosis on any log payload.
+- **One-Click Quick Samples**: Preloaded realistic production crash scenarios (Spring Boot port conflict, Docker Redis timeout, Kubernetes `CrashLoopBackOff`, and clean healthy ping).
+- **Interactive UI Cards**: Anomaly banner, decision score metrics, root cause summary, heuristic badge indicators, shell remediation commands, and formatted JSON output.
 - Recommended fix.
 
 ---
@@ -1821,7 +1892,11 @@ These are potential improvements and should not be interpreted as already implem
 | RAG benchmark | Completed |
 | Frontend integration | Implemented |
 | Local service verification | Completed |
-| Docker Compose | Planned |
+| Resilient Multi-line Log Parsing | Implemented |
+| Selective Fast-path / Deep RAG | Implemented |
+| Live Log Inspector Sandbox UI | Implemented |
+| Multi-stage Dockerfiles | Implemented |
+| Docker Compose Full Stack Orchestration | Implemented |
 | Kubernetes deployment | Planned |
 
 ---
