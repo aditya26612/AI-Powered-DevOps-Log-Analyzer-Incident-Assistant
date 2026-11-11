@@ -102,4 +102,17 @@ public class LogController {
         );
     }
 
+    /**
+     * Inspect and diagnose a log or stack trace in real time.
+     * Unified industrial endpoint combining ML anomaly scoring and LLM incident root-cause analysis.
+     */
+    @PostMapping("/inspect")
+    public ResponseEntity<com.project.log_layer.dto.response.analyzer.LogInspectionResponse> inspect(
+            @Valid @RequestBody com.project.log_layer.dto.request.analyzer.LogInspectRequest request) {
+
+        return ResponseEntity.ok(
+                logService.inspect(request)
+        );
+    }
+
 }

@@ -41,10 +41,12 @@ public class NginxParser extends AbstractLogParser {
 
         validate(request);
 
-        Matcher matcher = requireMatch(
-                RegexPatterns.NGINX_PATTERN,
-                request.getRawLog()
-        );
+        String rawLog = request.getRawLog().trim();
+        Matcher matcher = RegexPatterns.NGINX_PATTERN.matcher(rawLog);
+
+        if (!matcher.find()) {
+            return fallbackGenericParse(rawLog, request, LogSource.NGINX);
+        }
 
         String timestamp = extractGroup(
                 matcher,

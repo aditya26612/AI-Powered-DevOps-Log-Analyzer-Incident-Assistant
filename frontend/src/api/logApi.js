@@ -26,3 +26,8 @@ export const analyzeLog = async (id, analysisData) => {
 export const deleteLog = async (id) => {
   await api.delete(`/api/v1/logs/${id}`);
 };
+
+export const inspectLog = async (inspectData) => {
+  const response = await api.post("/api/v1/analyzer/inspect", inspectData);
+  return response.data;
+};

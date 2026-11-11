@@ -54,4 +54,17 @@ public interface LogService {
             Long id,
             LogAnalysisRequest request
     );
+
+    /**
+     * Inspect and analyze a log or stack trace in real time.
+     *
+     * Combines resilient parsing, ML anomaly scoring, and conditional
+     * RAG LLM incident diagnosis into a unified industrial response.
+     *
+     * @param request inspection request
+     * @return inspection and diagnostic response
+     */
+    com.project.log_layer.dto.response.analyzer.LogInspectionResponse inspect(
+            com.project.log_layer.dto.request.analyzer.LogInspectRequest request
+    );
 }

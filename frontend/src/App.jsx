@@ -8,6 +8,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import LogIngestion from "./pages/LogIngestion";
 import LogAnalysis from "./pages/LogAnalysis";
+import LogInspector from "./pages/LogInspector";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/logs/ingest" element={<LogIngestion />} />
+            <Route path="/analyzer" element={<LogInspector />} />
             <Route
               path="/logs/:id/analyze"
               element={<LogAnalysis />}

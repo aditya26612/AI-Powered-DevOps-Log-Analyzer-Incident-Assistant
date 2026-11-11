@@ -4,6 +4,7 @@ import {
   Upload,
   Activity,
   CircleCheck,
+  Terminal,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -34,6 +35,16 @@ const Sidebar = () => {
         >
           <LayoutDashboard size={18} />
           <span>Overview</span>
+        </NavLink>
+
+        <NavLink
+          to="/analyzer"
+          className={({ isActive }) =>
+            `sidebar-link ${isActive ? "active" : ""}`
+          }
+        >
+          <Terminal size={18} />
+          <span>Live Inspector</span>
         </NavLink>
 
         <NavLink

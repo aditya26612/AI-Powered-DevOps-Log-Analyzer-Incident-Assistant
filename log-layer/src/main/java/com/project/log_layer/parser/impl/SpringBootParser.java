@@ -28,6 +28,17 @@ import java.util.regex.Matcher;
 @Component
 public class SpringBootParser extends AbstractLogParser {
 
+    private static final java.util.regex.Pattern FLEXIBLE_SPRING_BOOT_PATTERN =
+            java.util.regex.Pattern.compile(
+                    "^(?<timestamp>\\S+)\\s+" +
+                            "(?<level>TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL|SEVERE)\\s+" +
+                            "(?<pid>\\d+)?\\s*(?:---|---)?\\s*" +
+                            "(?:\\[(?<app>[^\\]]+)\\])?\\s*" +
+                            "(?:\\[(?<thread>[^\\]]+)\\])?\\s*" +
+                            "(?<logger>[\\w.$]+)\\s*:\\s*" +
+                            "(?<message>.*)$"
+            );
+
     @Override
     public LogSource getSupportedSource() {
         return LogSource.SPRING_BOOT;
@@ -39,54 +50,50 @@ public class SpringBootParser extends AbstractLogParser {
         // Validate request
         validate(request);
 
-        // Match Spring Boot log
-        Matcher matcher = requireMatch(
-                RegexPatterns.SPRING_BOOT_PATTERN,
-                request.getRawLog()
-        );
+        String rawLog = request.getRawLog().trim();
+        String[] lines = rawLog.split("\\r?\\n");
+        String firstLine = lines[0];
 
-        // Extract fields
-        String timestamp = extractGroup(
-                matcher,
-                RegexGroupNames.TIMESTAMP
-        );
+        // 1. Try standard pattern on the first line
+        Matcher matcher = RegexPatterns.SPRING_BOOT_PATTERN.matcher(firstLine);
+        boolean matched = matcher.find();
 
-        String level = extractGroup(
-                matcher,
-                RegexGroupNames.LEVEL
-        );
+        // 2. If standard pattern fails, try flexible Spring Boot pattern
+        if (!matched) {
+            matcher = FLEXIBLE_SPRING_BOOT_PATTERN.matcher(firstLine);
+            matched = matcher.find();
+        }
 
-        String message = extractGroup(
-                matcher,
-                RegexGroupNames.MESSAGE
-        );
+        // 3. If neither matches, gracefully fallback to generic parser (never crash with 400)
+        if (!matched) {
+            return fallbackGenericParse(rawLog, request, LogSource.SPRING_BOOT);
+        }
 
-        String thread = extractOptionalGroup(
-                matcher,
-                RegexGroupNames.THREAD
-        );
+        // Extract fields from the header
+        String timestamp = extractOptionalGroup(matcher, RegexGroupNames.TIMESTAMP);
+        String level = extractOptionalGroup(matcher, RegexGroupNames.LEVEL);
+        String message = extractOptionalGroup(matcher, RegexGroupNames.MESSAGE);
+        String thread = extractOptionalGroup(matcher, RegexGroupNames.THREAD);
+        String logger = extractOptionalGroup(matcher, RegexGroupNames.LOGGER);
+        String pid = extractOptionalGroup(matcher, RegexGroupNames.PID);
 
-        String logger = extractOptionalGroup(
-                matcher,
-                RegexGroupNames.LOGGER
-        );
+        // Assemble multi-line stack trace if present
+        String completeMessage;
+        if (lines.length > 1) {
+            String stackTrace = java.util.Arrays.stream(lines, 1, lines.length)
+                    .collect(java.util.stream.Collectors.joining("\n"));
+            completeMessage = (message != null ? message : "") + "\n" + stackTrace;
+        } else {
+            completeMessage = message != null ? normalizeWhitespace(message) : "";
+        }
 
-        String pid = extractOptionalGroup(
-                matcher,
-                RegexGroupNames.PID
-        );
-
-        String applicationName = safeTrim(
-                request.getApplicationName()
-        );
+        String applicationName = safeTrim(request.getApplicationName());
+        if (applicationName == null || applicationName.isBlank()) {
+            applicationName = "spring-boot-app";
+        }
 
         Map<String, String> metadata = buildMetadata();
-
-        populateMetadata(
-                metadata,
-                pid,
-                logger
-        );
+        populateMetadata(metadata, pid, logger);
 
         return ParsedLogData.builder()
                 .timestamp(
@@ -99,7 +106,7 @@ public class SpringBootParser extends AbstractLogParser {
                         parseLogLevel(level)
                 )
                 .message(
-                        normalizeWhitespace(message)
+                        completeMessage
                 )
                 .loggerName(
                         safeTrim(logger)

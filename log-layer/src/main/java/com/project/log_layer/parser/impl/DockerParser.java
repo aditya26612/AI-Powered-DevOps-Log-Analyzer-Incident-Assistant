@@ -1,6 +1,7 @@
 package com.project.log_layer.parser.impl;
 
 import com.project.log_layer.dto.request.ingest.LogIngestRequest;
+import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.enums.LogSource;
 import com.project.log_layer.parser.AbstractLogParser;
 import com.project.log_layer.parser.constant.RegexGroupNames;
@@ -42,32 +43,46 @@ public class DockerParser extends AbstractLogParser {
 
         validate(request);
 
-        Matcher matcher = requireMatch(
-                RegexPatterns.DOCKER_PATTERN,
-                request.getRawLog()
-        );
+        String rawLog = request.getRawLog().trim();
+        String[] lines = rawLog.split("\\r?\\n");
+        String firstLine = lines[0];
 
-        String timestamp = extractGroup(
+        Matcher matcher = RegexPatterns.DOCKER_PATTERN.matcher(firstLine);
+        boolean matched = matcher.find();
+
+        if (!matched) {
+            return fallbackGenericParse(rawLog, request, LogSource.DOCKER);
+        }
+
+        String timestamp = extractOptionalGroup(
                 matcher,
                 RegexGroupNames.TIMESTAMP
         );
 
-        String message = extractGroup(
+        String message = extractOptionalGroup(
                 matcher,
                 RegexGroupNames.MESSAGE
         );
 
-        String applicationName =
-                safeTrim(request.getApplicationName());
+        // Assemble multi-line content if container output contains a stack trace
+        String completeMessage;
+        if (lines.length > 1) {
+            String remaining = java.util.Arrays.stream(lines, 1, lines.length)
+                    .collect(java.util.stream.Collectors.joining("\n"));
+            completeMessage = (message != null ? message : "") + "\n" + remaining;
+        } else {
+            completeMessage = message != null ? normalizeWhitespace(message) : "";
+        }
+
+        String applicationName = safeTrim(request.getApplicationName());
+        if (applicationName == null || applicationName.isBlank()) {
+            applicationName = "docker-container";
+        }
+
+        // Intelligently detect severity from container output instead of hardcoding INFO
+        LogLevel derivedLevel = detectSeverityFromText(completeMessage);
 
         Map<String, String> metadata = buildMetadata();
-
-        /*
-         * Future enhancement:
-         *
-         * If Docker logs later include container id/name,
-         * populate them here.
-         */
 
         return ParsedLogData.builder()
 
@@ -79,16 +94,13 @@ public class DockerParser extends AbstractLogParser {
                 )
 
                 .logLevel(
-                        defaultLogLevel()
+                        derivedLevel
                 )
 
                 .message(
-                        normalizeWhitespace(message)
+                        completeMessage
                 )
 
-                /*
-                 * Docker logs do not contain these fields.
-                 */
                 .loggerName(null)
 
                 .threadName(null)
@@ -97,9 +109,6 @@ public class DockerParser extends AbstractLogParser {
                         applicationName
                 )
 
-                /*
-                 * Current default.
-                 */
                 .serviceName(
                         applicationName
                 )

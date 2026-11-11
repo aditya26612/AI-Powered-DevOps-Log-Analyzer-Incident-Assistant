@@ -66,6 +66,11 @@ public class ParserFactory {
         LogParser parser = parsers.get(source);
 
         if (parser == null) {
+            // Fallback to generic/custom parser if available
+            parser = parsers.get(LogSource.CUSTOM);
+        }
+
+        if (parser == null) {
 
             throw new UnsupportedLogException(
                     "No parser registered for log source: " + source
@@ -84,6 +89,6 @@ public class ParserFactory {
      * @return true if supported
      */
     public boolean supports(LogSource source) {
-        return parsers.containsKey(source);
+        return parsers.containsKey(source) || parsers.containsKey(LogSource.CUSTOM);
     }
 }

@@ -1,6 +1,7 @@
 package com.project.log_layer.parser.impl;
 
 import com.project.log_layer.dto.request.ingest.LogIngestRequest;
+import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.enums.LogSource;
 import com.project.log_layer.parser.AbstractLogParser;
 import com.project.log_layer.parser.constant.RegexGroupNames;
@@ -44,34 +45,61 @@ public class KubernetesParser extends AbstractLogParser {
 
         validate(request);
 
-        Matcher matcher = requireMatch(
-                RegexPatterns.KUBERNETES_PATTERN,
-                request.getRawLog()
-        );
+        String rawLog = request.getRawLog().trim();
+        String[] lines = rawLog.split("\\r?\\n");
+        String firstLine = lines[0];
 
-        String timestamp = extractGroup(
+        Matcher matcher = RegexPatterns.KUBERNETES_PATTERN.matcher(firstLine);
+        boolean matched = matcher.find();
+
+        if (!matched) {
+            return fallbackGenericParse(rawLog, request, LogSource.KUBERNETES);
+        }
+
+        String timestamp = extractOptionalGroup(
                 matcher,
                 RegexGroupNames.TIMESTAMP
         );
 
-        String stream = extractGroup(
+        String stream = extractOptionalGroup(
                 matcher,
                 RegexGroupNames.STREAM
         );
 
-        String flag = extractGroup(
+        String flag = extractOptionalGroup(
                 matcher,
                 RegexGroupNames.FLAG
         );
 
-        String message = extractGroup(
+        String message = extractOptionalGroup(
                 matcher,
                 RegexGroupNames.MESSAGE
         );
 
+        // Assemble multi-line content if container output contains a stack trace
+        String completeMessage;
+        if (lines.length > 1) {
+            String remaining = java.util.Arrays.stream(lines, 1, lines.length)
+                    .collect(java.util.stream.Collectors.joining("\n"));
+            completeMessage = (message != null ? message : "") + "\n" + remaining;
+        } else {
+            completeMessage = message != null ? normalizeWhitespace(message) : "";
+        }
+
         String applicationName = safeTrim(
                 request.getApplicationName()
         );
+        if (applicationName == null || applicationName.isBlank()) {
+            applicationName = "k8s-pod";
+        }
+
+        // Detect log level: stderr is ERROR; otherwise detect from message content
+        LogLevel derivedLevel;
+        if ("stderr".equalsIgnoreCase(stream)) {
+            derivedLevel = LogLevel.ERROR;
+        } else {
+            derivedLevel = detectSeverityFromText(completeMessage);
+        }
 
         Map<String, String> metadata = buildMetadata();
 
@@ -91,17 +119,13 @@ public class KubernetesParser extends AbstractLogParser {
                 )
 
                 .logLevel(
-                        defaultLogLevel()
+                        derivedLevel
                 )
 
                 .message(
-                        normalizeWhitespace(message)
+                        completeMessage
                 )
 
-                /*
-                 * Kubernetes container logs do not contain
-                 * logger or thread information.
-                 */
                 .loggerName(null)
 
                 .threadName(null)
@@ -110,9 +134,6 @@ public class KubernetesParser extends AbstractLogParser {
                         applicationName
                 )
 
-                /*
-                 * Current default implementation.
-                 */
                 .serviceName(
                         applicationName
                 )

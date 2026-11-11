@@ -50,3 +50,8 @@ logs/
 *.tmp
 *.temp
 *.swp
+
+# ==============================
+# Audit / Interview Prep
+# ==============================
+/interview-prep-audit/

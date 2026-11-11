@@ -1,15 +1,22 @@
 package com.project.log_layer.service.impl;
 
 import com.project.log_layer.dto.request.analysis.LogAnalysisRequest;
+import com.project.log_layer.dto.request.analyzer.LogInspectRequest;
 import com.project.log_layer.dto.request.ingest.BatchLogRequest;
 import com.project.log_layer.dto.request.ingest.LogIngestRequest;
 import com.project.log_layer.dto.request.search.LogFilterRequest;
 import com.project.log_layer.dto.response.analysis.LogAnalysisResponse;
+import com.project.log_layer.dto.response.analyzer.DetectionMetrics;
+import com.project.log_layer.dto.response.analyzer.IncidentDiagnosis;
+import com.project.log_layer.dto.response.analyzer.LogInspectionResponse;
 import com.project.log_layer.dto.response.common.BatchOperationResponse;
 import com.project.log_layer.dto.response.common.PagedResponse;
 import com.project.log_layer.dto.response.log.LogResponse;
 import com.project.log_layer.entity.Log;
 import com.project.log_layer.enums.AnalysisStatus;
+import com.project.log_layer.enums.Environment;
+import com.project.log_layer.enums.LogLevel;
+import com.project.log_layer.enums.LogSource;
 import com.project.log_layer.exception.InvalidSearchCriteriaException;
 import com.project.log_layer.exception.LogNotFoundException;
 import com.project.log_layer.integration.client.LlmInferenceClient;
@@ -47,6 +54,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -170,6 +179,11 @@ public class LogServiceImpl implements LogService {
 
             MlPredictionResponse response =
                     mlInferenceClient.predict(request);
+
+            boolean isAnomaly = Boolean.TRUE.equals(response.anomaly()) ||
+                    (response.prediction() != null && response.prediction() == -1);
+
+            logEntity.setAnomaly(isAnomaly);
 
             logEntity.setPrediction(
                     response.prediction()
@@ -494,5 +508,167 @@ public class LogServiceImpl implements LogService {
             LogFilterRequest request) {
 
         return logSpecificationBuilder.build(request);
+    }
+
+    /**
+     * Inspects a log in real-time using a 3-tier execution model:
+     * - Tier 0/1: Resilient Multi-line Parsing + Heuristic Rule Check
+     * - Tier 2: ML Isolation Forest Anomaly Detection
+     * - Tier 3: Selective RAG + LLM Root Cause Diagnosis
+     */
+    @Override
+    public LogInspectionResponse inspect(LogInspectRequest request) {
+        long startTime = System.currentTimeMillis();
+
+        if (request == null || request.getLog() == null || request.getLog().isBlank()) {
+            throw new IllegalArgumentException("Log payload must not be blank.");
+        }
+
+        LogSource source = request.getAppType() != null ? request.getAppType() : LogSource.SPRING_BOOT;
+        Environment env = request.getEnvironment() != null ? request.getEnvironment() : Environment.PRODUCTION;
+        String appName = (request.getApplicationName() != null && !request.getApplicationName().isBlank())
+                ? request.getApplicationName().trim()
+                : source.name().toLowerCase() + "-service";
+        UUID correlationId = request.getCorrelationId() != null ? request.getCorrelationId() : UUID.randomUUID();
+        String analysisMode = (request.getAnalysisMode() != null && !request.getAnalysisMode().isBlank())
+                ? request.getAnalysisMode().trim().toUpperCase()
+                : "AUTO";
+
+        LogIngestRequest ingestRequest = LogIngestRequest.builder()
+                .rawLog(request.getLog())
+                .source(source)
+                .environment(env)
+                .applicationName(appName)
+                .hostName(request.getHostName())
+                .correlationId(correlationId)
+                .build();
+
+        // 1. Resilient Parse
+        LogParser parser = parserFactory.getParser(source);
+        ParsedLogData parsedLogData = parser.parse(ingestRequest);
+
+        // 2. Convert to entity
+        Log logEntity = parsedLogMapper.toEntity(parsedLogData);
+        logEntity.setCorrelationId(correlationId);
+
+        String userEmail = "system@analyzer.local";
+        try {
+            String email = CurrentUser.getEmail(httpServletRequest);
+            if (email != null && !email.isBlank()) {
+                userEmail = email;
+            }
+        } catch (Exception ignored) {}
+        logEntity.setUserEmail(userEmail);
+
+        // 3. Perform ML Anomaly Analysis (Tier 2)
+        performMlAnalysis(logEntity);
+
+        // 4. Heuristic / Deterministic Rule Check (Tier 1)
+        List<String> heuristicFlags = new ArrayList<>();
+        boolean isError = logEntity.getLevel() == LogLevel.ERROR || logEntity.getLevel() == LogLevel.WARN;
+        if (isError) {
+            heuristicFlags.add("HIGH_SEVERITY_LEVEL");
+        }
+        boolean hasStackTrace = parsedLogData.getMessage() != null &&
+                (parsedLogData.getMessage().contains("\tat ") ||
+                 parsedLogData.getMessage().contains("Exception:") ||
+                 parsedLogData.getMessage().contains("Traceback"));
+        if (hasStackTrace) {
+            heuristicFlags.add("STACKTRACE_PRESENT");
+        }
+        if (Boolean.TRUE.equals(logEntity.getAnomaly())) {
+            heuristicFlags.add("ML_ANOMALY_DETECTED");
+        }
+
+        boolean hasAnomaly = Boolean.TRUE.equals(logEntity.getAnomaly()) || isError || hasStackTrace;
+
+        // 5. Tier 3: LLM Root Cause Diagnosis (Selective)
+        boolean shouldRunLlm = "FORCE_DEEP".equals(analysisMode) || ("AUTO".equals(analysisMode) && hasAnomaly);
+        IncidentDiagnosis diagnosis = null;
+
+        if (shouldRunLlm && !"FAST".equals(analysisMode)) {
+            try {
+                LlmAnalysisRequest llmRequest = llmAnalysisMapper.toRequest(logEntity);
+                LlmAnalysisResponse llmResponse = llmInferenceClient.analyze(llmRequest);
+
+                logEntity.setLlmAnalysisStatus(AnalysisStatus.COMPLETED);
+                logEntity.setLlmAnalyzedAt(LocalDateTime.now());
+
+                List<String> remediationCommands = extractRemediationCommands(llmResponse.recommendation());
+
+                diagnosis = IncidentDiagnosis.builder()
+                        .summary(llmResponse.summary())
+                        .probableRootCause(llmResponse.rootCause())
+                        .severity(llmResponse.severity() != null ? llmResponse.severity() : logEntity.getLevel().name())
+                        .suggestedFix(llmResponse.recommendation())
+                        .remediationCommands(remediationCommands)
+                        .relevantKnowledgeDocs(List.of())
+                        .build();
+
+            } catch (Exception ex) {
+                log.warn("LLM analysis failed or service unreachable: {}", ex.getMessage());
+                logEntity.setLlmAnalysisStatus(AnalysisStatus.FAILED);
+            }
+        }
+
+        // Persist to log repository for audit & log explorer
+        try {
+            logRepository.save(logEntity);
+        } catch (Exception ex) {
+            log.warn("Unable to save inspect log to DB: {}", ex.getMessage());
+        }
+
+        long executionTimeMs = System.currentTimeMillis() - startTime;
+
+        double confidenceScore = 0.50;
+        if (logEntity.getDecisionScore() != null) {
+            confidenceScore = Math.min(1.0, Math.max(0.0, 0.5 - (logEntity.getDecisionScore() * 0.5)));
+        }
+
+        DetectionMetrics detectionMetrics = DetectionMetrics.builder()
+                .isMlAnomaly(logEntity.getAnomaly())
+                .mlPrediction(logEntity.getPrediction())
+                .mlPredictionLabel(logEntity.getPredictionLabel())
+                .decisionScore(logEntity.getDecisionScore())
+                .modelVersion(logEntity.getModelVersion())
+                .heuristicFlags(heuristicFlags)
+                .build();
+
+        return LogInspectionResponse.builder()
+                .correlationId(correlationId)
+                .appType(source)
+                .applicationName(appName)
+                .environment(env)
+                .timestamp(parsedLogData.getTimestamp())
+                .level(parsedLogData.getLogLevel())
+                .message(parsedLogData.getMessage())
+                .hasStackTrace(hasStackTrace)
+                .stackTrace(hasStackTrace ? parsedLogData.getMessage() : null)
+                .hasAnomaly(hasAnomaly)
+                .confidenceScore(confidenceScore)
+                .detectionMetrics(detectionMetrics)
+                .incidentDiagnosis(diagnosis)
+                .executionTimeMs(executionTimeMs)
+                .metadata(parsedLogData.getMetadata())
+                .build();
+    }
+
+    private List<String> extractRemediationCommands(String recommendation) {
+        if (recommendation == null || recommendation.isBlank()) {
+            return List.of();
+        }
+        List<String> commands = new ArrayList<>();
+        String[] lines = recommendation.split("\\r?\\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("$ ") || trimmed.startsWith("docker ") ||
+                trimmed.startsWith("kubectl ") || trimmed.startsWith("systemctl ") ||
+                trimmed.startsWith("netstat ") || trimmed.startsWith("lsof ") ||
+                trimmed.startsWith("kill ") || trimmed.startsWith("mvn ") ||
+                trimmed.startsWith("java ")) {
+                commands.add(trimmed.startsWith("$ ") ? trimmed.substring(2) : trimmed);
+            }
+        }
+        return commands;
     }
 }

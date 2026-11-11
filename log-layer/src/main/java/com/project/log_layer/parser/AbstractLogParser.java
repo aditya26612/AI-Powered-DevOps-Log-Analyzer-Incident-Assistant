@@ -3,6 +3,7 @@ package com.project.log_layer.parser;
 import com.project.log_layer.dto.request.ingest.LogIngestRequest;
 import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.exception.InvalidLogFormatException;
+import com.project.log_layer.parser.model.ParsedLogData;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -137,9 +138,10 @@ public abstract class AbstractLogParser implements LogParser {
     }
 
     /**
-     * Converts a timestamp into LocalDateTime.
+     * Converts a timestamp into LocalDateTime with fallback resiliency.
      *
-     * Supports ISO timestamps with timezone offsets.
+     * Supports ISO timestamps with timezone offsets, local date-time,
+     * common date-time strings, and defaults to now() if parsing fails.
      *
      * @param timestamp timestamp text
      * @param formatter formatter
@@ -149,44 +151,137 @@ public abstract class AbstractLogParser implements LogParser {
             String timestamp,
             DateTimeFormatter formatter) {
 
-        try {
+        if (timestamp == null || timestamp.isBlank()) {
+            return LocalDateTime.now();
+        }
 
+        try {
             return OffsetDateTime
                     .parse(timestamp, formatter)
                     .toLocalDateTime();
-
         } catch (DateTimeParseException ex) {
-
-            throw new InvalidLogFormatException(
-                    "Invalid timestamp: " + timestamp
-            );
-
+            return parseFlexibleTimestamp(timestamp);
         }
-
     }
 
     /**
-     * Converts log level text into LogLevel enum.
+     * Resilient timestamp parser trying multiple enterprise formats
+     * before falling back to LocalDateTime.now().
+     */
+    protected LocalDateTime parseFlexibleTimestamp(String timestamp) {
+        if (timestamp == null || timestamp.isBlank()) {
+            return LocalDateTime.now();
+        }
+
+        String cleaned = timestamp.trim();
+
+        // Try standard ISO Offset (e.g. 2026-06-26T20:15:31.123+05:30 or Z)
+        try {
+            return OffsetDateTime.parse(cleaned, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDateTime();
+        } catch (Exception ignored) {}
+
+        // Try ISO Local (e.g. 2026-06-26T20:15:31.123)
+        try {
+            return LocalDateTime.parse(cleaned, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (Exception ignored) {}
+
+        // Try space-separated (e.g. 2026-06-26 20:15:31.123 or 2026-06-26 20:15:31)
+        try {
+            String isoCandidate = cleaned.replace(" ", "T");
+            return LocalDateTime.parse(isoCandidate, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (Exception ignored) {}
+
+        return LocalDateTime.now();
+    }
+
+    /**
+     * Converts log level text into LogLevel enum with flexible alias mapping.
      *
      * @param level log level text
      * @return LogLevel
      */
     protected LogLevel parseLogLevel(String level) {
+        return parseFlexibleLogLevel(level);
+    }
 
-        try {
-
-            return LogLevel.valueOf(
-                    level.trim().toUpperCase()
-            );
-
-        } catch (IllegalArgumentException ex) {
-
-            throw new InvalidLogFormatException(
-                    "Unknown log level: " + level
-            );
-
+    /**
+     * Resilient log level mapper that handles variations (FATAL, WARNING, ERR, etc.)
+     * without throwing exceptions.
+     */
+    protected LogLevel parseFlexibleLogLevel(String level) {
+        if (level == null || level.isBlank()) {
+            return defaultLogLevel();
         }
 
+        String normalized = level.trim().toUpperCase();
+
+        return switch (normalized) {
+            case "FATAL", "CRITICAL", "SEVERE", "ERROR", "ERR" -> LogLevel.ERROR;
+            case "WARN", "WARNING" -> LogLevel.WARN;
+            case "DEBUG" -> LogLevel.DEBUG;
+            case "TRACE" -> LogLevel.TRACE;
+            default -> LogLevel.INFO;
+        };
+    }
+
+    /**
+     * Detects severity from message text using heuristic keywords.
+     */
+    protected LogLevel detectSeverityFromText(String text) {
+        if (text == null || text.isBlank()) {
+            return defaultLogLevel();
+        }
+
+        String upper = text.toUpperCase();
+        if (upper.contains("FATAL") || upper.contains("CRITICAL") || upper.contains("ERROR")
+                || upper.contains("EXCEPTION") || upper.contains("FAIL") || upper.contains("PANIC")
+                || upper.contains("CRASHLOOPBACKOFF") || upper.contains("OOMKILLED")) {
+            return LogLevel.ERROR;
+        }
+
+        if (upper.contains("WARN") || upper.contains("WARNING") || upper.contains("DEPRECATED")) {
+            return LogLevel.WARN;
+        }
+
+        return defaultLogLevel();
+    }
+
+    /**
+     * Industrial Fallback Parser: Guarantees that unformatted or unexpected
+     * log payloads are parsed safely instead of throwing 400 INVALID_LOG_FORMAT.
+     */
+    protected ParsedLogData fallbackGenericParse(
+            String rawLog,
+            LogIngestRequest request,
+            com.project.log_layer.enums.LogSource source) {
+
+        String trimmed = rawLog != null ? rawLog.trim() : "";
+        LogLevel level = detectSeverityFromText(trimmed);
+        LocalDateTime timestamp = parseFlexibleTimestamp(null);
+
+        // Attempt to extract leading timestamp if present
+        String[] tokens = trimmed.split("\\s+", 3);
+        if (tokens.length > 0 && tokens[0].length() >= 10 && tokens[0].contains("-")) {
+            timestamp = parseFlexibleTimestamp(tokens[0]);
+        }
+
+        String appName = safeTrim(request.getApplicationName());
+        if (appName == null || appName.isBlank()) {
+            appName = source.name().toLowerCase() + "-service";
+        }
+
+        return ParsedLogData.builder()
+                .timestamp(timestamp)
+                .logLevel(level)
+                .message(trimmed)
+                .applicationName(appName)
+                .serviceName(appName)
+                .hostName(safeTrim(request.getHostName()))
+                .environment(request.getEnvironment())
+                .source(source)
+                .rawLog(rawLog)
+                .metadata(buildMetadata())
+                .build();
     }
 
     /**
