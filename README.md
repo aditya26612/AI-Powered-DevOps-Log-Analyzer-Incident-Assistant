@@ -1545,7 +1545,7 @@ DevInsight is fully containerized with multi-stage Dockerfiles and a production-
 ```bash
 # 1. Start Docker Desktop (if not already running)
 
-# 2. Build and launch all services in detached mode
+# 2. Build and launch all services in detached mode (Local Dev)
 docker compose up --build -d
 
 # 3. View live logs across all containers
@@ -1557,6 +1557,32 @@ docker compose logs -f log-layer
 # 5. Stop the entire stack
 docker compose down
 ```
+
+---
+
+## Production Deployment with Docker Hub (`docker-compose.prod.yml`)
+
+For production environments, you can pull and run pre-built images directly from Docker Hub without needing local source code, Maven, Node.js, or Python installations:
+
+```bash
+# 1. Configure production environment (optional)
+cp .env.prod.example .env.prod
+
+# 2. Pull and start all production services in the background
+docker compose -f docker-compose.prod.yml up -d
+
+# 3. Monitor production logs
+docker compose -f docker-compose.prod.yml logs -f
+
+# 4. Stop the production stack
+docker compose -f docker-compose.prod.yml down
+```
+
+### Production Features:
+- **Zero-Build Deployment**: Direct pull from Docker Hub repository `adityagoku12/devinsight-*`.
+- **Automatic Process Recovery**: `restart: unless-stopped` on all microservices.
+- **Log Rotation**: Docker JSON log-driver with size limits (e.g., `max-size: 20m`, `max-file: 3`) to prevent host disk exhaustion.
+- **Network Isolation**: All internal communication runs on an isolated bridge network (`devinsight-prod-net`).
 
 Once running, navigate to `http://localhost:5173` to access the DevInsight web interface.
 

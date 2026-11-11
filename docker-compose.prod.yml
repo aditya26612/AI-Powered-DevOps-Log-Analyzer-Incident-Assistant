@@ -1,0 +1,230 @@
+services:
+  # ==============================================================================
+  # 1. PostgreSQL Database
+  # ==============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: devinsight-postgres-prod
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    networks:
+      - devinsight-prod-net
+
+  # ==============================================================================
+  # 2. Ollama Local LLM Runtime
+  # ==============================================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: devinsight-ollama-prod
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_prod_data:/root/.ollama
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    networks:
+      - devinsight-prod-net
+
+  # Automated one-shot model puller for production startup
+  ollama-model-puller:
+    image: ollama/ollama:latest
+    container_name: devinsight-ollama-puller-prod
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    entrypoint: /bin/sh -c
+    command: >
+      "echo 'Checking Ollama daemon readiness...' &&
+       sleep 5 &&
+       echo 'Pulling phi3:mini LLM model...' &&
+       ollama pull phi3:mini &&
+       echo 'Pulling nomic-embed-text embedding model...' &&
+       ollama pull nomic-embed-text:latest &&
+       echo 'All Ollama production models ready!'"
+    networks:
+      - devinsight-prod-net
+    restart: "no"
+
+  # ==============================================================================
+  # 3. ML Pipeline (FastAPI Anomaly Detector)
+  # ==============================================================================
+  ml-pipeline:
+    image: ${DOCKER_REGISTRY_USER:-adityagoku12}/devinsight-ml-pipeline:${IMAGE_TAG:-latest}
+    container_name: devinsight-ml-pipeline-prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-devinsight_internal_ml_key_secret_12345}
+      ENVIRONMENT: production
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/v1/system/health\")'"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    networks:
+      - devinsight-prod-net
+
+  # ==============================================================================
+  # 4. User Service (Authentication & JWT Management)
+  # ==============================================================================
+  user-service:
+    image: ${DOCKER_REGISTRY_USER:-adityagoku12}/devinsight-user-service:${IMAGE_TAG:-latest}
+    container_name: devinsight-user-service-prod
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    networks:
+      - devinsight-prod-net
+
+  # ==============================================================================
+  # 5. LLM Service (RAG Retrieval & Ollama Incident Assistant)
+  # ==============================================================================
+  llm-service:
+    image: ${DOCKER_REGISTRY_USER:-adityagoku12}/devinsight-llm-service:${IMAGE_TAG:-latest}
+    container_name: devinsight-llm-service-prod
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    networks:
+      - devinsight-prod-net
+
+  # ==============================================================================
+  # 6. Log Layer (Parsing, Orchestration & Real-Time Analyzer)
+  # ==============================================================================
+  log-layer:
+    image: ${DOCKER_REGISTRY_USER:-adityagoku12}/devinsight-log-layer:${IMAGE_TAG:-latest}
+    container_name: devinsight-log-layer-prod
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-devinsight_internal_ml_key_secret_12345}
+      ML_SERVICE_URL: http://ml-pipeline:8000
+      LLM_SERVICE_URL: http://llm-service:8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-pipeline:
+        condition: service_started
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    networks:
+      - devinsight-prod-net
+
+  # ==============================================================================
+  # 7. API Gateway (Spring Cloud Gateway Reverse Proxy)
+  # ==============================================================================
+  api-gateway:
+    image: ${DOCKER_REGISTRY_USER:-adityagoku12}/devinsight-api-gateway:${IMAGE_TAG:-latest}
+    container_name: devinsight-api-gateway-prod
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      USER_SERVICE_URL: http://user-service:8081
+      LOG_SERVICE_URL: http://log-layer:8082
+      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+    depends_on:
+      - user-service
+      - log-layer
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    networks:
+      - devinsight-prod-net
+
+  # ==============================================================================
+  # 8. React Frontend (Alpine Nginx Production Web Server)
+  # ==============================================================================
+  frontend:
+    image: ${DOCKER_REGISTRY_USER:-adityagoku12}/devinsight-frontend:${IMAGE_TAG:-latest}
+    container_name: devinsight-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - devinsight-prod-net
+
+# ==============================================================================
+# Persistent Volumes & Network Isolation
+# ==============================================================================
+volumes:
+  postgres_prod_data:
+  ollama_prod_data:
+
+networks:
+  devinsight-prod-net:
+    driver: bridge
