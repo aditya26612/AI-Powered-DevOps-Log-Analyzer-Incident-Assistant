@@ -16,3 +16,4 @@ public interface NotificationService {
      */
     void sendIncidentAlert(Log logEntity, IncidentDiagnosis diagnosis);
 }
+

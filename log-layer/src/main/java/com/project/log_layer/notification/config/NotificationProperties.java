@@ -44,3 +44,4 @@ public class NotificationProperties {
         private String subjectPrefix = "[DevInsight Incident Alert] ";
     }
 }
+

@@ -164,3 +164,4 @@ public class DevInsightLogbackAppender extends UnsynchronizedAppenderBase<ILoggi
         this.environment = environment;
     }
 }
+

@@ -65,3 +65,4 @@ Whenever your app executes:
 log.error("Database connection refused on port 5432: pool exhausted", new SQLException("Connection timed out"));
 ```
 It is automatically ingested and diagnosed by DevInsight!
+

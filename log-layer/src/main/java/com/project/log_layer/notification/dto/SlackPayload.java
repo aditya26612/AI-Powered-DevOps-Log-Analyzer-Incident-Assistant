@@ -50,3 +50,4 @@ public class SlackPayload {
         private Boolean emoji;
     }
 }
+
