@@ -83,6 +83,12 @@ class LogServiceImplTest {
     @Mock
     private LlmAnalysisFailureService llmAnalysisFailureService;
 
+    @Mock
+    private com.project.log_layer.notification.service.NotificationService notificationService;
+
+    @Mock
+    private com.project.log_layer.notification.config.NotificationProperties notificationProperties;
+
     @InjectMocks
     private LogServiceImpl logService;
 
@@ -91,6 +97,9 @@ class LogServiceImplTest {
         lenient()
                 .when(httpServletRequest.getHeader("X-User-Email"))
                 .thenReturn("test@example.com");
+        lenient()
+                .when(notificationProperties.isAutoDiagnoseAnomalies())
+                .thenReturn(false);
     }
 
     @Test

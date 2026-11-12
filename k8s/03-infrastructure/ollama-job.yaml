@@ -33,3 +33,4 @@ spec:
               echo "Pulling phi3:mini..."
               ollama pull phi3:mini
               echo "All models successfully ready in cluster!"
+

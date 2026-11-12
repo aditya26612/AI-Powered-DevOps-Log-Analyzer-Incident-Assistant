@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- 1. Standard Console Output -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %highlight(%-5level) 1 --- [%thread] %cyan(%logger{36}) : %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 2. DevInsight Automated Incident Assistant Appender -->
+    <!-- Ships WARN/ERROR stack traces automatically to DevInsight for AI root-cause analysis -->
+    <appender name="DEVINSIGHT" class="com.project.client.DevInsightLogbackAppender">
+        <!-- DevInsight API Gateway URL -->
+        <devInsightUrl>http://localhost:8080/api/v1/logs</devInsightUrl>
+        <!-- Internal Ingestion API Key (defined in DevInsight) -->
+        <apiKey>devinsight_internal_ml_key_secret_12345</apiKey>
+        <!-- User email or team on-call group -->
+        <userEmail>devops@company.com</userEmail>
+        <!-- Name of this Spring Boot service -->
+        <serviceName>payment-service</serviceName>
+        <!-- Deployment environment -->
+        <environment>PRODUCTION</environment>
+    </appender>
+
+    <!-- 3. Asynchronous Wrapper so log shipping never blocks business threads -->
+    <appender name="ASYNC_DEVINSIGHT" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="DEVINSIGHT" />
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>true</includeCallerData>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="ASYNC_DEVINSIGHT" />
+    </root>
+
+</configuration>

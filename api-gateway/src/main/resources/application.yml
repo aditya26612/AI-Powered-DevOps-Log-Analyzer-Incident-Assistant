@@ -17,6 +17,9 @@ jwt:
   secret: ${JWT_SECRET:devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
   expiration: 86400000
 
+internal:
+  api-key: ${INTERNAL_API_KEY:devinsight_internal_ml_key_secret_12345}
+
 gateway:
   user-service-url: ${USER_SERVICE_URL:http://localhost:8081}
   log-service-url: ${LOG_SERVICE_URL:http://localhost:8082}

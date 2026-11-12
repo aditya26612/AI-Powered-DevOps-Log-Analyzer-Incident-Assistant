@@ -39,6 +39,8 @@ import com.project.log_layer.service.LlmAnalysisFailureService;
 import com.project.log_layer.service.LogService;
 import com.project.log_layer.specification.LogSpecificationBuilder;
 import com.project.log_layer.util.CurrentUser;
+import com.project.log_layer.notification.config.NotificationProperties;
+import com.project.log_layer.notification.service.NotificationService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -57,6 +59,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -85,6 +88,10 @@ public class LogServiceImpl implements LogService {
     private final LlmAnalysisFailureService llmAnalysisFailureService;
 
     private final HttpServletRequest httpServletRequest;
+
+    private final NotificationService notificationService;
+
+    private final NotificationProperties notificationProperties;
 
 
     /**
@@ -131,6 +138,10 @@ public class LogServiceImpl implements LogService {
 
         Log savedLog =
                 logRepository.save(log);
+
+        if (shouldTriggerAutoDiagnosis(savedLog)) {
+            triggerAsyncDiagnosisAndNotification(savedLog.getId());
+        }
 
         return logMapper.toLogResponse(savedLog);
     }
@@ -225,6 +236,59 @@ public class LogServiceImpl implements LogService {
                     ex
             );
         }
+    }
+
+    private boolean shouldTriggerAutoDiagnosis(Log log) {
+        if (notificationProperties == null || !notificationProperties.isAutoDiagnoseAnomalies()) {
+            return false;
+        }
+        return Boolean.TRUE.equals(log.getAnomaly()) ||
+                LogLevel.ERROR.equals(log.getLevel()) ||
+                LogLevel.FATAL.equals(log.getLevel());
+    }
+
+    private void triggerAsyncDiagnosisAndNotification(Long logId) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                log.info("Starting automated incident diagnosis for logId={}", logId);
+                Log targetLog = logRepository.findById(logId).orElse(null);
+                if (targetLog == null) {
+                    return;
+                }
+
+                targetLog.setLlmAnalysisStatus(AnalysisStatus.PROCESSING);
+                logRepository.save(targetLog);
+
+                LlmAnalysisRequest llmRequest = llmAnalysisMapper.toRequest(targetLog);
+                LlmAnalysisResponse llmResponse = llmInferenceClient.analyze(llmRequest);
+
+                targetLog.setLlmAnalysisStatus(AnalysisStatus.COMPLETED);
+                targetLog.setLlmAnalyzedAt(LocalDateTime.now());
+                logRepository.save(targetLog);
+
+                IncidentDiagnosis diagnosis = IncidentDiagnosis.builder()
+                        .summary(llmResponse.summary())
+                        .probableRootCause(llmResponse.rootCause())
+                        .severity(llmResponse.severity() != null ? llmResponse.severity() : targetLog.getLevel().name())
+                        .suggestedFix(llmResponse.recommendation())
+                        .remediationCommands(extractRemediationCommands(llmResponse.recommendation()))
+                        .build();
+
+                log.info("Automated incident diagnosis completed for logId={}, dispatching alerts...", logId);
+                notificationService.sendIncidentAlert(targetLog, diagnosis);
+
+            } catch (Exception ex) {
+                log.error("Automated diagnosis failed for logId={}: {}", logId, ex.getMessage());
+                try {
+                    Log failedLog = logRepository.findById(logId).orElse(null);
+                    if (failedLog != null) {
+                        failedLog.setLlmAnalysisStatus(AnalysisStatus.FAILED);
+                        logRepository.save(failedLog);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        });
     }
 
 

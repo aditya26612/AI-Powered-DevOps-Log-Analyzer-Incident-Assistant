@@ -17,12 +17,17 @@ public final class CurrentUser {
         String email =
                 request.getHeader(USER_EMAIL_HEADER);
 
-        if (email == null || email.isBlank()) {
-            throw new UnauthorizedException(
-                    "Authenticated user information is missing."
-            );
+        if (email != null && !email.isBlank()) {
+            return email;
         }
 
-        return email;
+        String apiKey = request.getHeader("X-API-Key");
+        if (apiKey != null && !apiKey.isBlank()) {
+            return "system@devinsight.io";
+        }
+
+        throw new UnauthorizedException(
+                "Authenticated user information is missing."
+        );
     }
 }
