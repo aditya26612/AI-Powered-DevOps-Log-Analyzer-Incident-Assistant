@@ -40,7 +40,7 @@ try {
     $headers = @{
         "Content-Type" = "application/json"
         "X-API-Key" = $ApiKey
-        "X-User-Email" = "devops-alerts@company.com"
+        "X-User-Email" = "gokusengar666@gmail.com"
     }
 
     $response = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/logs" -Method Post -Headers $headers -Body $body
