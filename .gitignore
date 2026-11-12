@@ -53,6 +53,12 @@ logs/
 *.swp
 
 # ==============================
-# Audit / Interview Prep
+# Audit / Interview Prep & Local Notes
 # ==============================
 /interview-prep-audit/
+/docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md
+/docs/DEVINSIGHT_INTERVIEW_MASTER_HANDBOOK.md
+/docs/kubernetes_deployment_guide.md
+/docs/INDUSTRIAL_LOG_ANALYZER_REPORT_AND_BLUEPRINT.md
+/INDUSTRIAL_LOG_ANALYZER_REPORT_AND_BLUEPRINT.md
+*.backup.md

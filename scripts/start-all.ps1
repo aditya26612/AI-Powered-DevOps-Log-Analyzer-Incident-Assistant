@@ -30,7 +30,7 @@ if (-not $InternalApiKey) {
     $InternalApiKey = "devinsight_internal_ml_key_secret_12345"
 }
 
-$RootDir = $PSScriptRoot
+$RootDir = Split-Path -Parent $PSScriptRoot
 
 Write-Host "`n[1/3] Environment Configuration" -ForegroundColor White
 Write-Host "DB_PASSWORD      : [CONFIGURED]" -ForegroundColor Gray

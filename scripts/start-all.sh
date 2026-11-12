@@ -5,7 +5,7 @@
 
 set -e
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 
 export DB_PASSWORD="${DB_PASSWORD:-postgres}"
 export JWT_SECRET="${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}"

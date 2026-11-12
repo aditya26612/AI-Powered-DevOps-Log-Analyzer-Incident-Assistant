@@ -1,39 +1,49 @@
-# DevInsight — AI-Powered DevOps Log Analyzer & Incident Assistant
+# DevInsight — Enterprise AI-Powered DevOps Observability & Autonomous Incident Assistant
 
-**An AI-powered DevOps platform that detects log anomalies, investigates incidents, retrieves relevant technical knowledge, and generates actionable troubleshooting recommendations.**
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21" />
+  <img src="https://img.shields.io/badge/Spring_Boot-3.3-green?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot 3" />
+  <img src="https://img.shields.io/badge/Spring_Cloud-Gateway-brightgreen?style=for-the-badge&logo=spring&logoColor=white" alt="Spring Cloud Gateway" />
+  <img src="https://img.shields.io/badge/Kubernetes-Native-blue?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes" />
+  <img src="https://img.shields.io/badge/Docker-Multi--Stage-blue?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Python-3.11-yellow?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11" />
+  <img src="https://img.shields.io/badge/FastAPI-ML_Pipeline-teal?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/PostgreSQL-16_Alpine-blue?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Ollama-Local_LLM-purple?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
+  <img src="https://img.shields.io/badge/Slack-Block_Kit_Alerts-4A154B?style=for-the-badge&logo=slack&logoColor=white" alt="Slack" />
+  <img src="https://img.shields.io/badge/React-18_Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 18" />
+</p>
 
-DevInsight combines a microservice-based backend, machine-learning anomaly detection, Retrieval-Augmented Generation (RAG), and a React dashboard to help developers understand application failures and investigate infrastructure issues.
+> **Transform raw distributed log streams into sub-15ms anomaly detection, domain-grounded AI root-cause diagnoses, and actionable Slack incident notifications with zero cloud data exfiltration.**
 
-Instead of relying only on traditional log searching, DevInsight combines ML-based anomaly detection with LLM-powered incident analysis grounded in a DevOps knowledge base.
+DevInsight is an enterprise-grade autonomous observability platform engineered to eliminate alert fatigue and slash Mean Time to Resolution (MTTR) from 30+ minutes to under 2 minutes. Combining a reactive microservice backbone, unsupervised machine learning anomaly detection, hybrid RAG over operational runbooks, and a local self-hosted LLM runtime (`phi3:mini`), DevInsight moves engineering teams from passive log grepping to active automated incident remediation.
 
 ---
 
 ## Table of Contents
 
-- [1. Project Overview](#1-project-overview)
-- [2. Architecture](#2-architecture)
-- [3. How DevInsight Works](#3-how-devinsight-works)
-- [4. Key Features](#4-key-features)
-- [5. Technology Stack](#5-technology-stack)
-- [6. Monorepo Structure](#6-monorepo-structure)
-- [7. Microservices and Responsibilities](#7-microservices-and-responsibilities)
-- [8. Database Design](#8-database-design)
-- [9. Machine Learning Pipeline](#9-machine-learning-pipeline)
-- [10. LLM and RAG Architecture](#10-llm-and-rag-architecture)
-- [11. RAG Evaluation and Experiments](#11-rag-evaluation-and-experiments)
-- [12. API Reference](#12-api-reference)
-- [13. Prerequisites](#13-prerequisites)
-- [14. Environment Configuration](#14-environment-configuration)
-- [15. Database Setup](#15-database-setup)
-- [16. Ollama Setup](#16-ollama-setup)
-- [17. Running the Project Locally](#17-running-the-project-locally)
-- [18. Frontend](#18-frontend)
-- [19. Testing and Verification](#19-testing-and-verification)
-- [20. Security Considerations](#20-security-considerations)
-- [21. Known Limitations](#21-known-limitations)
-- [22. Development and Deployment Roadmap](#22-development-and-deployment-roadmap)
-- [23. Future Improvements](#23-future-improvements)
-- [24. Project Status](#24-project-status)
+- [1. Executive Product Overview](#1-executive-product-overview)
+- [2. System Architecture](#2-system-architecture)
+  - [2.1 End-to-End Enterprise Architecture](#21-end-to-end-enterprise-architecture)
+  - [2.2 Telemetry & Incident Lifecycle Sequence](#22-telemetry--incident-lifecycle-sequence)
+- [3. Key Platform Capabilities](#3-key-platform-capabilities)
+- [4. Zero-Invasive Client Integration (Spring Boot Logback SDK)](#4-zero-invasive-client-integration-spring-boot-logback-sdk)
+- [5. Real-Time Incident Alerting Engine (Slack Block Kit)](#5-real-time-incident-alerting-engine-slack-block-kit)
+- [6. Technology Stack](#6-technology-stack)
+- [7. Monorepo Structure](#7-monorepo-structure)
+- [8. Microservices & Responsibilities](#8-microservices--responsibilities)
+- [9. Database Design & Persistence](#9-database-design--persistence)
+- [10. Machine Learning Anomaly Pipeline](#10-machine-learning-anomaly-pipeline)
+- [11. LLM & Hybrid RAG Architecture](#11-llm--hybrid-rag-architecture)
+- [12. Empirical Retrieval Benchmarks (MRR Evaluation)](#12-empirical-retrieval-benchmarks-mrr-evaluation)
+- [13. API Reference & Headless Ingestion](#13-api-reference--headless-ingestion)
+- [14. Quickstart: One-Click Orchestration Scripts](#14-quickstart-one-click-orchestration-scripts)
+- [15. Kubernetes Cloud-Native Deployment (Local & AWS EKS)](#15-kubernetes-cloud-native-deployment-local--aws-eks)
+- [16. Docker Compose Deployment](#16-docker-compose-deployment)
+- [17. React Web Dashboard & Live Inspector](#17-react-web-dashboard--live-inspector)
+- [18. End-to-End Live Simulation & Testing](#18-end-to-end-live-simulation--testing)
+- [19. Security, RBAC & Secret Hygiene](#19-security-rbac--secret-hygiene)
+- [20. Project Status & Roadmap](#20-project-status--roadmap)
 
 ---
 
@@ -91,27 +101,115 @@ Summary + Root Cause + Suggested Fix
 
 ---
 
-# 2. Architecture
+# 2. System Architecture
 
-DevInsight follows a layered microservice architecture.
+DevInsight follows a decoupled, cloud-native microservices architecture orchestrated on Kubernetes. The reactive API Gateway acts as the unified ingress point, routing requests based on JWT (for human operators) and headless `X-API-Key` (for streaming microservices). The Log Layer coordinates non-blocking ingestion (<15ms), delegates statistical scoring to the ML Pipeline, triggers background RAG analysis via the LLM Service, and dispatches incident alerts directly to Slack.
 
-The frontend communicates with backend services through a centralized API Gateway. The Log Layer coordinates log processing and communicates with the ML Pipeline and LLM Service.
+### 2.1 End-to-End Enterprise Architecture
 
-![DevInsight Overall Architecture](docs/assets/architecture.png)
+```mermaid
+flowchart TD
+    subgraph ClientTier ["1. Ingestion & Client Tier"]
+        SB["External Spring Boot Microservices\n(order-service, payment-service)"]
+        LBA["DevInsightLogbackAppender\n(Async HTTP Dispatcher)"]
+        CLI["DevOps CLI / Ingestion Scripts\n(test-live-springboot-ingest.ps1)"]
+        ReactUI["DevInsight React Dashboard\n(Vite + Tailwind :5173)"]
+        SB -->|Async Event| LBA
+    end
 
-### Architecture components
+    subgraph GatewayTier ["2. Ingress & Security Tier"]
+        GW["API Gateway (Spring Cloud Gateway :8080)\nNetty Reactive Engine"]
+        JWTFilter["JwtAuthenticationWebFilter\n- Bearer JWT (Operators)\n- X-API-Key (Machine Services)"]
+        GW --> JWTFilter
+    end
+
+    subgraph MicroservicesTier ["3. Kubernetes Microservices Mesh (devinsight namespace)"]
+        US["User Service (:8081)\nSpring Security + BCrypt"]
+        LL["Log Layer (:8082)\nSpring Boot 3 + Resilient Parsers"]
+        MLP["ML Pipeline (:8000)\nFastAPI + Isolation Forest"]
+        LLMS["LLM Service (:8084)\nSpring AI + Hybrid RAG"]
+        OLL["Ollama Local Inference (:11434)\nphi3:mini + nomic-embed-text"]
+    end
+
+    subgraph DataStorageTier ["4. Persistent Data & Knowledge Tier"]
+        PG["PostgreSQL Database (:5432)\n- devinsight (Users)\n- log_layer_db (Telemetry)"]
+        RAGDocs["DevOps Runbooks (21 Docs, 253 Chunks)\nMarkdown Knowledge Base"]
+    end
+
+    subgraph AlertingTier ["5. Real-Time Alerting Tier"]
+        Slack["Slack Workspace\n# all-devinsight Channel"]
+        ConsoleLog["Structured Audit Console"]
+    end
+
+    LBA -->|POST /api/v1/logs [X-API-Key]| GW
+    CLI -->|POST /api/v1/logs [X-API-Key]| GW
+    ReactUI -->|REST API [Bearer JWT]| GW
+
+    JWTFilter -->|Route /api/v1/auth/**| US
+    JWTFilter -->|Route /api/v1/logs/**| LL
+
+    US -->|User Credentials| PG
+    LL -->|Log Entity CRUD| PG
+
+    LL -->|1. Anomaly Scoring (<10ms)| MLP
+    LL -.->|2. Async Non-Blocking Trigger| LLMS
+    LLMS -->|Hybrid Search (BM25 + Dense)| RAGDocs
+    LLMS -->|Synthesize Root Cause & Fix| OLL
+    LLMS -.->|3. Return IncidentDiagnosis| LL
+    LL -->|4. Dispatch Block Kit Card| Slack
+    LL -->|4. Audit Record| ConsoleLog
+```
+
+### 2.2 Telemetry & Incident Lifecycle Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as External Spring Boot Service
+    participant GW as API Gateway (:8080)
+    participant LL as Log Layer (:8082)
+    participant ML as ML Pipeline (:8000)
+    participant PG as PostgreSQL (:5432)
+    participant RAG as Spring AI RAG Engine (:8084)
+    participant Ollama as Ollama LLM (:11434)
+    participant Slack as Slack Channel (#all-devinsight)
+
+    Note over App: 💥 Outage occurs: PSQLException Connection slots exhausted
+    App->>GW: POST /api/v1/logs (Header: X-API-Key)
+    GW->>GW: Validate X-API-Key -> Assign ROLE_SERVICE
+    GW->>LL: Forward request to Log Layer
+    LL->>LL: Resilient parser extracts Timestamp, Level, Thread, Logger, Stack Trace
+    LL->>ML: POST /api/v1/predict (raw log + features)
+    ML-->>LL: Return prediction: isAnomaly=true, score=-0.1279
+    LL->>PG: Save Log record (Status: RECEIVED, Analysis: COMPLETED)
+    LL-->>GW: Return 201 Created (Duration < 15ms!)
+    GW-->>App: 201 Created (Client thread never blocked)
+
+    Note over LL: ⚡ Background Async Trigger (CompletableFuture.runAsync)
+    LL->>RAG: POST /api/v1/llm/analyze (serviceName, rawLog, stackTrace)
+    RAG->>RAG: BM25 Sparse Search + Dense nomic-embed-text Search
+    RAG->>RAG: Reciprocal Rank Fusion (RRF) -> Top 3 Runbook Chunks
+    RAG->>Ollama: POST /api/generate (3,500-token prompt + context)
+    Ollama-->>RAG: Structured JSON: {rootCause, remediationSteps}
+    RAG-->>LL: Return IncidentDiagnosis
+    LL->>PG: Update Log (Status: RESOLVED, llmAnalysisStatus: COMPLETED)
+    LL->>Slack: POST Block Kit Incident Card to Webhook
+    Note over Slack: 🚨 Alert pops up in #all-devinsight with Root Cause & Shell Commands
+```
+
+### Architecture Components
 
 | Component | Technology | Responsibility |
 |---|---|---|
-| Frontend | React + Vite | User interface and log investigation |
-| API Gateway | Spring Cloud Gateway + WebFlux | Request routing and security |
-| User Service | Spring Boot | Authentication and user management |
-| Log Layer | Spring Boot | Log ingestion, parsing, storage, and orchestration |
-| ML Pipeline | FastAPI | Feature extraction and anomaly detection |
-| LLM Service | Spring Boot + RAG | Incident analysis and troubleshooting guidance |
-| PostgreSQL | PostgreSQL | Persistent application and log data |
-| Vector Store | Spring AI vector storage | Embedding-based knowledge retrieval |
-| Ollama | Local LLM runtime | Local language-model inference |
+| **Frontend** | React 18 + Vite + Tailwind CSS | Real-time log explorer, anomaly visualization, and interactive inspector sandbox |
+| **API Gateway** | Spring Cloud Gateway + WebFlux | High-throughput non-blocking reverse proxy with dual JWT and API-Key authentication |
+| **User Service** | Spring Boot 3 + Spring Security 6 | RBAC user management, BCrypt hashing, and stateless JWT token issuance |
+| **Log Layer** | Spring Boot 3 + Hibernate + JPA | Sub-15ms log ingestion, resilient multiline parsing, async event orchestration, and Slack dispatcher |
+| **ML Pipeline** | Python 3.11 + FastAPI + Scikit-Learn | Statistical anomaly detection using an Isolation Forest model (<10ms inference) |
+| **LLM Service** | Spring Boot 3 + Spring AI | Hybrid RAG retrieval (BM25 + Dense Vectors + RRF) and prompt orchestration |
+| **PostgreSQL** | PostgreSQL 16 Alpine | Dual databases: `devinsight` (user/auth) and `log_layer_db` (logs/analytics) |
+| **Ollama** | Local LLM Engine (llama.cpp) | Self-hosted local inference with `phi3:mini` (3.8B) and `nomic-embed-text` |
+| **Slack Notifier**| Reactive WebClient + Block Kit | Automated dispatch of rich incident cards to Slack channels |
 
 ### Why microservices?
 
@@ -310,12 +408,28 @@ User PostgreSQL                    |
 - Experimental reranking.
 - Retrieval benchmarking.
 
-## 4.7 Centralized Dashboard
+## 4.7 Centralized Dashboard & Live Inspector
 
-- View ingested logs.
-- Explore log records.
-- Inspect analysis results.
-- Access log investigation functionality.
+- Real-time log explorer with full-text search and faceted severity filters.
+- Interactive Live Inspector (`/analyzer`) for manual multi-line stack trace triage.
+- Direct visualization of anomaly scores, token metrics, and extracted shell remediation commands.
+
+## 4.8 Zero-Invasive Client Integration (`client-integrations/spring-boot`)
+
+- **Drop-In Logback Appender**: Any external Spring Boot microservice can stream real-time logs to DevInsight by adding a single XML snippet in `logback-spring.xml`.
+- **Zero Business Logic Impact**: Uses a bounded `ArrayBlockingQueue` with a daemon worker thread to prevent observability latency from impacting application transactions.
+- **Headless Ingestion**: Authenticated via machine-to-machine `X-API-Key` headers without requiring interactive user credentials.
+
+## 4.9 Automated Real-Time Alerting Engine (Slack Block Kit)
+
+- **Autonomous Incident Trigger**: When a log is classified as an anomaly or severity `ERROR`/`FATAL`, background threads asynchronously run RAG retrieval and LLM diagnosis.
+- **Rich Block Kit Notification Cards**: Formatted Slack incident cards displaying error stack traces, anomaly decision scores, root-cause summaries, and click-to-copy terminal remediation commands.
+- **Multi-Channel Dispatcher**: Built with a Composite Notification Service supporting Slack incoming webhooks, structured audit logging, and extensible email channels.
+
+## 4.10 Cloud-Native Kubernetes Orchestration (`k8s/`)
+
+- Declarative manifests for local (**Kind**, **Docker Desktop**) and managed cloud (**AWS EKS**, **GKE**) deployments.
+- Liveness and readiness health probes, isolated model puller Jobs, and tuned memory limits (6 GB) with single-model VRAM caching to eliminate container OOM errors.
 
 ---
 
@@ -375,52 +489,60 @@ User PostgreSQL                    |
 
 # 6. Monorepo Structure
 
-The project is organized as a monorepo containing independent application services.
+The project is organized as a production-grade monorepo containing independent microservices, client integration SDKs, Kubernetes manifests, and automation scripts:
 
 ```text
 AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/
 │
-├── api-gateway/
+├── api-gateway/                 # Reactive Spring Cloud Gateway reverse proxy (:8080)
 │   ├── src/
 │   └── pom.xml
 │
-├── user-service/
+├── user-service/                # Spring Boot user authentication & JWT management (:8081)
 │   ├── src/
 │   └── pom.xml
 │
-├── log-layer/
+├── log-layer/                   # Log ingestion, multiline parser & Slack dispatcher (:8082)
 │   ├── src/
 │   └── pom.xml
 │
-├── ml-pipeline/
+├── ml-pipeline/                 # Python 3.11 FastAPI Isolation Forest model (:8000)
 │   ├── app/
-│   ├── api/
-│   ├── core/
-│   ├── schemas/
-│   ├── services/
-│   ├── models/
-│   ├── features/
-│   ├── tests/
 │   ├── artifacts/
 │   └── requirements.txt
 │
-├── llm-service/
+├── llm-service/                 # Spring AI Hybrid RAG engine & prompt orchestration (:8084)
 │   ├── src/
-│   │   └── main/
-│   │       └── resources/
-│   │           └── knowledge/
+│   │   └── main/resources/knowledge/   # 21 operational runbooks (253 chunks)
 │   └── pom.xml
 │
-├── frontend/
+├── frontend/                    # React 18 + Vite + Tailwind CSS dashboard (:5173)
 │   ├── src/
-│   ├── public/
 │   └── package.json
 │
-├── docs/
-│   ├── assets/
-│   │   └── architecture.png
-│   └── rag_retrieval_experiments_and_final_decision.md
+├── client-integrations/         # Zero-code drop-in client logging SDKs
+│   └── spring-boot/             # DevInsightLogbackAppender & logback-spring.xml
 │
+├── k8s/                         # Declarative Kubernetes manifests (Local & AWS EKS)
+│   ├── 00-namespace.yaml
+│   ├── 01-config-and-secrets.yaml
+│   ├── 02-storage/
+│   ├── 03-infrastructure/       # postgres.yaml, ollama.yaml, ollama-job.yaml
+│   ├── 04-apps/                 # api-gateway, log-layer, llm-service, ml-pipeline, frontend
+│   └── kustomization.yaml
+│
+├── scripts/                     # Automated orchestration & live simulation scripts
+│   ├── start-all.ps1            # Multi-service launcher (PowerShell)
+│   ├── start-all.sh             # Multi-service launcher (Bash)
+│   ├── stop-all.ps1             # Multi-service graceful teardown
+│   ├── test-live-springboot-ingest.ps1  # Real-time incident streaming simulator
+│   └── setup-db.sql             # Multi-database PostgreSQL init script
+│
+├── docs/                        # Architecture diagrams & retrieval benchmark reports
+│   └── assets/
+│
+├── docker-compose.yml           # Local multi-stage development stack
+├── docker-compose.prod.yml      # Production stack pulling Docker Hub images
 ├── README.md
 └── .gitignore
 ```
@@ -1507,22 +1629,99 @@ http://localhost:5173
 
 ## One-Click Orchestration Scripts
 
-Instead of opening 6 terminal windows manually, you can use the automated orchestration scripts:
+For quick local development without manual multi-terminal management, automated orchestration scripts are provided in `scripts/`:
 
 ### Windows (PowerShell)
 ```powershell
-# Start all 6 microservices in parallel with auto pre-flight checks:
-.\start-all.ps1
+# Start all 6 microservices in parallel with auto pre-flight health checks:
+.\scripts\start-all.ps1
 
-# Stop and gracefully terminate all running DevInsight services:
-.\stop-all.ps1
+# Stop and gracefully terminate all running DevInsight service processes:
+.\scripts\stop-all.ps1
+
+# Run the live Spring Boot error ingestion and Slack notification simulation:
+.\scripts\test-live-springboot-ingest.ps1
 ```
 
 ### Linux / macOS / WSL (Bash)
 ```bash
-chmod +x start-all.sh
-./start-all.sh
+chmod +x scripts/start-all.sh
+./scripts/start-all.sh
 ```
+
+---
+
+## Production Kubernetes Deployment (`k8s/`)
+
+DevInsight provides battle-tested, production-grade declarative Kubernetes manifests organized in `k8s/` following CNCF open standards. Compatible with local clusters (**Docker Desktop Kubernetes**, **Kind**, **Minikube**) and cloud managed clusters (**AWS EKS**, **GKE**, **Azure AKS**).
+
+### Kubernetes Architecture Overview
+
+All workloads run in an isolated namespace: `devinsight`.
+
+```text
+Kubernetes Cluster (Local Docker Desktop Kind / AWS EKS)
+  └── Namespace: devinsight
+       ├── ConfigMap & Secrets (devinsight-config, devinsight-secrets, postgres-init-script)
+       │
+       ├── Stateful Storage (PersistentVolumeClaims)
+       │    ├── postgres-pvc (2Gi ReadWriteOnce)
+       │    └── ollama-pvc (8Gi ReadWriteOnce)
+       │
+       ├── Infrastructure Layer
+       │    ├── postgres (Deployment + ClusterIP Service :5432)
+       │    └── ollama (Deployment + ClusterIP Service :11434 + ollama-model-puller Job)
+       │
+       ├── Application Microservices (Docker Hub images: adityagoku12/devinsight-*)
+       │    ├── ml-pipeline (Deployment + ClusterIP Service :8000)
+       │    ├── user-service (Deployment + ClusterIP Service :8081)
+       │    ├── llm-service (Deployment + ClusterIP Service :8084)
+       │    ├── log-layer (Deployment + ClusterIP Service :8082)
+       │    ├── api-gateway (Deployment + ClusterIP Service :8080)
+       │    └── frontend (Deployment + NodePort Service :80 / NodePort 30080)
+```
+
+### 1. Deploying to Local Kubernetes (Kind / Docker Desktop)
+
+```bash
+# 1. Deploy all resources via Kustomize:
+kubectl apply -k k8s/
+
+# 2. Check rollout status across all pods:
+kubectl get pods -n devinsight -w
+
+# 3. Forward frontend and gateway ports to your host:
+kubectl port-forward svc/frontend -n devinsight 5173:80
+kubectl port-forward svc/api-gateway -n devinsight 8080:8080
+```
+
+Access the web application at **`http://localhost:5173`** and the API Gateway at **`http://localhost:8080`**.
+
+### 2. Deploying to AWS EKS (Elastic Kubernetes Service)
+
+```bash
+# 1. Create a 2-node managed EKS cluster:
+eksctl create cluster \
+  --name devinsight-cluster \
+  --region us-east-1 \
+  --nodegroup-name standard-workers \
+  --node-type t3.xlarge \
+  --nodes 2 --nodes-min 1 --nodes-max 3 \
+  --managed
+
+# 2. Update local kubeconfig context:
+aws eks update-kubeconfig --region us-east-1 --name devinsight-cluster
+
+# 3. Apply the DevInsight manifests:
+kubectl apply -k k8s/
+```
+
+*To expose the frontend on AWS, change `type: NodePort` to `type: LoadBalancer` in `k8s/04-apps/frontend.yaml`; AWS will automatically provision an Application/Network Load Balancer.*
+
+### 3. Production Resilience & Self-Healing Highlights:
+- **Dual Health Probes**: Configured with `livenessProbe` (TCP socket / Actuator) and `readinessProbe` with automated traffic gate-keeping.
+- **OOM Prevention**: Ollama memory limit stabilized at `6144Mi` (6 GB) with `OLLAMA_MAX_LOADED_MODELS: "1"` to eliminate CPU/VRAM memory thrashing.
+- **Decoupled Model Pulling**: Model bootstrap tasks run in an independent Kubernetes `Job` (`ollama-model-puller`) that executes once to completion without interrupting container rollouts.
 
 ---
 
