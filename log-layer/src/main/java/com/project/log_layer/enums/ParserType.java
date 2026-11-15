@@ -19,6 +19,9 @@ public enum ParserType {
     REDIS,
     MYSQL,
     SYSTEM,
-    CUSTOM
+    CUSTOM,
+    PYTHON,
+    NODEJS,
+    GO
 
 }

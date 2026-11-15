@@ -17,6 +17,9 @@ public enum LogSource {
     REDIS,
     MYSQL,
     SYSTEM,
-    CUSTOM
+    CUSTOM,
+    PYTHON,
+    NODEJS,
+    GO
 
 }

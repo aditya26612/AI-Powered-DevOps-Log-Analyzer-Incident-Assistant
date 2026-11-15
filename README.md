@@ -431,6 +431,29 @@ User PostgreSQL                    |
 - Declarative manifests for local (**Kind**, **Docker Desktop**) and managed cloud (**AWS EKS**, **GKE**) deployments.
 - Liveness and readiness health probes, isolated model puller Jobs, and tuned memory limits (6 GB) with single-model VRAM caching to eliminate container OOM errors.
 
+## 4.11 Multi-Tech-Stack Application Integrations Hub (`/integrations`)
+
+- **Multi-Runtime Ingestion SDKs**: Zero-code drop-in telemetry handlers for:
+  - **Python (FastAPI / Django / Flask)**: Asynchronous non-blocking `DevInsightHandler` & ASGI middleware.
+  - **Node.js (Express / NestJS)**: Custom Winston and Pino transports capturing unhandled v8 stack traces.
+  - **Go (Zap / Slog / Logrus)**: Buffered HTTP hook with goroutine panic recovery.
+  - **Kubernetes & Docker**: Fluent Bit DaemonSet scraping stdout/stderr across pods with namespace tagging.
+  - **Database & Infra**: Syslog and error log collectors for PostgreSQL, Redis, and Nginx.
+  - **Java / Spring Boot**: Drop-in XML `DevInsightLogbackAppender`.
+- **Application Integration Management API**: Secure endpoints (`/api/v1/integrations/*`) allowing engineering teams to register services, generate unique API keys (`dvi_...`), configure alert sensitivity, and execute one-click live simulation tests.
+
+## 4.12 Dynamic Per-Service Slack Alert Routing Engine
+
+- **Targeted Notification Channels**: Eliminates alert fatigue by routing incident alerts to specific team webhooks and channel tags (e.g. routing `checkout-service` failures to `#python-test` and database panics to `#infra-alerts`).
+- **Dynamic Webhook Resolution**: `SlackNotificationService` resolves custom webhook URLs from the service registry, gracefully falling back to `#all-devinsight` if unspecified.
+- **Rich Block Kit Incident Cards**: Automated incident cards with severity indicators, microservice tags, statistical anomaly scores, root-cause explanations, and executable shell remediation commands.
+
+## 4.13 Enterprise Observability Dark Mode (Datadog / Grafana APM Style)
+
+- **Unified Dark Theme**: Modern high-contrast observability palette (`#090d16` background, `#0f172a` surfaces, `#6366f1` indigo accents) optimized for high-stress operational debugging.
+- **Interactive Live Inspector Sandbox**: Test multi-line stack traces with instant ML anomaly scoring, token metrics, and terminal remediation extraction.
+- **Deployment Pipeline Telemetry Graph**: Visual 4-stage pipeline tracker (Ingested → ML Anomaly Scored → RAG Diagnosed → Slack Dispatched) with real-time millisecond latency chips.
+
 ---
 
 # 5. Technology Stack
@@ -520,8 +543,11 @@ AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/
 │   ├── src/
 │   └── package.json
 │
-├── client-integrations/         # Zero-code drop-in client logging SDKs
-│   └── spring-boot/             # DevInsightLogbackAppender & logback-spring.xml
+├── client-integrations/         # Universal drop-in client logging SDKs & manifests
+│   ├── spring-boot/             # DevInsightLogbackAppender.java & logback-spring.xml
+│   ├── python/                  # DevInsightHandler.py (logging.Handler) & ASGI middleware
+│   ├── nodejs/                  # DevInsightTransport.js (Winston / Pino transport)
+│   └── kubernetes/              # fluent-bit-daemonset.yaml (Cluster-wide container scraper)
 │
 ├── k8s/                         # Declarative Kubernetes manifests (Local & AWS EKS)
 │   ├── 00-namespace.yaml
@@ -581,9 +607,10 @@ Responsibilities:
 ### Configured routes
 
 ```text
-/api/v1/auth/**   → User Service (:8081)
-/api/v1/users/**  → User Service (:8081)
-/api/v1/logs/**   → Log Layer (:8082)
+/api/v1/auth/**          → User Service (:8081)
+/api/v1/users/**         → User Service (:8081)
+/api/v1/logs/**          → Log Layer (:8082)
+/api/v1/integrations/**  → Log Layer (:8082)
 ```
 
 The Gateway uses reactive security configuration through `SecurityWebFilterChain`.
@@ -1234,7 +1261,45 @@ SUGGESTED_FIX
 DELETE /api/v1/logs/{id}
 ```
 
-## 12.3 ML Pipeline APIs
+## 12.3 Application Integration & Telemetry Hub APIs
+
+| Method | Endpoint | Description |
+|---|---|---|
+| **POST** | `/api/v1/integrations/register` | Register a microservice integration, tech stack, Slack webhook URL & channel tag |
+| **GET** | `/api/v1/integrations/list` | List all active registered integrations for the authenticated user |
+| **POST** | `/api/v1/integrations/test` | Execute an end-to-end ingestion, ML anomaly scoring, and Slack dispatch test |
+| **DELETE** | `/api/v1/integrations/{id}` | De-register an application integration and invalidate its API credentials |
+
+#### Register Integration Request:
+```json
+{
+  "applicationName": "checkout-service",
+  "techStack": "PYTHON",
+  "environment": "PRODUCTION",
+  "slackWebhookUrl": "https://hooks.slack.com/services/T00/B00/XXXXX",
+  "slackChannel": "#python-test",
+  "alertOnAnomaly": true,
+  "alertOnError": true
+}
+```
+
+#### Register Integration Response:
+```json
+{
+  "id": 1,
+  "applicationName": "checkout-service",
+  "techStack": "PYTHON",
+  "environment": "PRODUCTION",
+  "apiKey": "dvi_866d4abdc05e42c59b0fbe8b179e8828",
+  "slackChannel": "#python-test",
+  "alertOnAnomaly": true,
+  "alertOnError": true,
+  "status": "ACTIVE",
+  "createdAt": "2026-11-15T16:30:00Z"
+}
+```
+
+## 12.4 ML Pipeline APIs
 
 | Method | Endpoint |
 |---|---|
@@ -1243,7 +1308,7 @@ DELETE /api/v1/logs/{id}
 | GET | `/api/v1/system/health` |
 | GET | `/api/v1/system/model` |
 
-## 12.4 LLM Service APIs
+## 12.5 LLM Service APIs
 
 | Method | Endpoint |
 |---|---|

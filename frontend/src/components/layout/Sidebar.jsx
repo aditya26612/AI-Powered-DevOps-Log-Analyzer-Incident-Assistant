@@ -5,6 +5,7 @@ import {
   Activity,
   CircleCheck,
   Terminal,
+  Layers,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -35,6 +36,16 @@ const Sidebar = () => {
         >
           <LayoutDashboard size={18} />
           <span>Overview</span>
+        </NavLink>
+
+        <NavLink
+          to="/integrations"
+          className={({ isActive }) =>
+            `sidebar-link ${isActive ? "active" : ""}`
+          }
+        >
+          <Layers size={18} />
+          <span>Integrations Hub</span>
         </NavLink>
 
         <NavLink

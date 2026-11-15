@@ -281,6 +281,7 @@
   .auth-card {
     padding: 22px;
   }
+}
 
 /* =========================================================
    AUTH DESIGN SYSTEM ALIGNMENT
@@ -316,21 +317,22 @@
 }
 
 .auth-field label {
-  color: var(--text-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .auth-field input,
 .auth-field select {
-  border-color: var(--border);
-  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #080d19;
   color: var(--text-primary);
 }
 
 .auth-field input:focus,
 .auth-field select:focus {
   border-color: var(--primary);
-  box-shadow:
-    0 0 0 3px var(--primary-soft);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 .auth-submit {
@@ -343,7 +345,4 @@
 
 .auth-footer button {
   color: var(--primary);
-}  
-
-
 }

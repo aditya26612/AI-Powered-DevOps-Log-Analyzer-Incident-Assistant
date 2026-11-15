@@ -33,4 +33,28 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      const publicEndpoints = [
+        "/api/v1/auth/register",
+        "/api/v1/auth/login",
+      ];
+      const isPublic = publicEndpoints.some((url) =>
+        error.config?.url?.endsWith(url)
+      );
+
+      if (!isPublic) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        if (!window.location.pathname.startsWith("/login")) {
+          window.location.href = "/login";
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

@@ -172,6 +172,24 @@ public class LogServiceImpl implements LogService {
         log.setCorrelationId(
                 generateCorrelationId(request)
         );
+
+        if (log.getEnvironment() == null) {
+            log.setEnvironment(request.getEnvironment() != null
+                    ? request.getEnvironment()
+                    : com.project.log_layer.enums.Environment.PRODUCTION);
+        }
+
+        if (log.getApplicationName() == null || log.getApplicationName().isBlank()) {
+            log.setApplicationName(request.getApplicationName() != null ? request.getApplicationName() : "unknown-app");
+        }
+
+        if (log.getSource() == null && request.getSource() != null) {
+            log.setSource(request.getSource());
+        }
+
+        if (log.getRawLog() == null && request.getRawLog() != null) {
+            log.setRawLog(request.getRawLog());
+        }
     }
 
 

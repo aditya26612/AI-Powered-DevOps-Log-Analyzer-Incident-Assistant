@@ -34,7 +34,8 @@ public class GatewayConfig {
 
                 .route("log-service", route -> route
                         .path("/api/v1/logs/**",
-                                "/api/v1/analyzer/**")
+                                "/api/v1/analyzer/**",
+                                "/api/v1/integrations/**")
 //                        .filters(filter -> filter
 //                                .requestRateLimiter(config -> config
 //                                        .setRateLimiter(redisRateLimiter)
