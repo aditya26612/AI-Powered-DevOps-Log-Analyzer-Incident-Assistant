@@ -53,7 +53,13 @@ logs/
 *.swp
 
 # ==============================
-# Audit / Interview Prep & Local Notes
+# Local Benchmarks / In Documentation
+# ==============================
+/benchmarks/
+/docs/DEVINSIGHT_INTERVIEW_MASTER_HANDBOOK.md
+
+# ==============================
+# Audit / In doc & Local Notes
 # ==============================
 /interview-prep-audit/
 /extra_info/
