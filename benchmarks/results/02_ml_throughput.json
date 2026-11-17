@@ -1,0 +1,17 @@
+{
+  "benchmark": "02_ml_throughput",
+  "url": "http://localhost:8000/api/v1/predict",
+  "n_requests": 50,
+  "n_success": 50,
+  "n_errors": 0,
+  "anomaly_detected": 17,
+  "normal_classified": 33,
+  "p50_ms": 2088.43,
+  "p95_ms": 2130.71,
+  "p99_ms": 2147.61,
+  "mean_ms": 2089.91,
+  "min_ms": 2057.3,
+  "max_ms": 2147.61,
+  "throughput_rps": 0.48,
+  "detections_per_second": 0.16
+}

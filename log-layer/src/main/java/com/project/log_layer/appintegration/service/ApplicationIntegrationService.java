@@ -2,6 +2,7 @@ package com.project.log_layer.appintegration.service;
 
 import com.project.log_layer.appintegration.dto.request.CreateIntegrationRequest;
 import com.project.log_layer.appintegration.dto.request.TestIntegrationRequest;
+import com.project.log_layer.appintegration.dto.response.ApiKeyVerificationResponse;
 import com.project.log_layer.appintegration.dto.response.ApplicationIntegrationResponse;
 import com.project.log_layer.appintegration.dto.response.TestIntegrationResponse;
 
@@ -18,5 +19,7 @@ public interface ApplicationIntegrationService {
     void deleteIntegration(Long id, String userEmail);
 
     TestIntegrationResponse runTestSimulation(TestIntegrationRequest request, String userEmail);
+
+    ApiKeyVerificationResponse verifyApiKey(String apiKey);
 }
 

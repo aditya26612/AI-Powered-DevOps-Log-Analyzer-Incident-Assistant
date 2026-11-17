@@ -1,0 +1,724 @@
+{
+  "benchmark": "07_test_suite_count",
+  "surefire_reports_found": 71,
+  "total_tests": 218,
+  "total_passing": 216,
+  "total_failures": 0,
+  "total_errors": 2,
+  "total_skipped": 0,
+  "pass_rate_pct": 99.1,
+  "test_source_files_found": 0,
+  "suites": [
+    {
+      "file": "TEST-com.project.llmservice.LlmServiceApplicationTests.xml",
+      "suite_name": "com.project.llmservice.LlmServiceApplicationTests",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.014
+    },
+    {
+      "file": "TEST-com.project.llmservice.config.ApplicationConfigTest.xml",
+      "suite_name": "com.project.llmservice.config.ApplicationConfigTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.488
+    },
+    {
+      "file": "TEST-com.project.llmservice.config.OllamaConfigTest.xml",
+      "suite_name": "com.project.llmservice.config.OllamaConfigTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.946
+    },
+    {
+      "file": "TEST-com.project.llmservice.config.RestClientConfigTest.xml",
+      "suite_name": "com.project.llmservice.config.RestClientConfigTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.045
+    },
+    {
+      "file": "TEST-com.project.llmservice.constants.ApiConstantsTest.xml",
+      "suite_name": "com.project.llmservice.constants.ApiConstantsTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.007
+    },
+    {
+      "file": "TEST-com.project.llmservice.constants.ModelConstantsTest.xml",
+      "suite_name": "com.project.llmservice.constants.ModelConstantsTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.003
+    },
+    {
+      "file": "TEST-com.project.llmservice.constants.PromptConstantsTest.xml",
+      "suite_name": "com.project.llmservice.constants.PromptConstantsTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.015
+    },
+    {
+      "file": "TEST-com.project.llmservice.controller.LlmAnalysisControllerTest.xml",
+      "suite_name": "com.project.llmservice.controller.LlmAnalysisControllerTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 2.277
+    },
+    {
+      "file": "TEST-com.project.llmservice.controller.SystemControllerTest.xml",
+      "suite_name": "com.project.llmservice.controller.SystemControllerTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.286
+    },
+    {
+      "file": "TEST-com.project.llmservice.controller.TestControllerTest.xml",
+      "suite_name": "com.project.llmservice.controller.TestControllerTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.315
+    },
+    {
+      "file": "TEST-com.project.llmservice.core.enums.AnalysisStatusTest.xml",
+      "suite_name": "com.project.llmservice.core.enums.AnalysisStatusTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.004
+    },
+    {
+      "file": "TEST-com.project.llmservice.core.enums.SeverityTest.xml",
+      "suite_name": "com.project.llmservice.core.enums.SeverityTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.003
+    },
+    {
+      "file": "TEST-com.project.llmservice.dto.request.LlmAnalysisRequestValidationTest.xml",
+      "suite_name": "com.project.llmservice.dto.request.LlmAnalysisRequestValidationTest",
+      "tests": 3,
+      "passing": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.041
+    },
+    {
+      "file": "TEST-com.project.llmservice.dto.response.ErrorResponseTest.xml",
+      "suite_name": "com.project.llmservice.dto.response.ErrorResponseTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.005
+    },
+    {
+      "file": "TEST-com.project.llmservice.dto.response.HealthResponseTest.xml",
+      "suite_name": "com.project.llmservice.dto.response.HealthResponseTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.003
+    },
+    {
+      "file": "TEST-com.project.llmservice.dto.response.LlmAnalysisResponseTest.xml",
+      "suite_name": "com.project.llmservice.dto.response.LlmAnalysisResponseTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.002
+    },
+    {
+      "file": "TEST-com.project.llmservice.embeddings.EmbeddingServiceTest.xml",
+      "suite_name": "com.project.llmservice.embeddings.EmbeddingServiceTest",
+      "tests": 3,
+      "passing": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.08
+    },
+    {
+      "file": "TEST-com.project.llmservice.embeddings.impl.OllamaEmbeddingModelProviderTest.xml",
+      "suite_name": "com.project.llmservice.embeddings.impl.OllamaEmbeddingModelProviderTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.068
+    },
+    {
+      "file": "TEST-com.project.llmservice.exception.ExceptionTest.xml",
+      "suite_name": "com.project.llmservice.exception.ExceptionTest",
+      "tests": 10,
+      "passing": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.022
+    },
+    {
+      "file": "TEST-com.project.llmservice.health.LlmHealthActuatorTest.xml",
+      "suite_name": "com.project.llmservice.health.LlmHealthActuatorTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 17.334
+    },
+    {
+      "file": "TEST-com.project.llmservice.health.LlmHealthIndicatorTest.xml",
+      "suite_name": "com.project.llmservice.health.LlmHealthIndicatorTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.008
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.BM25RetrievalBenchmarkTest.xml",
+      "suite_name": "com.project.llmservice.integration.BM25RetrievalBenchmarkTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 14.35
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.BM25RetrieverIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.BM25RetrieverIntegrationTest",
+      "tests": 3,
+      "passing": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.092
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.EmbeddingOllamaIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.EmbeddingOllamaIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.055
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.HybridRetrievalBenchmarkTest.xml",
+      "suite_name": "com.project.llmservice.integration.HybridRetrievalBenchmarkTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 3.748
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.LlmAnalysisApiIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.LlmAnalysisApiIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 24.675
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.LlmAnalysisFailureApiIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.LlmAnalysisFailureApiIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 14.334
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.LlmAnalysisOllamaIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.LlmAnalysisOllamaIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 10.809
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.LlmAnalysisParsingFailureApiIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.LlmAnalysisParsingFailureApiIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 14.026
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.LlmAnalysisProviderFailureApiIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.LlmAnalysisProviderFailureApiIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.052
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.LlmAnalysisResponseParsingFailureApiIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.LlmAnalysisResponseParsingFailureApiIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 13.576
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.LlmAnalysisRetrievalFailureApiIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.LlmAnalysisRetrievalFailureApiIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 13.51
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.RagIngestionRetrievalIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.RagIngestionRetrievalIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.147
+    },
+    {
+      "file": "TEST-com.project.llmservice.integration.VectorRetrievalIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.integration.VectorRetrievalIntegrationTest",
+      "tests": 3,
+      "passing": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 18.956
+    },
+    {
+      "file": "TEST-com.project.llmservice.mapper.RequestMapperTest.xml",
+      "suite_name": "com.project.llmservice.mapper.RequestMapperTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.001
+    },
+    {
+      "file": "TEST-com.project.llmservice.parser.JsonResponseParserTest.xml",
+      "suite_name": "com.project.llmservice.parser.JsonResponseParserTest",
+      "tests": 3,
+      "passing": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.006
+    },
+    {
+      "file": "TEST-com.project.llmservice.prompt.PromptBuilderTest.xml",
+      "suite_name": "com.project.llmservice.prompt.PromptBuilderTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.08
+    },
+    {
+      "file": "TEST-com.project.llmservice.prompt.PromptContextTest.xml",
+      "suite_name": "com.project.llmservice.prompt.PromptContextTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.001
+    },
+    {
+      "file": "TEST-com.project.llmservice.prompt.PromptIntegrationTest.xml",
+      "suite_name": "com.project.llmservice.prompt.PromptIntegrationTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.002
+    },
+    {
+      "file": "TEST-com.project.llmservice.prompt.PromptTemplateLoaderTest.xml",
+      "suite_name": "com.project.llmservice.prompt.PromptTemplateLoaderTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.002
+    },
+    {
+      "file": "TEST-com.project.llmservice.prompt.PromptValidatorTest.xml",
+      "suite_name": "com.project.llmservice.prompt.PromptValidatorTest",
+      "tests": 4,
+      "passing": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.003
+    },
+    {
+      "file": "TEST-com.project.llmservice.properties.ApplicationPropertiesTest.xml",
+      "suite_name": "com.project.llmservice.properties.ApplicationPropertiesTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.002
+    },
+    {
+      "file": "TEST-com.project.llmservice.properties.OllamaPropertiesTest.xml",
+      "suite_name": "com.project.llmservice.properties.OllamaPropertiesTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.002
+    },
+    {
+      "file": "TEST-com.project.llmservice.properties.PromptPropertiesTest.xml",
+      "suite_name": "com.project.llmservice.properties.PromptPropertiesTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.002
+    },
+    {
+      "file": "TEST-com.project.llmservice.provider.ProviderFactoryTest.xml",
+      "suite_name": "com.project.llmservice.provider.ProviderFactoryTest",
+      "tests": 3,
+      "passing": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.004
+    },
+    {
+      "file": "TEST-com.project.llmservice.provider.impl.OllamaProviderImplTest.xml",
+      "suite_name": "com.project.llmservice.provider.impl.OllamaProviderImplTest",
+      "tests": 5,
+      "passing": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.103
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.DocumentLoaderTest.xml",
+      "suite_name": "com.project.llmservice.rag.DocumentLoaderTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.002
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.HybridRetrieverTest.xml",
+      "suite_name": "com.project.llmservice.rag.HybridRetrieverTest",
+      "tests": 24,
+      "passing": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.079
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.KnowledgeDocumentTest.xml",
+      "suite_name": "com.project.llmservice.rag.KnowledgeDocumentTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.0
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.RagIngestionServiceTest.xml",
+      "suite_name": "com.project.llmservice.rag.RagIngestionServiceTest",
+      "tests": 6,
+      "passing": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.093
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.ResourceDocumentLoaderTest.xml",
+      "suite_name": "com.project.llmservice.rag.ResourceDocumentLoaderTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.005
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.RetrievalResultTest.xml",
+      "suite_name": "com.project.llmservice.rag.RetrievalResultTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.001
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.RetrieverTest.xml",
+      "suite_name": "com.project.llmservice.rag.RetrieverTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.001
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.SimpleRetrieverTest.xml",
+      "suite_name": "com.project.llmservice.rag.SimpleRetrieverTest",
+      "tests": 5,
+      "passing": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.007
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.bm25.BM25IndexTest.xml",
+      "suite_name": "com.project.llmservice.rag.bm25.BM25IndexTest",
+      "tests": 15,
+      "passing": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.015
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.bm25.BM25RetrieverTest.xml",
+      "suite_name": "com.project.llmservice.rag.bm25.BM25RetrieverTest",
+      "tests": 9,
+      "passing": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.013
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.reranker.LexicalRerankerTest.xml",
+      "suite_name": "com.project.llmservice.rag.reranker.LexicalRerankerTest",
+      "tests": 4,
+      "passing": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.006
+    },
+    {
+      "file": "TEST-com.project.llmservice.rag.splitter.SimpleDocumentSplitterTest.xml",
+      "suite_name": "com.project.llmservice.rag.splitter.SimpleDocumentSplitterTest",
+      "tests": 12,
+      "passing": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.014
+    },
+    {
+      "file": "TEST-com.project.llmservice.service.impl.HealthServiceImplTest.xml",
+      "suite_name": "com.project.llmservice.service.impl.HealthServiceImplTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.001
+    },
+    {
+      "file": "TEST-com.project.llmservice.service.impl.LlmAnalysisServiceImplTest.xml",
+      "suite_name": "com.project.llmservice.service.impl.LlmAnalysisServiceImplTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.106
+    },
+    {
+      "file": "TEST-com.project.llmservice.service.impl.TestLlmServiceImplTest.xml",
+      "suite_name": "com.project.llmservice.service.impl.TestLlmServiceImplTest",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.003
+    },
+    {
+      "file": "TEST-com.project.llmservice.vectorstore.InMemoryVectorStoreTest.xml",
+      "suite_name": "com.project.llmservice.vectorstore.InMemoryVectorStoreTest",
+      "tests": 9,
+      "passing": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.051
+    },
+    {
+      "file": "TEST-com.project.llmservice.vectorstore.VectorStoreServiceTest.xml",
+      "suite_name": "com.project.llmservice.vectorstore.VectorStoreServiceTest",
+      "tests": 4,
+      "passing": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.007
+    },
+    {
+      "file": "TEST-com.project.llmservice.vectorstore.VectorStoreTest.xml",
+      "suite_name": "com.project.llmservice.vectorstore.VectorStoreTest",
+      "tests": 14,
+      "passing": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.02
+    },
+    {
+      "file": "TEST-com.project.log_layer.LogLayerApplicationTests.xml",
+      "suite_name": "com.project.log_layer.LogLayerApplicationTests",
+      "tests": 1,
+      "passing": 0,
+      "failures": 0,
+      "errors": 1,
+      "skipped": 0,
+      "time_s": 5.1
+    },
+    {
+      "file": "TEST-com.project.log_layer.appintegration.service.impl.ApplicationIntegrationServiceTest.xml",
+      "suite_name": "com.project.log_layer.appintegration.service.impl.ApplicationIntegrationServiceTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.914
+    },
+    {
+      "file": "TEST-com.project.log_layer.integration.client.WebClientLlmInferenceClientTest.xml",
+      "suite_name": "com.project.log_layer.integration.client.WebClientLlmInferenceClientTest",
+      "tests": 4,
+      "passing": 3,
+      "failures": 0,
+      "errors": 1,
+      "skipped": 0,
+      "time_s": 1.343
+    },
+    {
+      "file": "TEST-com.project.log_layer.parser.ResilientParserTest.xml",
+      "suite_name": "com.project.log_layer.parser.ResilientParserTest",
+      "tests": 5,
+      "passing": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.024
+    },
+    {
+      "file": "TEST-com.project.log_layer.service.impl.LogServiceImplTest.xml",
+      "suite_name": "com.project.log_layer.service.impl.LogServiceImplTest",
+      "tests": 11,
+      "passing": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 1.741
+    },
+    {
+      "file": "TEST-com.project.log_layer.service.impl.LogServiceInspectTest.xml",
+      "suite_name": "com.project.log_layer.service.impl.LogServiceInspectTest",
+      "tests": 2,
+      "passing": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 0.145
+    },
+    {
+      "file": "TEST-com.project.demouserservice.DemoUserServiceApplicationTests.xml",
+      "suite_name": "com.project.demouserservice.DemoUserServiceApplicationTests",
+      "tests": 1,
+      "passing": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_s": 4.883
+    }
+  ],
+  "note": "LLM service: 192 tests, ML pipeline: 18 tests (from documented run history)"
+}

@@ -2,6 +2,7 @@ package com.project.log_layer.appintegration.controller;
 
 import com.project.log_layer.appintegration.dto.request.CreateIntegrationRequest;
 import com.project.log_layer.appintegration.dto.request.TestIntegrationRequest;
+import com.project.log_layer.appintegration.dto.response.ApiKeyVerificationResponse;
 import com.project.log_layer.appintegration.dto.response.ApplicationIntegrationResponse;
 import com.project.log_layer.appintegration.dto.response.TestIntegrationResponse;
 import com.project.log_layer.appintegration.service.ApplicationIntegrationService;
@@ -69,6 +70,12 @@ public class ApplicationIntegrationController {
         String userEmail = CurrentUser.getEmail(servletRequest);
         TestIntegrationResponse response = integrationService.runTestSimulation(request, userEmail);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/verify-key")
+    public ResponseEntity<ApiKeyVerificationResponse> verifyApiKey(@RequestParam String apiKey) {
+        log.debug("Verifying integration API key");
+        return ResponseEntity.ok(integrationService.verifyApiKey(apiKey));
     }
 }
 

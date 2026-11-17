@@ -1,0 +1,91 @@
+{
+  "benchmark": "08_parser_accuracy",
+  "total_runtimes": 6,
+  "ingestion_success": 6,
+  "ingestion_failures": 0,
+  "ingestion_success_rate_pct": 100.0,
+  "log_level_matches": 4,
+  "log_level_accuracy_pct": 66.7,
+  "runtimes_tested": [
+    "PYTHON",
+    "NODEJS",
+    "GO",
+    "SPRING_BOOT",
+    "KUBERNETES",
+    "MYSQL"
+  ],
+  "individual_results": [
+    {
+      "runtime": "PYTHON",
+      "description": "Python multi-line traceback",
+      "status": "PASS",
+      "log_id": 934,
+      "expected_level": "ERROR",
+      "actual_level": "ERROR",
+      "level_match": true,
+      "source_match": true,
+      "elapsed_ms": 74.5,
+      "http_status": 201
+    },
+    {
+      "runtime": "NODEJS",
+      "description": "Node.js Winston error with stack trace",
+      "status": "PASS",
+      "log_id": 935,
+      "expected_level": "ERROR",
+      "actual_level": "ERROR",
+      "level_match": true,
+      "source_match": true,
+      "elapsed_ms": 45.7,
+      "http_status": 201
+    },
+    {
+      "runtime": "GO",
+      "description": "Go structured JSON log with Zap/Logrus",
+      "status": "PASS",
+      "log_id": 936,
+      "expected_level": "ERROR",
+      "actual_level": "ERROR",
+      "level_match": true,
+      "source_match": true,
+      "elapsed_ms": 50.4,
+      "http_status": 201
+    },
+    {
+      "runtime": "SPRING_BOOT",
+      "description": "Spring Boot Logback format with Java stack trace",
+      "status": "PARTIAL",
+      "log_id": 937,
+      "expected_level": "FATAL",
+      "actual_level": "ERROR",
+      "level_match": false,
+      "source_match": true,
+      "elapsed_ms": 51.6,
+      "http_status": 201
+    },
+    {
+      "runtime": "KUBERNETES",
+      "description": "Kubernetes/Docker Fluent Bit daemonset log",
+      "status": "PARTIAL",
+      "log_id": 938,
+      "expected_level": "FATAL",
+      "actual_level": "ERROR",
+      "level_match": false,
+      "source_match": true,
+      "elapsed_ms": 75.8,
+      "http_status": 201
+    },
+    {
+      "runtime": "MYSQL",
+      "description": "PostgreSQL/MySQL deadlock log format",
+      "status": "PASS",
+      "log_id": 939,
+      "expected_level": "ERROR",
+      "actual_level": "ERROR",
+      "level_match": true,
+      "source_match": true,
+      "elapsed_ms": 68.0,
+      "http_status": 201
+    }
+  ]
+}

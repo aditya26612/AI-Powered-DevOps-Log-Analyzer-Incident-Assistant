@@ -1,0 +1,29 @@
+{
+  "benchmark": "04_auth_overhead",
+  "login": {
+    "label": "jwt_login",
+    "n": 20,
+    "p50_ms": 125.03,
+    "p95_ms": 145.23,
+    "p99_ms": 145.23,
+    "mean_ms": 124.02,
+    "min_ms": 103.28,
+    "max_ms": 145.23
+  },
+  "jwt_bearer": {
+    "label": "jwt_bearer_requests",
+    "error": "no data"
+  },
+  "api_key": {
+    "label": "api_key_requests",
+    "n": 50,
+    "p50_ms": 71.99,
+    "p95_ms": 88.05,
+    "p99_ms": 90.64,
+    "mean_ms": 71.04,
+    "min_ms": 54.24,
+    "max_ms": 90.64
+  },
+  "auth_overhead_p50_ms": null,
+  "concurrent_sessions_supportable": "Stateless JWT \u2014 unlimited concurrent sessions"
+}

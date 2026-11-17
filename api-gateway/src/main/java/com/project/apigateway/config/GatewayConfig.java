@@ -2,8 +2,6 @@ package com.project.apigateway.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
-import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
@@ -20,13 +18,8 @@ public class GatewayConfig {
     private String logServiceUrl;
 
     @Bean
-    public RouteLocator gatewayRoutes(
-            RouteLocatorBuilder builder,
-            RedisRateLimiter redisRateLimiter,
-            KeyResolver userKeyResolver) {
-
+    public RouteLocator gatewayRoutes(RouteLocatorBuilder builder) {
         return builder.routes()
-
                 .route("user-service", route -> route
                         .path("/api/v1/auth/**",
                                 "/api/v1/users/**")
@@ -36,22 +29,7 @@ public class GatewayConfig {
                         .path("/api/v1/logs/**",
                                 "/api/v1/analyzer/**",
                                 "/api/v1/integrations/**")
-//                        .filters(filter -> filter
-//                                .requestRateLimiter(config -> config
-//                                        .setRateLimiter(redisRateLimiter)
-//                                        .setKeyResolver(userKeyResolver)
-//                                )
-//                        )
                         .uri(logServiceUrl))
-
                 .build();
     }
-
-//    @Bean
-//    public RedisRateLimiter redisRateLimiter() {
-//        return new RedisRateLimiter(
-//                10,
-//                20
-//        );
-//    }
 }

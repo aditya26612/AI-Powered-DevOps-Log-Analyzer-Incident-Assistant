@@ -56,6 +56,7 @@ logs/
 # Audit / Interview Prep & Local Notes
 # ==============================
 /interview-prep-audit/
+/extra_info/
 /docs/ARCHITECTURE_AND_SYSTEM_DESIGN.md
 /docs/kubernetes_deployment_guide.md
 /docs/INDUSTRIAL_LOG_ANALYZER_REPORT_AND_BLUEPRINT.md

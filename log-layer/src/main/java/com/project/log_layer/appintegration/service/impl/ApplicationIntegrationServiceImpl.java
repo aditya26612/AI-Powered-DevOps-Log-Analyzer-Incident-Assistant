@@ -2,6 +2,7 @@ package com.project.log_layer.appintegration.service.impl;
 
 import com.project.log_layer.appintegration.dto.request.CreateIntegrationRequest;
 import com.project.log_layer.appintegration.dto.request.TestIntegrationRequest;
+import com.project.log_layer.appintegration.dto.response.ApiKeyVerificationResponse;
 import com.project.log_layer.appintegration.dto.response.ApplicationIntegrationResponse;
 import com.project.log_layer.appintegration.dto.response.TestIntegrationResponse;
 import com.project.log_layer.appintegration.entity.ApplicationIntegration;
@@ -310,5 +311,20 @@ public class ApplicationIntegrationServiceImpl implements ApplicationIntegration
             default:
                 return LogSource.SPRING_BOOT;
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ApiKeyVerificationResponse verifyApiKey(String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return ApiKeyVerificationResponse.builder().valid(false).build();
+        }
+        return integrationRepository.findByApiKey(apiKey.trim())
+                .map(app -> ApiKeyVerificationResponse.builder()
+                        .valid(true)
+                        .applicationName(app.getApplicationName())
+                        .userEmail(app.getUserEmail() != null ? app.getUserEmail() : "service@devinsight.io")
+                        .build())
+                .orElseGet(() -> ApiKeyVerificationResponse.builder().valid(false).build());
     }
 }
