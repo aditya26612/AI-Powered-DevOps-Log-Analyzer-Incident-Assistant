@@ -48,7 +48,10 @@ class Settings(BaseSettings):
     # Internal Security
     # ------------------------------------------------------------------
 
-    INTERNAL_API_KEY: str
+    INTERNAL_API_KEY: str = Field(
+        default="devinsight_internal_ml_key_secret_12345",
+        description="Shared internal API key for microservice-to-microservice authentication",
+    )
 
 
 @lru_cache

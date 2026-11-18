@@ -12,10 +12,16 @@ public interface ApplicationIntegrationRepository extends JpaRepository<Applicat
 
     Optional<ApplicationIntegration> findByApplicationName(String applicationName);
 
+    Optional<ApplicationIntegration> findByApplicationNameAndUserEmail(String applicationName, String userEmail);
+
+    Optional<ApplicationIntegration> findByIdAndUserEmail(Long id, String userEmail);
+
     Optional<ApplicationIntegration> findByApiKey(String apiKey);
 
     List<ApplicationIntegration> findAllByUserEmailOrderByCreatedAtDesc(String userEmail);
 
     boolean existsByApplicationName(String applicationName);
+
+    boolean existsByApplicationNameAndUserEmail(String applicationName, String userEmail);
 }
 

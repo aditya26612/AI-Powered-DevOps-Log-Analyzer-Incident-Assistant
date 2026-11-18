@@ -40,6 +40,13 @@ public class ApplicationIntegrationServiceImpl implements ApplicationIntegration
                 request.getApplicationName(), request.getTechStack(), userEmail);
 
         ApplicationIntegration integration = integrationRepository.findByApplicationName(request.getApplicationName())
+                .map(existing -> {
+                    if (existing.getUserEmail() != null && !existing.getUserEmail().equalsIgnoreCase(userEmail)) {
+                        throw new IllegalArgumentException("Application name '" + request.getApplicationName()
+                                + "' is already registered by another user.");
+                    }
+                    return existing;
+                })
                 .orElseGet(() -> ApplicationIntegration.builder()
                         .applicationName(request.getApplicationName())
                         .apiKey("dvi_" + UUID.randomUUID().toString().replace("-", ""))
@@ -63,7 +70,7 @@ public class ApplicationIntegrationServiceImpl implements ApplicationIntegration
     @Override
     @Transactional(readOnly = true)
     public ApplicationIntegrationResponse getIntegration(String applicationName, String userEmail) {
-        ApplicationIntegration integration = integrationRepository.findByApplicationName(applicationName)
+        ApplicationIntegration integration = integrationRepository.findByApplicationNameAndUserEmail(applicationName, userEmail)
                 .orElseThrow(() -> new LogNotFoundException("Integration not found for application: " + applicationName));
         return mapToResponse(integration);
     }
@@ -80,7 +87,7 @@ public class ApplicationIntegrationServiceImpl implements ApplicationIntegration
     @Override
     @Transactional
     public void deleteIntegration(Long id, String userEmail) {
-        ApplicationIntegration integration = integrationRepository.findById(id)
+        ApplicationIntegration integration = integrationRepository.findByIdAndUserEmail(id, userEmail)
                 .orElseThrow(() -> new LogNotFoundException("Integration not found with id: " + id));
         integrationRepository.delete(integration);
         log.info("Deleted integration id={} for application={}", id, integration.getApplicationName());
@@ -93,6 +100,11 @@ public class ApplicationIntegrationServiceImpl implements ApplicationIntegration
 
         ApplicationIntegration integration = integrationRepository.findByApplicationName(appName)
                 .orElse(null);
+
+        if (integration != null && integration.getUserEmail() != null
+                && userEmail != null && !integration.getUserEmail().equalsIgnoreCase(userEmail)) {
+            throw new IllegalArgumentException("Unauthorized: Application '" + appName + "' is owned by another user.");
+        }
 
         TechStack stack = (integration != null) ? integration.getTechStack() : TechStack.SPRING_BOOT;
         String env = (integration != null) ? integration.getEnvironment().name() : "PRODUCTION";

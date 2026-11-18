@@ -81,12 +81,10 @@ public class JwtAuthenticationWebFilter implements WebFilter {
             }
         }
 
-        // Slow-path: Query log-service to verify dynamic integration key
+        // Slow-path: Query log-service to verify dynamic integration key via secure header
         return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/api/v1/integrations/verify-key")
-                        .queryParam("apiKey", apiKey)
-                        .build())
+                .uri("/api/v1/integrations/verify-key")
+                .header("X-API-Key", apiKey)
                 .retrieve()
                 .bodyToMono(ApiKeyVerificationDto.class)
                 .timeout(Duration.ofSeconds(3))

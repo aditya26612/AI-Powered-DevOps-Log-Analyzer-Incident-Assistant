@@ -54,6 +54,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -266,47 +268,61 @@ public class LogServiceImpl implements LogService {
     }
 
     private void triggerAsyncDiagnosisAndNotification(Long logId) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                log.info("Starting automated incident diagnosis for logId={}", logId);
-                Log targetLog = logRepository.findById(logId).orElse(null);
-                if (targetLog == null) {
-                    return;
+        Runnable asyncTask = () -> CompletableFuture.runAsync(() -> executeDiagnosisAndNotification(logId));
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    asyncTask.run();
                 }
+            });
+        } else {
+            asyncTask.run();
+        }
+    }
 
-                targetLog.setLlmAnalysisStatus(AnalysisStatus.PROCESSING);
-                logRepository.save(targetLog);
-
-                LlmAnalysisRequest llmRequest = llmAnalysisMapper.toRequest(targetLog);
-                LlmAnalysisResponse llmResponse = llmInferenceClient.analyze(llmRequest);
-
-                targetLog.setLlmAnalysisStatus(AnalysisStatus.COMPLETED);
-                targetLog.setLlmAnalyzedAt(LocalDateTime.now());
-                logRepository.save(targetLog);
-
-                IncidentDiagnosis diagnosis = IncidentDiagnosis.builder()
-                        .summary(llmResponse.summary())
-                        .probableRootCause(llmResponse.rootCause())
-                        .severity(llmResponse.severity() != null ? llmResponse.severity() : targetLog.getLevel().name())
-                        .suggestedFix(llmResponse.recommendation())
-                        .remediationCommands(extractRemediationCommands(llmResponse.recommendation()))
-                        .build();
-
-                log.info("Automated incident diagnosis completed for logId={}, dispatching alerts...", logId);
-                notificationService.sendIncidentAlert(targetLog, diagnosis);
-
-            } catch (Exception ex) {
-                log.error("Automated diagnosis failed for logId={}: {}", logId, ex.getMessage());
-                try {
-                    Log failedLog = logRepository.findById(logId).orElse(null);
-                    if (failedLog != null) {
-                        failedLog.setLlmAnalysisStatus(AnalysisStatus.FAILED);
-                        logRepository.save(failedLog);
-                    }
-                } catch (Exception ignored) {
-                }
+    private void executeDiagnosisAndNotification(Long logId) {
+        try {
+            log.info("Starting automated incident diagnosis for logId={}", logId);
+            Log targetLog = logRepository.findById(logId).orElse(null);
+            if (targetLog == null) {
+                log.warn("Log record with id={} not found for diagnosis after commit", logId);
+                return;
             }
-        });
+
+            targetLog.setLlmAnalysisStatus(AnalysisStatus.PROCESSING);
+            logRepository.save(targetLog);
+
+            LlmAnalysisRequest llmRequest = llmAnalysisMapper.toRequest(targetLog);
+            LlmAnalysisResponse llmResponse = llmInferenceClient.analyze(llmRequest);
+
+            targetLog.setLlmAnalysisStatus(AnalysisStatus.COMPLETED);
+            targetLog.setLlmAnalyzedAt(LocalDateTime.now());
+            logRepository.save(targetLog);
+
+            IncidentDiagnosis diagnosis = IncidentDiagnosis.builder()
+                    .summary(llmResponse.summary())
+                    .probableRootCause(llmResponse.rootCause())
+                    .severity(llmResponse.severity() != null ? llmResponse.severity() : targetLog.getLevel().name())
+                    .suggestedFix(llmResponse.recommendation())
+                    .remediationCommands(extractRemediationCommands(llmResponse.recommendation()))
+                    .build();
+
+            log.info("Automated incident diagnosis completed for logId={}, dispatching alerts...", logId);
+            notificationService.sendIncidentAlert(targetLog, diagnosis);
+
+        } catch (Exception ex) {
+            log.error("Automated diagnosis failed for logId={}: {}", logId, ex.getMessage());
+            try {
+                Log failedLog = logRepository.findById(logId).orElse(null);
+                if (failedLog != null) {
+                    failedLog.setLlmAnalysisStatus(AnalysisStatus.FAILED);
+                    logRepository.save(failedLog);
+                }
+            } catch (Exception ignored) {
+            }
+        }
     }
 
 

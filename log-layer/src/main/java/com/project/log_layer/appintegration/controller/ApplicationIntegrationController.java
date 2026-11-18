@@ -73,9 +73,15 @@ public class ApplicationIntegrationController {
     }
 
     @GetMapping("/verify-key")
-    public ResponseEntity<ApiKeyVerificationResponse> verifyApiKey(@RequestParam String apiKey) {
+    public ResponseEntity<ApiKeyVerificationResponse> verifyApiKey(
+            @RequestHeader(value = "X-API-Key", required = false) String headerApiKey,
+            @RequestParam(value = "apiKey", required = false) String paramApiKey) {
+        String key = (headerApiKey != null && !headerApiKey.isBlank()) ? headerApiKey : paramApiKey;
+        if (key == null || key.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiKeyVerificationResponse.builder().valid(false).build());
+        }
         log.debug("Verifying integration API key");
-        return ResponseEntity.ok(integrationService.verifyApiKey(apiKey));
+        return ResponseEntity.ok(integrationService.verifyApiKey(key));
     }
 }
 

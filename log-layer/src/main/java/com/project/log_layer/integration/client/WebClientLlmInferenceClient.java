@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.Duration;
+
 @Slf4j
 @Service
 public class WebClientLlmInferenceClient implements LlmInferenceClient {
@@ -51,6 +53,9 @@ public class WebClientLlmInferenceClient implements LlmInferenceClient {
                     )
 
                     .bodyToMono(LlmAnalysisResponse.class)
+                    .timeout(llmServiceProperties.getTimeout() != null
+                            ? llmServiceProperties.getTimeout()
+                            : Duration.ofSeconds(60))
                     .block();
 
         } catch (LlmServiceException ex) {

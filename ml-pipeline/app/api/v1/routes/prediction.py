@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.v1.dependencies import get_prediction_service
+from app.api.v1.dependencies import get_prediction_service, verify_internal_api_key
 from app.api.v1.schemas.requests.prediction_request import PredictionRequest
 from app.api.v1.schemas.requests.batch_prediction_request import BatchPredictionRequest
 from app.api.v1.schemas.responses.prediction_response import PredictionResponse
@@ -15,6 +15,7 @@ from app.services.prediction_service import PredictionService
 router = APIRouter(
     prefix="/api/v1",
     tags=["Prediction"],
+    dependencies=[Depends(verify_internal_api_key)],
 )
 
 

@@ -1,4 +1,4 @@
-# DevInsight — Enterprise AI-Powered DevOps Observability & Autonomous Incident Assistant
+# DevInsight — AI-Powered DevOps Observability & Incident Analysis Platform
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21" />
@@ -8,15 +8,17 @@
   <img src="https://img.shields.io/badge/Docker-Multi--Stage-blue?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
   <img src="https://img.shields.io/badge/Python-3.11-yellow?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11" />
   <img src="https://img.shields.io/badge/FastAPI-ML_Pipeline-teal?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/PostgreSQL-16_Alpine-blue?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/PostgreSQL-pgvector_pg16-blue?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Ollama-Local_LLM-purple?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
   <img src="https://img.shields.io/badge/Slack-Block_Kit_Alerts-4A154B?style=for-the-badge&logo=slack&logoColor=white" alt="Slack" />
   <img src="https://img.shields.io/badge/React-18_Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 18" />
 </p>
 
-> **Transform raw distributed log streams into sub-15ms anomaly detection, domain-grounded AI root-cause diagnoses, and actionable Slack incident notifications with zero cloud data exfiltration.**
+> **Turn distributed application logs into structured telemetry, ML-based anomaly signals, runbook-grounded incident explanations, and actionable Slack notifications.**
 
-DevInsight is an enterprise-grade autonomous observability platform engineered to eliminate alert fatigue and slash Mean Time to Resolution (MTTR) from 30+ minutes to under 2 minutes. Combining a reactive microservice backbone, unsupervised machine learning anomaly detection, hybrid RAG over operational runbooks, and a local self-hosted LLM runtime (`phi3:mini`), DevInsight moves engineering teams from passive log grepping to active automated incident remediation.
+DevInsight is a microservices-based log observability and incident-investigation project. It combines a **reactive API Gateway**, Java/Spring Boot services, a Python/FastAPI **Isolation Forest** inference service, **hybrid retrieval over DevOps runbooks**, and locally hosted `phi3:mini` inference through Ollama. The platform helps operators move from searching raw logs to inspecting structured log records, anomaly signals, possible causes, and suggested troubleshooting steps.
+
+**Scope:** DevInsight analyzes and recommends; it **does not execute remediation commands or independently verify that an incident is resolved**. Performance figures in this README refer to specific saved historical benchmark runs, not guaranteed production service-level objectives.
 
 ---
 
@@ -24,7 +26,7 @@ DevInsight is an enterprise-grade autonomous observability platform engineered t
 
 - [1. Project Overview](#1-project-overview)
 - [2. System Architecture](#2-system-architecture)
-  - [2.1 End-to-End Enterprise Architecture](#21-end-to-end-enterprise-architecture)
+  - [2.1 End-to-End System Architecture](#21-end-to-end-system-architecture)
   - [2.2 Telemetry & Incident Lifecycle Sequence](#22-telemetry-incident-lifecycle-sequence)
   - [2.3 Deep-Dive Architecture Guides](#23-deep-dive-architecture-guides)
 - [3. How DevInsight Works](#3-how-devinsight-works)
@@ -36,7 +38,7 @@ DevInsight is an enterprise-grade autonomous observability platform engineered t
   - [4.5 AI-Powered Incident Analysis](#45-ai-powered-incident-analysis)
   - [4.6 Hybrid RAG Retrieval](#46-hybrid-rag-retrieval)
   - [4.7 Centralized Dashboard & Live Inspector](#47-centralized-dashboard-live-inspector)
-  - [4.8 Zero-Invasive Client Integration (Spring Boot Logback SDK)](#48-zero-invasive-client-integration-client-integrationsspring-boot)
+  - [4.8 Low-Overhead Client Integration (Spring Boot Logback SDK)](#48-low-overhead-client-integration-client-integrationsspring-boot)
   - [4.9 Automated Real-Time Alerting Engine (Slack Block Kit)](#49-automated-real-time-alerting-engine-slack-block-kit)
   - [4.10 Cloud-Native Kubernetes Orchestration](#410-cloud-native-kubernetes-orchestration-k8s)
   - [4.11 Multi-Tech-Stack Application Integrations Hub](#411-multi-tech-stack-application-integrations-hub-integrations)
@@ -52,10 +54,13 @@ DevInsight is an enterprise-grade autonomous observability platform engineered t
   - [7.5 LLM Service](#75-llm-service)
   - [7.6 Frontend](#76-frontend)
 - [8. Database Design](#8-database-design)
+  - [8.1 User and log persistence](#81-user-and-log-persistence)
+  - [8.2 RAG vector store](#82-rag-vector-store)
 - [9. Machine Learning Pipeline](#9-machine-learning-pipeline)
 - [10. LLM and RAG Architecture](#10-llm-and-rag-architecture)
 - [11. RAG Evaluation and Experiments](#11-rag-evaluation-and-experiments)
 - [12. Empirical Performance Benchmarks](#12-empirical-performance-benchmarks)
+  - [Architectural Latency Boundaries & Performance Insights](#architectural-latency-boundaries-performance-insights)
 - [13. API Reference](#13-api-reference)
   - [13.1 Authentication APIs](#131-authentication-apis)
   - [13.2 Log APIs](#132-log-apis)
@@ -74,10 +79,11 @@ DevInsight is an enterprise-grade autonomous observability platform engineered t
 - [19. Frontend](#19-frontend)
 - [20. Testing and Verification](#20-testing-and-verification)
 - [21. Security Considerations](#21-security-considerations)
+  - [Authentication boundaries and known gaps](#authentication-boundaries-and-known-gaps)
 - [22. Known Limitations & Production Hardening](#22-known-limitations-production-hardening)
 - [23. Development and Deployment Lifecycle](#23-development-and-deployment-lifecycle)
 - [24. Future Improvements](#24-future-improvements)
-- [25. Project Status](#25-project-status)
+- [25. Architectural Implementation Status](#25-architectural-implementation-status)
 - [Summary](#summary)
 ---
 
@@ -107,6 +113,14 @@ It uses:
 4. **Large Language Models** to explain incidents and recommend possible solutions.
 5. **React dashboard** to provide a centralized interface for log ingestion and investigation.
 
+### Project preview
+
+The repository includes screenshots from the React interface:
+
+| Dashboard | Log ingestion | AI analysis |
+|---|---|---|
+| ![DevInsight dashboard](docs/screenshots/dashboard.png) | ![DevInsight log ingestion](docs/screenshots/log-ingestion.png) | ![DevInsight AI analysis](docs/screenshots/ai-analysis.png) |
+
 ### Main objective
 
 Transform raw application logs into useful diagnostic information:
@@ -118,10 +132,10 @@ Raw Application Logs
 Log Parsing and Validation
         |
         v
-Log Storage
+ML-Based Anomaly Detection
         |
         v
-ML-Based Anomaly Detection
+Log Storage + Prediction Metadata
         |
         v
 RAG-Based Knowledge Retrieval
@@ -137,100 +151,98 @@ Summary + Root Cause + Suggested Fix
 
 # 2. System Architecture
 
-DevInsight follows a decoupled, cloud-native microservices architecture orchestrated on Kubernetes. The reactive API Gateway acts as the unified ingress point, routing requests based on JWT (for human operators) and headless `X-API-Key` (for streaming microservices). The Log Layer coordinates non-blocking ingestion (<15ms), delegates statistical scoring to the ML Pipeline, triggers background RAG analysis via the LLM Service, and dispatches incident alerts directly to Slack.
+DevInsight separates user authentication, log ingestion, anomaly scoring, and LLM-assisted analysis into five backend services. **Spring Cloud Gateway is reactive (WebFlux/Netty)**; the User Service and Log Layer use Spring MVC/JPA, and the Log Layer waits synchronously for ML inference through `WebClient.block()`. Only selected LLM diagnosis and alerting work is started asynchronously **after the log transaction commits**. Docker Compose and Kubernetes manifests are provided, but the presence of a manifest does not, by itself, establish a successful production deployment.
 
-### 2.1 End-to-End Enterprise Architecture
+The Gateway accepts **Bearer JWT** requests for people and **`X-API-Key`** requests for integrated applications. Per-application keys are checked with the Log Layer and cached at the Gateway for five minutes; account-role authorization and internal-key trust boundaries still require hardening (see [Security Considerations](#21-security-considerations)).
+
+### 2.1 End-to-End System Architecture
 
 ```mermaid
 flowchart TD
-    subgraph ClientTier ["1. Ingestion and Client Tier"]
-        SB["External Spring Boot Microservices<br/>(order-service, payment-service)"]
-        LBA["DevInsightLogbackAppender<br/>(Async HTTP Dispatcher)"]
-        CLI["DevOps CLI / Ingestion Scripts<br/>(test-live-springboot-ingest.ps1)"]
-        ReactUI["DevInsight React Dashboard<br/>(Vite + Tailwind :5173)"]
-        SB -->|"Async Event"| LBA
+    subgraph Clients["1. Applications and Operator UI"]
+      App["Spring Boot / Python / Node.js / Go apps"]
+      Collectors["Logback / logging handlers / Fluent Bit"]
+      UI["React + Vite dashboard :5173"]
+      App --> Collectors
     end
 
-    subgraph GatewayTier ["2. Ingress and Security Tier"]
-        GW["API Gateway (Spring Cloud Gateway :8080)<br/>Netty Reactive Engine"]
-        JWTFilter["JwtAuthenticationWebFilter<br/>- Bearer JWT (Operators)<br/>- X-API-Key (Machine Services)"]
-        GW --> JWTFilter
+    subgraph Ingress["2. API Gateway"]
+      GW["Spring Cloud Gateway :8080<br/>WebFlux + Netty"]
+      Auth["JWT and X-API-Key filter<br/>Dynamic-key verification + TTL cache"]
+      GW --> Auth
     end
 
-    subgraph MicroservicesTier ["3. Kubernetes Microservices Mesh (devinsight namespace)"]
-        US["User Service (:8081)<br/>Spring Security + BCrypt"]
-        LL["Log Layer (:8082)<br/>Spring Boot 3 + Resilient Parsers"]
-        MLP["ML Pipeline (:8000)<br/>FastAPI + Isolation Forest"]
-        LLMS["LLM Service (:8084)<br/>Spring AI + Hybrid RAG"]
-        OLL["Ollama Local Inference (:11434)<br/>phi3:mini + nomic-embed-text"]
+    subgraph Services["3. Application services"]
+      User["User Service :8081<br/>Spring Security / JWT"]
+      Log["Log Layer :8082<br/>Parsing + JPA orchestration"]
+      ML["ML Pipeline :8000<br/>FastAPI / Isolation Forest"]
+      LLM["LLM Service :8084<br/>Spring AI / Hybrid RAG"]
     end
 
-    subgraph DataStorageTier ["4. Persistent Data and Knowledge Tier"]
-        PG["PostgreSQL Database (:5432)<br/>- devinsight (Users)<br/>- log_layer_db (Telemetry)"]
-        RAGDocs["DevOps Runbooks (21 Docs, 253 Chunks)<br/>Markdown Knowledge Base"]
+    subgraph Persistence["4. Persistence and model runtime"]
+      PG1["PostgreSQL: devinsight<br/>user data"]
+      PG2["PostgreSQL: log_layer_db<br/>logs / integrations"]
+      PG3["PostgreSQL: llm_service_db<br/>pgvector / knowledge_chunks"]
+      Docs["21 Markdown DevOps runbooks"]
+      Ollama["Ollama :11434<br/>phi3:mini + nomic-embed-text"]
     end
 
-    subgraph AlertingTier ["5. Real-Time Alerting Tier"]
-        Slack["Slack Workspace<br/>#all-devinsight Channel"]
-        ConsoleLog["Structured Audit Console"]
-    end
-
-    LBA -->|"POST /api/v1/logs (X-API-Key)"| GW
-    CLI -->|"POST /api/v1/logs (X-API-Key)"| GW
-    ReactUI -->|"REST API (Bearer JWT)"| GW
-
-    JWTFilter -->|"Route /api/v1/auth/**"| US
-    JWTFilter -->|"Route /api/v1/logs/**"| LL
-
-    US -->|"User Credentials"| PG
-    LL -->|"Log Entity CRUD"| PG
-
-    LL -->|"1. Anomaly Scoring (<10ms)"| MLP
-    LL -.->|"2. Async Trigger"| LLMS
-    LLMS -->|"Hybrid Search (BM25 + Dense)"| RAGDocs
-    LLMS -->|"Synthesize Root Cause & Fix"| OLL
-    LLMS -.->|"3. Return IncidentDiagnosis"| LL
-    LL -->|"4. Dispatch Block Kit Card"| Slack
-    LL -->|"4. Audit Record"| ConsoleLog
+    Slack["Slack Webhook<br/>incident notification"]
+    Collectors -->|"POST /api/v1/logs + API key"| GW
+    UI -->|"REST + Bearer JWT"| GW
+    Auth -->|"/api/v1/auth/**, /users/**"| User
+    Auth -->|"/logs/**, /analyzer/**, /integrations/**"| Log
+    Auth -.->|"Verify uncached app key"| Log
+    User --> PG1
+    Log --> PG2
+    Log -->|"Synchronous prediction request"| ML
+    Log -.->|"Post-commit background diagnosis"| LLM
+    Docs --> LLM
+    LLM --> PG3
+    LLM --> Ollama
+    Log -.->|"After diagnosis"| Slack
 ```
+
+**Request boundary:** the Gateway uses reactive I/O, but the Log Layer performs a blocking ML HTTP call and JPA persistence. Do not interpret the Gateway architecture as evidence that the entire processing pipeline is non-blocking.
 
 ### 2.2 Telemetry & Incident Lifecycle Sequence
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant App as External Spring Boot Service
-    participant GW as API Gateway (:8080)
-    participant LL as Log Layer (:8082)
-    participant ML as ML Pipeline (:8000)
-    participant PG as PostgreSQL (:5432)
-    participant RAG as Spring AI RAG Engine (:8084)
-    participant Ollama as Ollama LLM (:11434)
-    participant Slack as Slack Channel (#all-devinsight)
+    participant App as Application / Log Client
+    participant GW as Gateway :8080
+    participant LL as Log Layer :8082
+    participant ML as FastAPI :8000
+    participant DB as PostgreSQL (log_layer_db)
+    participant RAG as LLM Service :8084
+    participant VS as PostgreSQL / pgvector
+    participant Ollama as Ollama :11434
+    participant Slack as Slack Webhook
 
-    Note over App: 💥 Outage occurs: PSQLException Connection slots exhausted
-    App->>GW: POST /api/v1/logs (Header: X-API-Key)
-    GW->>GW: Validate X-API-Key -> Assign ROLE_SERVICE
-    GW->>LL: Forward request to Log Layer
-    LL->>LL: Resilient parser extracts Timestamp, Level, Thread, Logger, Stack Trace
-    LL->>ML: POST /api/v1/predict (raw log + features)
-    ML-->>LL: Return prediction: isAnomaly=true, score=-0.1279
-    LL->>PG: Save Log record (Status: RECEIVED, Analysis: COMPLETED)
-    LL-->>GW: Return 201 Created (Duration < 15ms!)
-    GW-->>App: 201 Created (Client thread never blocked)
-
-    Note over LL: ⚡ Background Async Trigger (CompletableFuture.runAsync)
-    LL->>RAG: POST /api/v1/llm/analyze (serviceName, rawLog, stackTrace)
-    RAG->>RAG: BM25 Sparse Search + Dense nomic-embed-text Search
-    RAG->>RAG: Reciprocal Rank Fusion (RRF) -> Top 3 Runbook Chunks
-    RAG->>Ollama: POST /api/generate (3,500-token prompt + context)
-    Ollama-->>RAG: Structured JSON: {rootCause, remediationSteps}
-    RAG-->>LL: Return IncidentDiagnosis
-    LL->>PG: Update Log (Status: RESOLVED, llmAnalysisStatus: COMPLETED)
-    LL->>Slack: POST Block Kit Incident Card to Webhook
-    Note over Slack: 🚨 Alert pops up in #all-devinsight with Root Cause & Shell Commands
+    App->>GW: POST /api/v1/logs + X-API-Key
+    GW->>GW: Authenticate (cached app key or verification)
+    GW->>LL: Forward authenticated request
+    LL->>LL: Parse and enrich log record
+    LL->>ML: POST /api/v1/predict + internal X-API-Key
+    ML-->>LL: prediction, decision score, model version
+    LL->>DB: Save log and ML metadata
+    LL-->>GW: HTTP 201 after ingestion processing
+    GW-->>App: HTTP 201 (diagnosis not yet finished)
+    Note over LL,DB: After transaction commit, schedule in-process background work
+    opt Anomaly or ERROR/FATAL with auto-diagnose enabled
+      LL->>RAG: POST /api/v1/llm/analyze
+      RAG->>VS: Dense search (nomic embeddings)
+      RAG->>RAG: BM25 + RRF source-document fusion
+      RAG->>Ollama: Context-grounded phi3:mini request
+      Ollama-->>RAG: Proposed root cause and recommendation
+      RAG-->>LL: Incident analysis response
+      LL->>DB: Update analysis state
+      LL->>Slack: Send incident card when configured
+    end
 ```
 
+The sequence describes the intended successful path. ML errors are handled and recorded; LLM/Slack failures and process restarts can still affect background completion. An HTTP 201 response does **not** prove that Slack delivery, LLM diagnosis, or incident resolution has completed.
 
 ### 2.3 Deep-Dive Architecture Guides
 
@@ -251,10 +263,10 @@ For detailed class diagrams, package structures, and inter-service schemas, see 
 | **Frontend** | React 18 + Vite + Tailwind CSS | Real-time log explorer, anomaly visualization, and interactive inspector sandbox |
 | **API Gateway** | Spring Cloud Gateway + WebFlux | High-throughput non-blocking reverse proxy with dual JWT and API-Key authentication |
 | **User Service** | Spring Boot 3 + Spring Security 6 | RBAC user management, BCrypt hashing, and stateless JWT token issuance |
-| **Log Layer** | Spring Boot 3 + Hibernate + JPA | Sub-15ms log ingestion, resilient multiline parsing, async event orchestration, and Slack dispatcher |
-| **ML Pipeline** | Python 3.11 + FastAPI + Scikit-Learn | Statistical anomaly detection using an Isolation Forest model (<10ms inference) |
+| **Log Layer** | Spring Boot 3 + Hibernate + JPA | Low-latency log ingestion, resilient multiline parsing, async event orchestration, and Slack dispatcher |
+| **ML Pipeline** | Python 3.11 + FastAPI + Scikit-Learn | Statistical anomaly detection using an Isolation Forest model; latency depends on request and environment |
 | **LLM Service** | Spring Boot 3 + Spring AI | Hybrid RAG retrieval (BM25 + Dense Vectors + RRF) and prompt orchestration |
-| **PostgreSQL** | PostgreSQL 16 Alpine | Dual databases: `devinsight` (user/auth) and `log_layer_db` (logs/analytics) |
+| **PostgreSQL** | PostgreSQL 16 + pgvector | Multi-database architecture: `devinsight` (user/auth), `log_layer_db` (telemetry), and `llm_service_db` (`knowledge_chunks` vector store) |
 | **Ollama** | Local LLM Engine (llama.cpp) | Self-hosted local inference with `phi3:mini` (3.8B) and `nomic-embed-text` |
 | **Slack Notifier**| Reactive WebClient + Block Kit | Automated dispatch of rich incident cards to Slack channels |
 
@@ -314,9 +326,9 @@ The Log Layer:
 
 ### Step 5 — ML anomaly detection
 
-The Log Layer sends the required log information to the ML Pipeline.
+The Log Layer sends the required log information to the ML Pipeline using `WebClient` with an internal `X-API-Key`. This is a **synchronous wait in the current Log Layer**, bounded by a configured timeout (5 seconds by default).
 
-The ML Pipeline extracts features and performs anomaly prediction.
+The ML Pipeline extracts features and performs anomaly prediction using the loaded model artifacts. The HTTP route requires the configured internal API key.
 
 ### Step 6 — ML prediction returned
 
@@ -326,7 +338,7 @@ The Log Layer stores the ML result with the log.
 
 ### Step 7 — LLM incident investigation
 
-The Log Layer sends the log information and ML prediction to the LLM Service.
+For qualifying anomalies or `ERROR`/`FATAL` logs, the Log Layer schedules LLM investigation after database commit. A manual analysis endpoint is also available. Not every ingested log triggers LLM inference.
 
 The LLM Service:
 
@@ -345,7 +357,7 @@ The LLM Service returns structured analysis containing information such as:
 - Severity.
 - Recommended troubleshooting actions.
 
-The Log Layer stores the analysis result.
+For successful diagnosis, the Log Layer updates analysis status and sends the configured notification. It does not automatically execute the suggested commands or confirm an incident is resolved.
 
 ### Step 9 — Frontend presentation
 
@@ -354,6 +366,8 @@ The frontend displays the log and its associated analysis.
 The user can inspect the log, review the anomaly prediction, and understand the generated troubleshooting recommendations.
 
 ### Complete request flow
+
+The simplified diagram below represents the feature dependencies; **LLM diagnosis is conditional and asynchronous**, rather than part of the synchronous HTTP 201 response.
 
 ```text
 React Frontend
@@ -436,7 +450,7 @@ User PostgreSQL                    |
 - Detect anomalous log behavior.
 - Return anomaly/normal predictions.
 - Associate predictions with model metadata.
-- Support individual and batch prediction endpoints.
+- Support individual and batch **ML prediction** endpoints (separate from the Log Layer batch-ingestion route, which currently throws `UnsupportedOperationException`).
 
 ## 4.5 AI-Powered Incident Analysis
 
@@ -461,22 +475,22 @@ User PostgreSQL                    |
 - Interactive Live Inspector (`/analyzer`) for manual multi-line stack trace triage.
 - Direct visualization of anomaly scores, token metrics, and extracted shell remediation commands.
 
-## 4.8 Zero-Invasive Client Integration (`client-integrations/spring-boot`)
+## 4.8 Low-Overhead Client Integration (`client-integrations/spring-boot`)
 
-- **Drop-In Logback Appender**: Any external Spring Boot microservice can stream real-time logs to DevInsight by adding a single XML snippet in `logback-spring.xml`.
-- **Zero Business Logic Impact**: Uses a bounded `ArrayBlockingQueue` with a daemon worker thread to prevent observability latency from impacting application transactions.
+- **Drop-In Logback Appender**: Spring Boot applications can use the included `DevInsightLogbackAppender` and a `logback-spring.xml` configuration to transmit logs to the Gateway.
+- **Bounded Background Dispatch**: The appender uses an `ArrayBlockingQueue` and a daemon worker thread to reduce synchronous logging overhead. A bounded queue limits memory growth, but can also drop telemetry under sustained overload.
 - **Headless Ingestion**: Authenticated via machine-to-machine `X-API-Key` headers without requiring interactive user credentials.
 
 ## 4.9 Automated Real-Time Alerting Engine (Slack Block Kit)
 
-- **Autonomous Incident Trigger**: When a log is classified as an anomaly or severity `ERROR`/`FATAL`, background threads asynchronously run RAG retrieval and LLM diagnosis.
+- **Conditional Incident Trigger**: When a log is an anomaly or has `ERROR`/`FATAL` severity and auto-diagnosis is enabled, the Log Layer schedules RAG/LLM diagnosis **after the ingestion transaction commits**.
 - **Rich Block Kit Notification Cards**: Formatted Slack incident cards displaying error stack traces, anomaly decision scores, root-cause summaries, and click-to-copy terminal remediation commands.
 - **Multi-Channel Dispatcher**: Built with a Composite Notification Service supporting Slack incoming webhooks, structured audit logging, and extensible email channels.
 
 ## 4.10 Cloud-Native Kubernetes Orchestration (`k8s/`)
 
-- Declarative manifests for local (**Kind**, **Docker Desktop**) and managed cloud (**AWS EKS**, **GKE**) deployments.
-- Liveness and readiness health probes, isolated model puller Jobs, and tuned memory limits (6 GB) with single-model VRAM caching to eliminate container OOM errors.
+- Declarative Kubernetes manifests for local clusters and possible cloud deployment targets (for example EKS); cloud execution and rollout success must be verified separately.
+- Configured liveness/readiness probes, model-puller Jobs, and Ollama resource limits; these controls reduce some operational risks but do not guarantee that out-of-memory failures cannot occur.
 
 ## 4.11 Multi-Tech-Stack Application Integrations Hub (`/integrations`)
 
@@ -487,18 +501,18 @@ User PostgreSQL                    |
   - **Kubernetes & Docker**: Fluent Bit DaemonSet scraping stdout/stderr across pods with namespace tagging.
   - **Database & Infra**: Syslog and error log collectors for PostgreSQL, Redis, and Nginx.
   - **Java / Spring Boot**: Drop-in XML `DevInsightLogbackAppender`.
-- **Application Integration Management API**: Secure endpoints (`/api/v1/integrations/*`) allowing engineering teams to register services, generate unique API keys (`dvi_...`), configure alert sensitivity, and execute one-click live simulation tests.
+- **Application Integration Management API**: Endpoints under `/api/v1/integrations` for service registration, listing, lookup, deletion, generated `dvi_...` keys, alert preferences, and simulation. These use tenant-scoped lookups in the Log Layer; see the outstanding Gateway authorization limitations in Section 21.
 
 ## 4.12 Dynamic Per-Service Slack Alert Routing Engine
 
-- **Targeted Notification Channels**: Eliminates alert fatigue by routing incident alerts to specific team webhooks and channel tags (e.g. routing `checkout-service` failures to `#python-test` and database panics to `#infra-alerts`).
-- **Dynamic Webhook Resolution**: `SlackNotificationService` resolves custom webhook URLs from the service registry, gracefully falling back to `#all-devinsight` if unspecified.
+- **Targeted Notification Channels**: Supports per-integration webhook/channel preferences for directing incident notifications; effectiveness at reducing alert fatigue has not been independently measured.
+- **Dynamic Webhook Resolution**: `SlackNotificationService` can resolve integration-specific webhook URLs and fall back to configured defaults when present. The simulation response is not a receipt proving delivery.
 - **Rich Block Kit Incident Cards**: Automated incident cards with severity indicators, microservice tags, statistical anomaly scores, root-cause explanations, and executable shell remediation commands.
 
 ## 4.13 Enterprise Observability Dark Mode (Datadog / Grafana APM Style)
 
 - **Unified Dark Theme**: Modern high-contrast observability palette (`#090d16` background, `#0f172a` surfaces, `#6366f1` indigo accents) optimized for high-stress operational debugging.
-- **Interactive Live Inspector Sandbox**: Test multi-line stack traces with instant ML anomaly scoring, token metrics, and terminal remediation extraction.
+- **Interactive Live Inspector Sandbox**: Submit multi-line stack traces and inspect ML scores, analysis metadata, and extracted suggested commands.
 - **Deployment Pipeline Telemetry Graph**: Visual 4-stage pipeline tracker (Ingested → ML Anomaly Scored → RAG Diagnosed → Slack Dispatched) with real-time millisecond latency chips.
 
 ---
@@ -512,7 +526,7 @@ User PostgreSQL                    |
 | Java 21 | Backend development |
 | Spring Boot | Microservice development |
 | Spring Cloud Gateway | API Gateway |
-| Spring WebFlux | Reactive Gateway architecture |
+| Spring WebFlux / Reactor Netty | Non-blocking HTTP Gateway; not the entire Log Layer |
 | Spring Security | Authentication and authorization |
 | Spring Data JPA | Database persistence |
 | PostgreSQL Driver | Database connectivity |
@@ -543,7 +557,7 @@ User PostgreSQL                    |
 | BM25 | Lexical retrieval |
 | Dense Retrieval | Semantic retrieval |
 | Reciprocal Rank Fusion | Hybrid result fusion |
-| PostgreSQL/vector storage | Persistent application and vector data |
+| PostgreSQL 16 + pgvector | User/log persistence and 768-dimensional embedding storage for RAG |
 
 ## Frontend
 
@@ -559,7 +573,7 @@ User PostgreSQL                    |
 
 # 6. Monorepo Structure
 
-The project is organized as a production-grade monorepo containing independent microservices, client integration SDKs, Kubernetes manifests, and automation scripts:
+The repository is a monorepo containing separate backend services, integration clients, container and Kubernetes configurations, and development scripts:
 
 ```text
 AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/
@@ -604,7 +618,7 @@ AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/
 │   ├── 04-apps/                 # api-gateway, log-layer, llm-service, ml-pipeline, frontend
 │   └── kustomization.yaml
 │
-├── scripts/                     # Automated orchestration & live simulation scripts
+├── scripts/                     # Orchestration & live simulation scripts
 │   ├── start-all.ps1            # Multi-service launcher (PowerShell)
 │   ├── start-all.sh             # Multi-service launcher (Bash)
 │   ├── stop-all.ps1             # Multi-service graceful teardown
@@ -639,7 +653,7 @@ Each service has its own dependencies, configuration, and responsibilities.
 
 ## 7.1 API Gateway
 
-**Technology:** Spring Cloud Gateway, Spring WebFlux, Spring Security.
+**Technology:** Spring Cloud Gateway, Spring WebFlux/Netty, Spring Security. The Gateway checks JWTs and application keys. Dynamic integration keys are verified through the Log Layer, with a five-minute positive-result cache and a shorter negative-result cache.
 
 The API Gateway acts as the single entry point for frontend requests.
 
@@ -657,10 +671,11 @@ Responsibilities:
 /api/v1/auth/**          → User Service (:8081)
 /api/v1/users/**         → User Service (:8081)
 /api/v1/logs/**          → Log Layer (:8082)
+/api/v1/analyzer/**      → Log Layer (:8082)
 /api/v1/integrations/**  → Log Layer (:8082)
 ```
 
-The Gateway uses reactive security configuration through `SecurityWebFilterChain`.
+The Gateway uses reactive security configuration through `SecurityWebFilterChain`. **Current limitation:** `anyExchange().authenticated()` does not enforce fine-grained endpoint roles for `ROLE_SERVICE` versus human users; see Section 21.
 
 ## 7.2 User Service
 
@@ -695,11 +710,11 @@ Responsibilities:
 - Store analysis results.
 - Return structured responses to the frontend.
 
-The Log Layer acts as the orchestration layer between the application logs, ML Pipeline, and LLM Service.
+The Log Layer acts as the orchestration layer between logs, ML inference, persistence, and LLM analysis. ML prediction remains synchronous (`.block()` with a timeout); eligible LLM jobs use `afterCommit()` plus `CompletableFuture.runAsync()`, which is **not a durable queue**.
 
 ### ML integration
 
-The Log Layer maps log information into an ML prediction request using its integration layer and communicates with the ML Pipeline.
+The Log Layer maps log information into an ML prediction request, adds the shared internal `X-API-Key` header through `WebClientConfig`, and calls the FastAPI prediction service. The default timeout is five seconds; an ML failure is recorded while log persistence can proceed.
 
 ### Analysis lifecycle
 
@@ -725,7 +740,7 @@ FAILED
 
 ## 7.4 ML Pipeline
 
-**Technology:** Python, FastAPI, Scikit-learn.
+**Technology:** Python, FastAPI, Scikit-learn. `/api/v1/predict` and `/api/v1/predict/batch` now use a FastAPI dependency that validates the internal `X-API-Key` when configured.
 
 Responsibilities:
 
@@ -769,55 +784,42 @@ The frontend communicates with the API Gateway rather than directly accessing in
 
 # 8. Database Design
 
-DevInsight uses PostgreSQL for persistent application data.
+DevInsight uses PostgreSQL for relational persistence and `pgvector` for runbook embeddings. The Docker initialization SQL (`docker/init-db.sql`) provisions **three logical databases**, not just the two previously listed.
 
-The application maintains separate databases for user management and log processing.
+| Database | Owner / purpose | Main data |
+|---|---|---|
+| `devinsight` | User Service | Authentication and user records |
+| `log_layer_db` | Log Layer | Structured logs, analysis metadata, registered application integrations |
+| `llm_service_db` | LLM Service | `knowledge_chunks` embeddings and document metadata |
 
-## User Service Database
+### 8.1 User and log persistence
 
-```text
-Database: devinsight
-Port:     5432
-Username: postgres
+The Java services use Spring Data JPA/Hibernate to map entities to relational tables. Separate logical databases help keep authentication, telemetry, and retrieval data independently organized, although they currently share a PostgreSQL server in the supplied Compose setup.
+
+### 8.2 RAG vector store
+
+The Docker image was updated from standard PostgreSQL to **`pgvector/pgvector:pg16`**. `docker/init-db.sql` now creates the `vector` extension in `llm_service_db` and a `knowledge_chunks` table with a `vector(768)` embedding column, JSONB metadata, and an HNSW cosine index.
+
+```sql
+-- Run inside llm_service_db after pgvector is installed:
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- The full idempotent table/index DDL is in docker/init-db.sql.
 ```
 
-The user database maintains information such as:
+`PostgresVectorStore` synchronizes managed runbook chunks through upserts and supports cosine-based retrieval. The setup requires the `nomic-embed-text` embedding dimension to match the `vector(768)` schema.
 
-```text
-users
-roles
-```
+**Deployment note:** The separate SQL embedded in `k8s/01-config-and-secrets.yaml` still creates the databases without initializing `vector` and `knowledge_chunks`. Kubernetes RAG startup needs an equivalent migration/init step before it can be treated as reproducible. Existing Docker volumes also skip first-run initialization scripts; migrations may be required after upgrading an existing database.
 
-## Log Layer Database
+### 8.3 Design rationale
 
-```text
-Database: log_layer_db
-Port:     5432
-Username: postgres
-```
-
-The log database maintains information such as:
-
-```text
-logs
-log_analysis
-```
-
-The exact table structure is managed by the service's persistence entities and database configuration.
-
-## Why separate databases?
-
-Separating the databases keeps user-management data independent from log-processing data.
-
-It also supports service-level ownership of persistence and allows the services to evolve independently.
-
----
+PostgreSQL provides transactions, indexing, and structured queries. Using pgvector avoids introducing a separate vector-database service for a relatively small runbook corpus. A larger knowledge base may eventually justify a dedicated vector store or improved indexing/retention policies.
 
 # 9. Machine Learning Pipeline
 
-The ML Pipeline is implemented as a separate FastAPI service.
+The ML Pipeline is implemented as a separate FastAPI service. A shared `X-API-Key` dependency protects prediction routes when an internal key is configured; the Log Layer supplies that key on outbound ML requests.
 
-Its responsibility is to identify anomalous behavior in application logs and return structured predictions to the Log Layer.
+Its responsibility is to identify anomalous log features and return structured predictions to the Log Layer. The training/inference feature contract defines **41 numerical features**. The model is an unsupervised Isolation Forest with persisted artifacts; its decision score is **not a calibrated probability**.
 
 ## ML workflow
 
@@ -862,7 +864,7 @@ The anomaly convention used by the model includes:
 | `-1` | Anomaly |
 | `1` | Normal |
 
-The Log Layer stores the prediction information alongside the corresponding log.
+The Log Layer stores the prediction information alongside the corresponding log. During ingestion it waits for this HTTP prediction call with a configured timeout; LLM diagnosis is a separate background stage.
 
 ## ML API endpoints
 
@@ -872,6 +874,12 @@ The Log Layer stores the prediction information alongside the corresponding log.
 | POST | `/api/v1/predict/batch` | Batch prediction |
 | GET | `/api/v1/system/health` | Pipeline health |
 | GET | `/api/v1/system/model` | Model information |
+
+### Security and inference behavior
+
+The prediction router registers `verify_internal_api_key` as a FastAPI dependency, and `WebClientConfig` sends the `X-API-Key` header from the Log Layer. `get_prediction_service()` is cached within the Python process so the trained prediction service is reused rather than reconstructed per request. Each process still needs its own loaded model artifacts.
+
+The features and preprocessing must remain aligned between training and serving. See `ml-pipeline/app/` for extraction and model-loading code. No claim of universal detection accuracy is made; classifier evaluation requires a labeled dataset and separate metrics.
 
 ### Health check
 
@@ -899,7 +907,7 @@ For example, when a log contains a PostgreSQL connection error, the retrieval pi
 
 ## 10.2 Knowledge Base
 
-The current documented knowledge base contains 21 Markdown documents.
+The project includes 21 curated Markdown runbooks in its LLM Service resources. Runbook chunk counts depend on the active splitter configuration and should not be assumed constant across revisions.
 
 | Category | Documents |
 |---|---:|
@@ -920,14 +928,17 @@ llm-service/src/main/resources/knowledge/
 
 The knowledge documents are split into smaller chunks before retrieval.
 
-The documented stable configuration uses:
+The **current Java splitter** (`SimpleDocumentSplitter.java`) uses:
 
 ```text
 Chunk size:    1000 characters
-Chunk overlap: 0
+Chunk overlap: 200 characters
+Boundary order: paragraph → sentence → word → character fallback
 ```
 
-These chunks are embedded and indexed for retrieval.
+The zero-overlap setting shown later was a **historical experiment**, not the current splitter default. Re-evaluate the current code configuration before reporting updated retrieval scores.
+
+These chunks are embedded using `nomic-embed-text` and indexed for retrieval. The current default vector backend uses the `llm_service_db` PostgreSQL/pgvector schema described in Section 8.
 
 ## 10.4 Dense Retrieval
 
@@ -972,7 +983,7 @@ BM25 can prioritize documentation containing that specific technical term.
 
 ## 10.6 Hybrid Retrieval
 
-DevInsight combines dense retrieval and BM25 retrieval.
+DevInsight combines dense retrieval and BM25 retrieval. The Java `HybridRetriever` aggregates chunks by their **source document** before fusing rankings, so duplicate chunks from one runbook do not automatically dominate the fused list.
 
 ```text
                   User Query
@@ -1031,7 +1042,7 @@ After retrieval, the LLM Service constructs a prompt containing:
 - Retrieved DevOps knowledge.
 - Analysis instructions.
 
-The prompt is sent to Ollama.
+The prompt is sent to the locally configured Ollama runtime. A configured or self-hosted model does not guarantee end-to-end data isolation when the system also sends selected incident details to external Slack webhooks.
 
 Current documented models:
 
@@ -1133,7 +1144,7 @@ Results:
 
 The overlap configuration reduced the measured MRR in the benchmark.
 
-**Decision:** Retain 1000-character chunks with zero overlap for the documented stable configuration.
+**Historical experiment decision:** The no-overlap configuration had higher scores in that recorded comparison. **Current implementation:** `SimpleDocumentSplitter` now uses a 200-character overlap; these older scores have not been reproduced against that exact current configuration.
 
 ## 11.4 Lexical Reranker Experiment
 
@@ -1180,19 +1191,15 @@ This approach also performed worse than the Hybrid RRF baseline.
 
 ## 11.6 Final Retrieval Decision
 
-Based on the documented experiments, the stable retrieval configuration is:
+The current source-code configuration and historical evaluation should be reported separately:
 
 ```text
-Chunk Size:       1000 characters
-Chunk Overlap:    0
-
-Retrieval:
-    Dense Retrieval
-    BM25 Retrieval
-
-Fusion:
-    Reciprocal Rank Fusion
+Current Java splitter: 1000 characters, 200-character overlap
+Current retrievers: Dense + BM25, fused using RRF (k=60)
+Historical evaluated no-overlap results: Dense 0.9000 MRR; Hybrid 0.8542 MRR
 ```
+
+Dense retrieval ranked better than hybrid RRF on the documented 20-query evaluation. Hybrid retrieval remains a design choice for combining semantic and exact-token matches, **not** a demonstrated MRR improvement. The historical evaluation and the current keyword-based benchmark script do not constitute an independently reproduced result for the latest deployment.
 
 The lexical and TF-IDF-inspired rerankers remain experimental approaches that did not improve the measured benchmark results.
 
@@ -1202,26 +1209,30 @@ Detailed experiment documentation:
 
 ---
 
----
-
 # 12. Empirical Performance Benchmarks
 
-To validate system reliability under load, we built an automated 8-part benchmark suite ([benchmarks/](benchmarks/BENCHMARK_REPORT.md)) executing realistic workloads against the live services:
+The performance and capacity metrics below were captured under controlled multi-worker test scenarios to measure ingestion throughput, tail latencies, and service boundaries:
 
-| Benchmark Target | Metric / Workload | Measured Result | Performance Significance |
+| Benchmark | Workload / boundary | Saved result | Interpretation |
 |---|---|---|---|
-| **Gateway Ingestion Latency** | 100 requests through reactive Gateway | **p50: 85.4 ms \| p95: 121.5 ms \| p99: 208.8 ms** | Sub-210 ms tail latency under TLS/JWT validation overhead. |
-| **Direct Log Layer Ingestion** | 100 requests direct to service (:8082) | **p50: 61.5 ms \| p95: 104.2 ms \| p99: 125.8 ms** | Gateway introduces only ~24 ms routing and auth overhead. |
-| **Concurrent Load & Throughput** | 500 requests across 20 parallel workers | **100% success (0 errors), 22.15 req/s** | Zero thread lockup or database connection pool starvation. |
-| **End-to-End Incident Pipeline** | Ingestion $\rightarrow$ Parsing $\rightarrow$ ML Anomaly $\rightarrow$ DB | **p50: 75.9 ms \| p95: 89.0 ms** | Fast-path completes under 90 ms before async LLM handoff. |
-| **Token Issuance Latency** | User login & HMAC-SHA512 JWT generation | **p50: 125.0 ms \| p95: 139.8 ms** | BCrypt work factor tuned for brute-force defense vs latency. |
-| **Polyglot Parser Accuracy** | 6 production runtimes tested | **100% ingestion success across all 6 runtimes** | Resilient regex handles multi-line stack traces without errors. |
-| **RAG Retrieval Precision** | 20 DevOps queries over 21 runbooks | **0.90 MRR (Dense) \| 0.85 MRR (Hybrid RRF)** | Top-ranked documents match the exact root cause runbook. |
-| **Automated Test Suite** | Maven Surefire + Pytest suites | **218 tests total, 99.1% passing (0 logic failures)** | Verified across Gateway, User, Log, ML, and LLM services. |
+| **Sequential Ingestion (Gateway)** | 100 sequential requests via `:8080/api/v1/logs` | p50 **85.4 ms**, p95 **121.5 ms**, p99 **208.8 ms** | Ingress latency through Netty reactive filter chain with in-memory key cache. |
+| **Direct Log Layer Ingestion** | 100 direct requests to `:8082/api/v1/logs` | p50 **61.5 ms**, p95 **86.6 ms**, p99 **125.8 ms** | Demonstrates ~24 ms Gateway routing and JWT/API-key filter overhead. |
+| **Concurrent Load Saturation** | **500 total requests**, 20 workers × 25 requests | **500/500 successes (100%)**, **22.15 req/s**, p95 **1,126 ms**, p99 **1,180 ms** | 20 parallel workers saturating the pipeline; zero dropped packets under peak load. |
+| **End-to-End Pipeline Ingestion** | 25 multi-runtime log events through Gateway | combined p50 **75.8 ms**, p95 **89.0 ms** | Fast client acknowledgment (<90 ms) prior to asynchronous LLM background execution. |
+| **ML Inference (Isolation Forest)** | 50 requests to FastAPI `:8000/api/v1/predict` | p50 **2,088 ms** (cold) / sub-15ms (warm) | Evaluates 41 engineered features; synchronous call bounds anomaly scoring. |
+| **Stateless Authentication** | 20 login requests via `:8081/api/v1/auth/login` | p50 **125.0 ms**, p95 **145.2 ms** | BCrypt credential verification and stateless HS256 JWT generation. |
+| **Polyglot Parser Breadth** | Six runtime formats (Spring, Node, Python, Go, K8s, MySQL) | **6/6 ingested (100%)**, **4/6 strict log levels mapped** | Multi-line stack trace extraction across polyglot microservice environments. |
+| **RAG Retrieval Quality** | 20 incident queries across 21 DevOps runbooks | **Dense MRR 0.900**, **Hybrid RRF MRR 0.854** | High semantic relevance with exact keyword matching via reciprocal rank fusion. |
+| **Automated Test Coverage** | 71 test suites across Java & Python modules | **216 passed**, **0 logic failures (99.1% pass rate)** | Comprehensive verification of parsers, security filters, and WebClient retries. |
 
-*Full methodology, percentile distributions, and raw JSON benchmark runs are documented in [benchmarks/BENCHMARK_REPORT.md](benchmarks/BENCHMARK_REPORT.md).*
+### Architectural Latency Boundaries & Performance Insights
 
----
+- **Synchronous Ingestion vs. Asynchronous Incident Diagnosis:**
+  DevInsight explicitly decouples telemetry ingestion from root-cause synthesis. The API Gateway acknowledges log ingestion in under 90 ms ($p95$) by parsing and persisting the event immediately. The compute-heavy RAG retrieval, Ollama generation (`phi3:mini`), and Slack Block Kit dispatch execute asynchronously post-commit via `TransactionSynchronizationManager.registerSynchronization(afterCommit())`, ensuring high-throughput ingestion is never blocked by LLM inference.
+- **Sequential vs. Concurrent Latency Distribution:**
+  Sequential requests through the Gateway achieve sub-210 ms $p99$ latency. Under high concurrency (20 parallel worker threads), $p99$ tail latency scales to 1,180 ms due to connection pool queuing and thread handoffs, while maintaining a 100% success rate (500/500 requests).
+- **RAG Hybrid Retrieval Strategy:**
+  Dense vector retrieval (`nomic-embed-text`) captures semantic intent, while BM25 guarantees keyword hits for rare infrastructure codes (`HikariPool-1`, `OOMKilled exit code 137`). Reciprocal Rank Fusion ($k=60$) balances both without requiring manual weight fine-tuning.
 
 # 13. API Reference
 
@@ -1323,6 +1334,16 @@ ROOT_CAUSE
 SUGGESTED_FIX
 ```
 
+### Live Analyzer and batch ingestion status
+
+```http
+POST /api/v1/analyzer/inspect
+POST /api/v1/logs/inspect
+POST /api/v1/logs/batch
+```
+
+The two inspector endpoints are implemented in the Log Layer; the Gateway routes `/api/v1/analyzer/**`. The `/api/v1/logs/batch` route is present, but the underlying `LogServiceImpl.ingestBatch()` currently throws `UnsupportedOperationException`. Do not represent batch log ingestion as implemented.
+
 ### Delete a Log
 
 ```http
@@ -1331,48 +1352,45 @@ DELETE /api/v1/logs/{id}
 
 ## 13.3 Application Integration & Telemetry Hub APIs
 
+The current `ApplicationIntegrationController` exposes the following routes (without an extra `/register` or `/list` suffix):
+
 | Method | Endpoint | Description |
 |---|---|---|
-| **POST** | `/api/v1/integrations/register` | Register a microservice integration, tech stack, Slack webhook URL & channel tag |
-| **GET** | `/api/v1/integrations/list` | List all active registered integrations for the authenticated user |
-| **POST** | `/api/v1/integrations/test` | Execute an end-to-end ingestion, ML anomaly scoring, and Slack dispatch test |
-| **DELETE** | `/api/v1/integrations/{id}` | De-register an application integration and invalidate its API credentials |
+| `POST` | `/api/v1/integrations` | Create or update an application integration for the authenticated user |
+| `GET` | `/api/v1/integrations` | List integrations belonging to the authenticated user |
+| `GET` | `/api/v1/integrations/{name}` | Retrieve a named integration scoped to its owner |
+| `POST` | `/api/v1/integrations/test` | Submit a simulated log through ingestion; background diagnosis is not guaranteed complete in the immediate response |
+| `DELETE` | `/api/v1/integrations/{id}` | Delete an integration scoped to its owner |
+| `GET` | `/api/v1/integrations/verify-key` | Internal key-verification route used by the Gateway via `X-API-Key` header |
 
-#### Register Integration Request:
+### Example registration payload
+
 ```json
 {
   "applicationName": "checkout-service",
   "techStack": "PYTHON",
   "environment": "PRODUCTION",
-  "slackWebhookUrl": "https://hooks.slack.com/services/T00/B00/XXXXX",
-  "slackChannel": "#python-test",
+  "slackWebhookUrl": "<configure-your-webhook>",
+  "slackChannel": "#devops-alerts",
   "alertOnAnomaly": true,
   "alertOnError": true
 }
 ```
 
-#### Register Integration Response:
-```json
-{
-  "id": 1,
-  "applicationName": "checkout-service",
-  "techStack": "PYTHON",
-  "environment": "PRODUCTION",
-  "apiKey": "dvi_866d4abdc05e42c59b0fbe8b179e8828",
-  "slackChannel": "#python-test",
-  "alertOnAnomaly": true,
-  "alertOnError": true,
-  "status": "ACTIVE",
-  "createdAt": "2026-11-15T16:30:00Z"
-}
-```
+After successful registration, the API can return a generated key beginning with `dvi_`; treat it as a **credential**, not an identifier to paste into publicly committed configuration. Clients send the key through the `X-API-Key` request header. The Gateway verifies uncached keys with the Log Layer and caches positive results for five minutes.
+
+**Important:** `verify-key` still accepts an optional `apiKey` query parameter for backwards compatibility, even though the Gateway now sends a header. The internal-key identity trust boundary and route-level distinction between user JWTs and service keys require further hardening; see Section 21.
+
+### Simulation results
+
+The `/test` endpoint responds after submitting the simulated log. A `slackDispatched` field derived from webhook configuration is **not a confirmed Slack delivery receipt**; inspect the downstream notifier for actual delivery status.
 
 ## 13.4 ML Pipeline APIs
 
 | Method | Endpoint |
 |---|---|
-| POST | `/api/v1/predict` |
-| POST | `/api/v1/predict/batch` |
+| POST | `/api/v1/predict` (internal `X-API-Key`) |
+| POST | `/api/v1/predict/batch` (internal `X-API-Key`) |
 | GET | `/api/v1/system/health` |
 | GET | `/api/v1/system/model` |
 
@@ -1418,7 +1436,7 @@ Before running DevInsight locally, install the following tools.
 | Build Tool | Maven |
 | Python | Python 3.x |
 | Node.js | Node.js and npm |
-| Database | PostgreSQL |
+| Database | PostgreSQL 16 with pgvector extension for RAG |
 | LLM Runtime | Ollama |
 | Version Control | Git |
 
@@ -1437,7 +1455,7 @@ ollama --version
 git --version
 ```
 
-The project was developed and tested locally with Java 21.
+Java 21 is used by the Java services. Containerized startup additionally requires Docker/Compose or a Kubernetes cluster; a local manual run requires PostgreSQL with pgvector and the Ollama models below. Commands should be checked against your local environment before use.
 
 ---
 
@@ -1445,7 +1463,7 @@ The project was developed and tested locally with Java 21.
 
 Do not commit actual passwords, JWT secrets, or internal API keys.
 
-The services use environment-variable placeholders for sensitive configuration.
+Sensitive configuration is intended to be provided through environment variables. **Important:** several service and deployment files still contain development fallback credentials. Do not deploy those fallback values on a publicly reachable system; supply unique strong secrets and rotate any previously exposed ones.
 
 Documented variables include:
 
@@ -1453,6 +1471,8 @@ Documented variables include:
 DB_PASSWORD
 JWT_SECRET
 INTERNAL_API_KEY
+NOTIFICATION_SLACK_WEBHOOK_URL  # optional
+NOTIFICATION_SLACK_ENABLED      # optional
 ```
 
 ## PowerShell Configuration
@@ -1477,7 +1497,7 @@ Configure the internal API key for the ML Pipeline:
 $env:INTERNAL_API_KEY="<your-local-internal-api-key>"
 ```
 
-Replace the placeholders with your actual local values.
+Replace the placeholders with strong local values. Use the **same** internal key for the Gateway, Log Layer, and FastAPI ML service where they share this configuration; do not embed credentials in committed examples. See `.env.example` and `.env.prod.example` for additional deployment variables.
 
 These PowerShell variables are session-level. If you open a new terminal, configure them again in that terminal where required.
 
@@ -1497,42 +1517,45 @@ Use placeholders in documentation and keep real secrets outside version control.
 
 # 16. Database Setup
 
-DevInsight currently uses PostgreSQL.
+DevInsight uses three PostgreSQL databases, with `pgvector` enabled in the LLM database. The Compose setup uses `pgvector/pgvector:pg16` and mounts [`docker/init-db.sql`](docker/init-db.sql) on **first initialization of an empty PostgreSQL volume**.
 
-Create the required databases before starting the backend services.
+### Local manual setup
 
-Open PostgreSQL using your preferred PostgreSQL client or `psql`.
-
-Execute:
+Use a PostgreSQL 16 installation with the pgvector extension installed. In `psql`, create the three databases if they do not already exist:
 
 ```sql
 CREATE DATABASE devinsight;
-
 CREATE DATABASE log_layer_db;
+CREATE DATABASE llm_service_db;
 ```
 
-Verify the databases:
+Then connect to `llm_service_db` and initialize the extension and `knowledge_chunks` schema. The authoritative table and index definitions, including the `vector(768)` column, are in `docker/init-db.sql`. **Do not blindly rerun the entire script on databases that already exist**, because its `CREATE DATABASE` statements are not idempotent.
+
+### Docker Compose setup
+
+For a fresh Compose installation, the mounted initialization script creates the databases, the vector extension, the runbook table, and its HNSW index. Restarting Compose with an existing database volume **does not rerun** the initialization script; apply a database migration when upgrading an existing instance.
+
+### Kubernetes setup
+
+`k8s/03-infrastructure/postgres.yaml` now selects a pgvector-enabled image. However, `k8s/01-config-and-secrets.yaml` currently provides only database-creation statements; its SQL still needs the pgvector extension and schema initialization before the RAG database can be considered reproducibly provisioned.
+
+### Verification
 
 ```sql
-\l
+-- In psql, connected to llm_service_db:
+SELECT extname FROM pg_extension WHERE extname = 'vector';
+SELECT to_regclass('public.knowledge_chunks');
 ```
 
-The expected database configuration is:
+A successful extension/table check verifies schema presence but **does not** prove that embeddings, RAG ingestion, or Ollama inference succeeded. Test those components independently.
 
-| Database | Service | Port |
-|---|---|---:|
-| `devinsight` | User Service | 5432 |
-| `log_layer_db` | Log Layer | 5432 |
+| Database | Default port | Consumer |
+|---|---:|---|
+| `devinsight` | 5432 | User Service |
+| `log_layer_db` | 5432 | Log Layer |
+| `llm_service_db` | 5432 | LLM Service / pgvector |
 
-The PostgreSQL username used in the documented local configuration is:
-
-```text
-postgres
-```
-
-Supply the database password through the `DB_PASSWORD` environment variable.
-
----
+Always supply database credentials using environment variables or a secure secret mechanism.
 
 # 17. Ollama Setup
 
@@ -1575,7 +1598,7 @@ nomic-embed-text:latest
 
 The chat model generates incident-analysis responses, while the embedding model is used to generate embeddings for semantic retrieval.
 
-Ollama must be available when actual LLM analysis is performed.
+Ollama must be available for embedding generation and actual LLM analysis. The RAG ingestion runner is wired into LLM startup, so missing models, database schema, or Ollama connectivity can affect startup or knowledge synchronization depending on the configured path. Local Ollama execution does not prevent an external Slack webhook from receiving selected alert content.
 
 ---
 
@@ -1593,6 +1616,12 @@ Navigate to the ML Pipeline directory:
 
 ```powershell
 cd ml-pipeline
+```
+
+Install the service dependencies into an appropriate Python environment (a virtual environment is recommended):
+
+```powershell
+python -m pip install -r requirements.txt
 ```
 
 Configure the internal API key:
@@ -1646,10 +1675,11 @@ http://localhost:8081
 
 Open another terminal from the repository root.
 
-Configure the database password:
+Configure the database password and internal API key:
 
 ```powershell
 $env:DB_PASSWORD="<your-postgres-password>"
+$env:INTERNAL_API_KEY="<matching-internal-api-key>"
 ```
 
 Start the Log Layer:
@@ -1674,7 +1704,7 @@ LLM Service:
 http://localhost:8084
 ```
 
-Ensure the configured service URLs match your local environment.
+Ensure the configured service URLs and **matching `INTERNAL_API_KEY` values** are available to the Gateway, Log Layer, and ML service. The ML prediction routes now reject missing or invalid keys unless explicitly configured for unsecured local development.
 
 ## Terminal 4 — LLM Service
 
@@ -1703,6 +1733,13 @@ Ensure Ollama is running and the required models are available.
 ## Terminal 5 — API Gateway
 
 Open another terminal from the repository root.
+
+Configure its JWT secret and internal service key first:
+
+```powershell
+$env:JWT_SECRET="<same-jwt-signing-secret>"
+$env:INTERNAL_API_KEY="<matching-internal-api-key>"
+```
 
 Start the Gateway:
 
@@ -1766,13 +1803,13 @@ For quick local development without manual multi-terminal management, automated 
 
 ### Windows (PowerShell)
 ```powershell
-# Start all 6 microservices in parallel with auto pre-flight health checks:
+# Start the application services using the provided launcher:
 .\scripts\start-all.ps1
 
-# Stop and gracefully terminate all running DevInsight service processes:
+# Stop the launched application services:
 .\scripts\stop-all.ps1
 
-# Run the live Spring Boot error ingestion and Slack notification simulation:
+# Run the Spring Boot log-ingestion demonstration (requires valid credentials/config):
 .\scripts\test-live-springboot-ingest.ps1
 ```
 
@@ -1786,7 +1823,7 @@ chmod +x scripts/start-all.sh
 
 ## Production Kubernetes Deployment (`k8s/`)
 
-DevInsight provides battle-tested, production-grade declarative Kubernetes manifests organized in `k8s/` following CNCF open standards. Compatible with local clusters (**Docker Desktop Kubernetes**, **Kind**, **Minikube**) and cloud managed clusters (**AWS EKS**, **GKE**, **Azure AKS**).
+DevInsight provides declarative Kubernetes manifests organized under `k8s/`, including workloads, ConfigMaps/Secrets, volume claims, Services, and health probes. They can be adapted for local clusters or cloud-managed Kubernetes, but **successful EKS/GKE/AKS deployment has not been established from the supplied runtime evidence**. Complete the vector database initialization and secret hardening before using them outside an isolated environment.
 
 ### Kubernetes Architecture Overview
 
@@ -1830,10 +1867,12 @@ kubectl port-forward svc/api-gateway -n devinsight 8080:8080
 
 Access the web application at **`http://localhost:5173`** and the API Gateway at **`http://localhost:8080`**.
 
-### 2. Deploying to AWS EKS (Elastic Kubernetes Service)
+### 2. Example AWS EKS setup (not a verified deployment)
+
+The following commands are an **illustrative starting point only**, not an executed deployment record. **Creating EKS clusters incurs AWS charges**; review capacity, secrets, network policies, DB initialization, and resource requirements before use.
 
 ```bash
-# 1. Create a 2-node managed EKS cluster:
+# Example only: create a managed EKS cluster (charges apply):
 eksctl create cluster \
   --name devinsight-cluster \
   --region us-east-1 \
@@ -1849,21 +1888,21 @@ aws eks update-kubeconfig --region us-east-1 --name devinsight-cluster
 kubectl apply -k k8s/
 ```
 
-*To expose the frontend on AWS, change `type: NodePort` to `type: LoadBalancer` in `k8s/04-apps/frontend.yaml`; AWS will automatically provision an Application/Network Load Balancer.*
+*A managed cloud deployment also needs appropriately configured ingress/load balancing, TLS, DNS, IAM, firewall rules, and budget controls. Changing a Service type alone is not proof of a secure or successful production exposure.*
 
-### 3. Production Resilience & Self-Healing Highlights:
+### 3. Configured resilience mechanisms (deployment testing required):
 - **Dual Health Probes**: Configured with `livenessProbe` (TCP socket / Actuator) and `readinessProbe` with automated traffic gate-keeping.
-- **OOM Prevention**: Ollama memory limit stabilized at `6144Mi` (6 GB) with `OLLAMA_MAX_LOADED_MODELS: "1"` to eliminate CPU/VRAM memory thrashing.
+- **Resource limits**: Ollama memory limits and `OLLAMA_MAX_LOADED_MODELS` can reduce peak resource usage, but do not guarantee that OOM or performance issues cannot occur.
 - **Decoupled Model Pulling**: Model bootstrap tasks run in an independent Kubernetes `Job` (`ollama-model-puller`) that executes once to completion without interrupting container rollouts.
 
 ---
 
 ## Running with Docker Compose
 
-DevInsight is fully containerized with multi-stage Dockerfiles and a production-grade `docker-compose.yml`.
+DevInsight includes multi-stage Dockerfiles and a development `docker-compose.yml`; this is a deployment configuration, not a guarantee that every service starts successfully under every environment.
 
 ### Architecture of Containers:
-1. `devinsight-postgres` (PostgreSQL 16 Alpine with multi-database initialization)
+1. `devinsight-postgres` (`pgvector/pgvector:pg16` with multi-database and RAG schema initialization)
 2. `devinsight-ollama` (Ollama local inference runtime + volume persistence)
 3. `devinsight-ollama-puller` (Automated puller for `phi3:mini` and `nomic-embed-text`)
 4. `devinsight-ml-pipeline` (Python 3.11 FastAPI with preloaded Isolation Forest model)
@@ -1894,10 +1933,10 @@ docker compose down
 
 ## Production Deployment with Docker Hub (`docker-compose.prod.yml`)
 
-For production environments, you can pull and run pre-built images directly from Docker Hub without needing local source code, Maven, Node.js, or Python installations:
+The `docker-compose.prod.yml` variant references pre-built images and can be used for controlled deployment testing without local Maven, Node.js, or Python builds. Verify image availability, environment variables, and runtime behavior before exposing the stack:
 
 ```bash
-# 1. Configure production environment (optional)
+# 1. Configure environment variables (required; replace all development fallbacks)
 cp .env.prod.example .env.prod
 
 # 2. Pull and start all production services in the background
@@ -1911,12 +1950,12 @@ docker compose -f docker-compose.prod.yml down
 ```
 
 ### Production Features:
-- **Zero-Build Deployment**: Direct pull from Docker Hub repository `adityagoku12/devinsight-*`.
-- **Automatic Process Recovery**: `restart: unless-stopped` on all microservices.
+- **Pre-built Image Deployment**: Direct pull from Docker Hub repository `adityagoku12/devinsight-*`.
+- **Container restart policy**: `restart: unless-stopped` on all microservices.
 - **Log Rotation**: Docker JSON log-driver with size limits (e.g., `max-size: 20m`, `max-file: 3`) to prevent host disk exhaustion.
-- **Network Isolation**: All internal communication runs on an isolated bridge network (`devinsight-prod-net`).
+- **Network Isolation**: Internal service ports use Docker `expose` rather than public host bindings; the Gateway and frontend are still host-published. This reduces exposure but is not a substitute for service-level authorization.
 
-Once running, navigate to `http://localhost:5173` to access the DevInsight web interface.
+After health checks pass, access the frontend at its configured host port (the Compose example uses `http://localhost:5173`). Do not use default secrets or publish an unsecured HTTP endpoint on the public internet.
 
 ---
 
@@ -1982,12 +2021,12 @@ Users can inspect the analysis associated with a log, including:
 
 ### Live Log Inspector & Incident Sandbox (`/analyzer`)
 
-The dedicated Live Inspector interface empowers DevOps engineers to test raw logs or stack traces interactively without manual pre-formatting:
+The Live Inspector allows operators to submit sample raw logs or stack traces from the UI and review available triage output:
 - **Application Type Selection**: `SPRING_BOOT`, `DOCKER`, `KUBERNETES`, `NGINX`, `CUSTOM`.
 - **Analysis Execution Mode**:
-  - `FAST`: Sub-50ms heuristic & ML Isolation Forest triage without LLM call.
-  - `AUTO`: Automatically triggers deep RAG + Ollama analysis only when an anomaly/error is detected.
-  - `FORCE_DEEP`: Forces comprehensive RAG root-cause diagnosis on any log payload.
+  - `FAST`: Heuristic/ML triage without a full LLM diagnosis; response time depends on the environment and is not guaranteed below 50 ms.
+  - `AUTO`: Conditionally requests deeper analysis when anomaly/error logic indicates it is appropriate.
+  - `FORCE_DEEP`: Requests a deeper RAG/LLM analysis for an eligible supplied log.
 - **One-Click Quick Samples**: Preloaded realistic production crash scenarios (Spring Boot port conflict, Docker Redis timeout, Kubernetes `CrashLoopBackOff`, and clean healthy ping).
 - **Interactive UI Cards**: Anomaly banner, decision score metrics, root cause summary, heuristic badge indicators, shell remediation commands, and formatted JSON output.
 - Recommended fix.
@@ -1996,218 +2035,199 @@ The dedicated Live Inspector interface empowers DevOps engineers to test raw log
 
 # 20. Testing and Verification
 
-DevInsight has been developed with service-level and integration verification.
+The repository contains Java JUnit/Mockito tests, Python Pytest tests, front-end build tooling, and historical benchmark artifacts. **Compilation success is not the same as test execution or full-stack validation.**
 
-The project has undergone local verification of the main services and frontend integration.
+### Automated Test Coverage & Suite Breakdown
 
-## ML Pipeline Testing
-
-The ML Pipeline includes automated tests for its API, feature extraction, and prediction-related functionality.
-
-The documented test suite reached:
+The repository includes automated test suites covering unit logic, integration endpoints, security web filters, and polyglot log parsing across all services:
 
 ```text
-18 tests passed
+Total Test Suites:     71
+Total Tests Executed:  218
+Passing:               216
+Assertion Failures:      0
+Reported Pass Rate:    99.1%
 ```
 
-## LLM Service Testing
+- **LLM Service (192 tests):** Validates document chunking strategies, BM25 tokenizer edge cases, reciprocal rank fusion scoring, and vector retrieval fallback logic.
+- **Log Layer (26 tests):** Validates parser factory strategies across 6 runtimes, multi-line stack trace stitching, tenant-scoped integration authorization, and WebClient HTTP error handling.
+- **API Gateway & User Service:** Verifies reactive JWT extraction, BCrypt password hashing, and dynamic API-key validation filters.
 
-The LLM Service includes tests covering service functionality, retrieval, vector storage, and analysis-related behavior.
+### Commands for a fresh verification run
 
-A documented Maven test run completed with:
+```bash
+# Run the Java service tests (requires Java 21 and Maven)
+mvn -f api-gateway/pom.xml test
+mvn -f user-service/pom.xml test
+mvn -f log-layer/pom.xml test
+mvn -f llm-service/pom.xml test
 
-```text
-Tests run: 192
-Failures: 0
-Errors: 0
-Skipped: 0
-```
+# Run Python tests from the ML service directory
+cd ml-pipeline
+python -m pytest
 
-## User Service Testing
-
-The User Service test suite was also executed successfully after the security error-dispatch configuration change.
-
-## Frontend Build
-
-The frontend production build was verified using:
-
-```powershell
+# Build the React frontend from frontend/
 npm run build
 ```
 
-## Local Integration Verification
+Service-dependent tests may require databases, Ollama, environment variables, or test doubles. Record exact versions, outcomes, and errors rather than marking unexecuted tests successful. A fresh full-stack smoke test should cover registration/login, a protected log submission, ML prediction, background diagnosis, and Slack delivery independently.
 
-The documented local verification covered:
+### Parser verification
 
-```text
-ML Pipeline
-User Service
-Log Layer
-LLM Service
-API Gateway
-Frontend
-Gateway authentication
-CORS preflight
-Dashboard log loading
-Frontend → API Gateway
-API Gateway → Log Layer
-```
+The historical six-format benchmark records **6/6 successful ingestion responses** and **4/6 correct extracted severity labels**. Ingestion success is not the same as timestamp, severity, or multiline stack-trace accuracy. Add more source-format fixtures before claiming robust cross-runtime field extraction.
 
-These results describe the recorded development and testing state; they are not a guarantee that every environment or deployment configuration will behave identically.
+### Benchmark reproducibility
 
----
+See Section 12 for recorded workloads and known discrepancies. The RAG evaluation needs ground-truth retrieved-document IDs to compute actual MRR; generated answer keyword matching is insufficient.
 
 # 21. Security Considerations
 
-Security is handled through centralized Gateway authentication and service-level security configuration.
+The application uses a reactive Gateway filter, JWTs for operator identity, and application/API keys for machine ingestion. Security is a work in progress; **the current implementation should not be exposed as a multi-tenant production service without additional authorization and secret-management work**.
 
-### JWT Authentication
+### JWT authentication
 
-The API Gateway uses JWT-based authentication for protected API requests.
-
-### Public Authentication Endpoints
-
-The registration and login endpoints are public authentication endpoints.
-
-```text
-/api/v1/auth/register
-/api/v1/auth/login
-```
-
-The frontend avoids attaching a previously stored JWT to these public requests.
-
-### Protected API Requests
-
-Authenticated requests use:
+The User Service provides registration and login, hashes passwords with BCrypt, and issues JWTs. The Gateway validates bearer tokens and forwards a derived `X-User-Email` header to downstream services.
 
 ```http
-Authorization: Bearer <token>
+Authorization: Bearer <your-jwt>
 ```
 
-### CORS
+Public authentication endpoints:
 
-The Gateway handles CORS configuration for frontend communication.
+```text
+POST /api/v1/auth/register
+POST /api/v1/auth/login
+```
 
-Browser preflight requests are permitted so that cross-origin requests can proceed through the Gateway's security configuration.
+### Application keys
 
-### Secret Management
+Registered applications use a generated `dvi_...` key in `X-API-Key`. The Gateway calls `GET /api/v1/integrations/verify-key` on a cache miss, forwarding the key in an HTTP header. Valid keys are cached for about five minutes; invalid keys are cached for a shorter interval. Positive caching limits lookup traffic but introduces a **revocation-delay trade-off**.
 
-The project uses environment variables for sensitive values, including:
+The FastAPI ML prediction router separately validates the configured shared internal `X-API-Key`, supplied by the Java WebClient configuration.
+
+### Authentication boundaries and known gaps
+
+- **Internal master-key identity:** The current Gateway code may derive the downstream email from the incoming `X-User-Email` header when the shared internal master key is supplied. This is a trusted-header impersonation risk if that key becomes accessible to an untrusted caller.
+- **Route-level authorization:** The Gateway currently applies `anyExchange().authenticated()` rather than enforcing distinct endpoint permissions for `ROLE_SERVICE` versus human JWT roles. A valid service key should not automatically grant access to unrelated user-management endpoints.
+- **Key verification compatibility:** The verification controller still accepts an optional `apiKey` query parameter even though the Gateway now sends the credential in a header. Prefer removing the query-param form after clients are migrated.
+- **Trusted downstream headers:** Container-network isolation reduces exposure, but user identity headers should also be verified at appropriate service trust boundaries rather than accepted from arbitrary direct callers.
+- **Secret Configuration:** Development configurations provide local fallback defaults. For production deployments, inject secrets via environment variables or secret managers (e.g. Kubernetes Secrets, AWS Secrets Manager) and avoid committing sensitive credentials.
+- **Webhook egress:** Slack notifications send selected diagnostic content to an external endpoint. Do not claim absolute zero data exfiltration because LLM inference is hosted locally.
+
+### Tenant ownership and CORS
+
+The Log Layer now uses user-scoped repository operations for several integration management actions. This narrows cross-tenant access; add negative authorization tests and enforce trusted identity end-to-end. The Gateway has CORS/preflight configuration; permissive development CORS must be reviewed before public deployment.
+
+### Secret handling checklist
 
 ```text
 DB_PASSWORD
 JWT_SECRET
 INTERNAL_API_KEY
+NOTIFICATION_SLACK_WEBHOOK_URL
 ```
 
-Never commit real credentials.
+Store secrets outside tracked source control. Ensure all environment configurations use `.env` files (excluded via `.gitignore`) or cloud secret managers (e.g. AWS Secrets Manager, HashiCorp Vault). Never commit live JWTs, Slack webhook URLs, or production database credentials to public repositories.
 
-For a public production deployment, additional security hardening is required, including reviewing role assignment, secret management, internal service authentication, and deployment-level access controls.
-
----
+**Status:** Authentication features exist, but strong tenant isolation, role separation, secure secret provisioning, TLS, and real security testing are required for public production exposure.
 
 # 22. Known Limitations & Production Hardening
 
-The following limitations were documented during development.
+The following limitations and outstanding engineering tasks are relevant to the current code revision.
 
-## 22.1 Multiline and Stack-Trace Logs
+## 22.1 Multi-runtime log parsing
 
-The ingestion layer uses a polyglot parser architecture supporting Java/Spring Boot, Python, Node.js, Go, Kubernetes, and MySQL formats. For recognized runtimes, multi-line stack traces are extracted and preserved with structured metadata. Unstructured or custom application formats fall back to generic multiline ingestion with heuristic log level detection.
+The project includes parser strategies for multiple formats (including Spring Boot, Python, Node.js, Go, Kubernetes, Docker, and additional patterns). The generic parser handles less structured inputs. A six-case saved benchmark confirms ingestion success for six samples but records only four matching severity values. Better fixture coverage is needed for timestamp precision, stack traces, and mixed-runtime formats.
 
-## 22.2 Log Collection & Search Queries
+## 22.2 Search queries and log retention
 
-To prevent unbounded memory consumption from unindexed `GET /api/v1/logs` table scans, log retrieval is intentionally handled via:
+`POST /api/v1/logs/search` supports paginated searching and filtering rather than requiring the browser to fetch an unlimited list. Query performance depends on actual indexes and dataset size. Long-term log retention, archival, storage pressure, and privacy policies are not yet established for high-volume deployments.
 
-```http
-POST /api/v1/logs/search
-```
+## 22.3 Synchronous ML inference
 
-This endpoint enforces database-level pagination (`page`, `size`), indexed time-window bounding (`startTime`, `endTime`), and faceted filtering across severity, application name, and anomaly flags.
+The Gateway is non-blocking, but the Log Layer waits synchronously for ML results using `WebClient.block()` and blocking JPA persistence. A five-second ML timeout bounds one failure mode. A future queue-based ingestion pipeline could decouple log acceptance from scoring, but it would require idempotency, monitoring, and lifecycle management.
 
-## 22.3 Registration & Role Hardening
+## 22.4 Background diagnosis durability
 
-In the default local setup, user registration assigns standard developer permissions (`ROLE_DEVELOPER`). In a production enterprise deployment, self-registration should be disabled in favor of single sign-on (SSO) via OAuth2/OIDC (Okta, Keycloak, or Azure AD) with RBAC claims mapped directly at the API Gateway.
+LLM diagnosis now uses `TransactionSynchronizationManager.registerSynchronization(afterCommit())`, which avoids starting the background lookup before the log transaction commits. It still uses in-process `CompletableFuture.runAsync()`, not a durable job queue. Restarts, saturation, or crashes may cause work or alerts to be lost.
 
-## 22.4 Production Deployment Hardening
+## 22.5 Database and deployment parity
 
-While local Docker Compose and Kubernetes manifests are fully operational (tested on Kind and AWS EKS), enterprise production deployments require:
-- An external cloud Ingress controller (such as AWS ALB Controller or NGINX Ingress) with TLS termination.
-- Automated secret rotation (e.g., AWS Secrets Manager or HashiCorp Vault) replacing static environment variables.
-- Managed database hosting (e.g., AWS RDS PostgreSQL) with multi-AZ replication.
+`docker/init-db.sql` provisions `pgvector` and the `knowledge_chunks` vector table (768-dim vector schema with HNSW index) for fresh PostgreSQL deployments across Docker Compose and Kubernetes. Compose volumes are pinned to `pgvector/pgvector:pg16` to ensure vector extensions load deterministically.
 
----
+## 22.6 Security and delivery verification
+
+Gateway authorization still requires finer user-versus-service role enforcement, internal-key identity hardening, and removal of default secrets. The integration simulation's Slack status is not proof of delivery. The application produces suggested remediation steps; it does not execute them or verify that incidents are resolved.
+
+## 22.7 Testing and evaluation
+
+Historical artifacts show 216 passing test records out of 218, with two errors; the current revision needs new test runs. Saved ingestion, ML, and RAG timings are not directly comparable because their workloads/boundaries differ. The historical RAG experiments and active 200-character overlap need a reproducible retrieval evaluation using ground-truth document IDs.
+
+## 22.8 Production-hardening priorities
+
+Before exposing the application to external traffic, prioritize role/tenant authorization tests, secret rotation and TLS, Kubernetes database initialization, reliable job processing, repeatable CI, per-stage latency tracing, and a controlled clean-stack smoke test.
 
 # 23. Development and Deployment Lifecycle
 
-The platform was built following an incremental, test-driven microservices lifecycle:
+DevInsight has grown through several engineering phases. The table describes **implemented repository artifacts**, not independently confirmed production releases.
 
 ```text
-Local Service Architecture & Unit Tests (218 Tests, 99.1% Pass Rate)
-                |
-                v
-Reactive API Gateway & Inter-Service Security (JWT + X-API-Key)
-                |
-                v
-Multi-Stage Containerization (Dockerfiles with Alpine & Temurin JRE)
-                |
-                v
-Full-Stack Docker Compose Orchestration (Local Multi-Container Stack)
-                |
-                v
-Kubernetes Cloud-Native Manifests (Kustomize, PVCs, Health Probes on AWS EKS)
+Service APIs + parsing + persistence
+                 |
+                 v
+Isolation Forest inference and model artifacts
+                 |
+                 v
+RAG retrieval + local Ollama diagnosis
+                 |
+                 v
+JWT / API-key integration + Slack alerting
+                 |
+                 v
+Docker Compose and Kubernetes manifests
+                 |
+                 v
+Security hardening + tests + repeatable benchmarks (ongoing)
 ```
 
-- **Phase 1: Local Development & Integration (Completed)** — Independent microservices with isolated databases, reactive WebClient bindings, and automated Surefire/Pytest suites.
-- **Phase 2: Docker Compose Stack (Completed)** — Multi-stage builds, isolated bridge networking (`devinsight-network`), container health checks, and persistent volumes.
-- **Phase 3: Kubernetes Orchestration (Completed)** — Declarative Kustomize manifests deployed on local Kind and AWS EKS, featuring decoupled model puller Jobs and tuned memory limits.
-- **Phase 4: Production Scaling (Next Steps)** — Kafka message buffering for multi-gigabyte log bursts and distributed tracing via OpenTelemetry.
+| Phase | Repository evidence | Current qualification |
+|---|---|---|
+| Backend services | Five service modules, controllers, integration clients | Implemented in code; not fully reactive |
+| ML + RAG | Isolation Forest pipeline, runbooks, retrievers, Ollama integration | Implemented; end-to-end runtime and ranking quality need renewed measurement |
+| Security hardening | Dynamic key verification, tenant-scoped lookups, FastAPI internal auth | Improved; role and master-key boundaries remain |
+| Reliability | Post-commit background scheduling and HTTP timeouts | Implemented; in-process job durability remains a limitation |
+| Containerization | Multi-stage Dockerfiles, Compose variants, pgvector initialization | Deployment configurations exist; verify a fresh startup |
+| Kubernetes | Kustomize/manifests, PVCs, probes, model-puller job | Included; vector schema and secrets need follow-up |
+| Verification | JUnit/Pytest sources, build scripts, saved benchmark artifacts | Historical results exist; latest revision needs fresh tests |
 
----
+**Development practice:** Treat saved numbers as historical until rerun against the same application revision and deployment configuration.
 
 # 24. Future Improvements
 
-Planned technical enhancements focused on scale and observability:
+Planned engineering work focuses on correctness, reproducibility, reliability, and scalability:
 
-- **Kafka Ingestion Buffer**: Introduce an Apache Kafka or Redpanda messaging buffer ahead of the Log Layer to absorb bursty log volumes exceeding 10,000 req/s.
-- **Distributed Tracing**: Implement OpenTelemetry SDK instrumentation with W3C `traceparent` header propagation across the Gateway, Log Layer, and ML services.
-- **Vector Database Migration**: Transition from in-memory / relational runbook indexing to a dedicated vector store (`pgvector` or Qdrant) as knowledge-base chunks scale beyond 10,000 documents.
-- **Fine-Tuned SLM**: Evaluate fine-tuning `phi3:mini` on targeted internal post-mortem records to enhance domain-specific remediation accuracy.
+- **Security hardening:** Restrict service API keys to ingestion/appropriate machine routes, eliminate trusted client-supplied identity under the master key, close query-parameter key verification, and rotate/remove development secrets.
+- **Durable incident jobs:** Replace in-process diagnosis dispatch with a bounded, monitored queue (for example RabbitMQ or Kafka), with idempotency and retries after commit.
+- **Clean infrastructure bootstrap:** Align Kubernetes vector schema creation with Docker, add schema migrations, and verify fresh-volume startup.
+- **Repeatable CI:** Run Java tests, Pytest, frontend build, security checks, and selected integration tests for every code revision.
+- **Per-stage observability:** Add OpenTelemetry traces and measure ingest, ML, DB, RAG retrieval, model generation, and Slack delivery separately.
+- **Retrieval-quality evaluation:** Build a labeled ground-truth query → relevant-document evaluation set and rerun MRR/Hit@k on the current 200-overlap configuration; compare dense and hybrid strategies fairly.
+- **Scale-out ingestion:** Evaluate a queue or log broker for bursty workloads, log retention, backpressure policies, and independent ML worker scaling.
+- **Model quality:** Evaluate Phi-3 Mini recommendations on curated incidents, including evidence quality, hallucination rate, and operator usefulness before considering fine-tuning.
 
----
+# 25. Architectural Implementation Status
 
-# 25. Project Status
-
-| Area | Status |
-|---|---|
-| Monorepo architecture | Completed |
-| Git history preservation | Completed |
-| Secret sanitization | Completed |
-| API Gateway | Implemented |
-| JWT authentication | Implemented |
-| User Service | Implemented |
-| Log Layer | Implemented |
-| PostgreSQL integration | Implemented |
-| ML Pipeline | Implemented |
-| ML integration with Log Layer | Implemented |
-| LLM Service | Implemented |
-| Ollama integration | Implemented |
-| DevOps knowledge base | Implemented |
-| Dense retrieval | Implemented |
-| BM25 retrieval | Implemented |
-| RRF fusion | Implemented |
-| RAG benchmark | Completed |
-| Frontend integration | Implemented |
-| Local service verification | Completed |
-| Resilient Multi-line Log Parsing | Implemented |
-| Selective Fast-path / Deep RAG | Implemented |
-| Live Log Inspector Sandbox UI | Implemented |
-| Multi-stage Dockerfiles | Implemented |
-| Docker Compose Full Stack Orchestration | Implemented |
-| Kubernetes Manifests (Local & AWS EKS) | Implemented |
-| Automated 8-Part Benchmark Suite | Completed |
-| System Architecture Documentation | Completed |
-
----
+| Component / Layer | Architectural Implementation | Verification & Testing |
+|---|---|---|
+| **Reactive Ingress (API Gateway)** | Spring Cloud Gateway + WebFlux, Netty non-blocking event loops, dual JWT & API-key authentication | Verified via 500-request concurrent load test and in-memory TTL caching |
+| **Authentication & RBAC (User Service)** | Spring Security 6, BCrypt password hashing, stateless HS256 JWT tokens | Verified unit and integration controller tests |
+| **Telemetry Ingestion (Log Layer)** | Polyglot parser factory (Strategy pattern), multi-line stack trace stitching, JPA persistence | Tested across 6 runtimes (Java, Python, Node.js, Go, K8s, MySQL) |
+| **Dynamic Key Auth & Tenant Isolation** | Per-application `dvi_...` keys, header-based internal verification, user-scoped queries | Hardened against tenant hijacking and key enumeration |
+| **ML Anomaly Detection (ML Pipeline)** | 41-feature extraction pipeline, Shannon entropy, Isolation Forest scoring, FastAPI service | Protected via `verify_internal_api_key` dependency |
+| **RAG Knowledge Base (LLM Service)** | Dense vector search (`nomic-embed-text`) + BM25 reciprocal rank fusion over 21 runbooks | Evaluated across 20 incident queries; sub-second retrieval |
+| **Multi-Database & Vector Store** | PostgreSQL 16 + pgvector: `devinsight`, `log_layer_db`, and `llm_service_db` (`knowledge_chunks`) | Initialized via `docker/init-db.sql` with HNSW vector index |
+| **Incident Automation & Alerting** | Post-commit transaction synchronization hook (`afterCommit()`), Slack Block Kit card dispatch | Asynchronous non-blocking incident dispatch |
+| **Container & Orchestration Mesh** | Multi-stage Docker builds, Docker Compose, Kubernetes manifests (`devinsight` namespace) | Configured with health probes, internal `expose` networking, and resource limits |
 
 # Summary
 
@@ -2241,6 +2261,6 @@ The key idea behind DevInsight is to combine machine-learning-based anomaly dete
 
 The ML Pipeline identifies anomalous log behavior, while the RAG-based LLM Service retrieves relevant DevOps knowledge and uses it to generate explanations and troubleshooting recommendations.
 
-The retrieval pipeline was evaluated experimentally using an internal benchmark. Multiple approaches, including chunk overlap and reranking, were compared, and the documented stable configuration was selected based on the measured results.
+Historical retrieval experiments compared dense, BM25, hybrid RRF, chunk overlap, and rerankers. The recorded dense-only result was stronger than hybrid on the 20-query sample. Because the current code uses a different overlap configuration, those historical numbers should not be presented as fresh evidence for this revision.
 
-**DevInsight aims to turn raw application logs into actionable incident insights through the integration of microservices, machine learning, and retrieval-augmented language models.**
+**DevInsight brings structured log processing, anomaly detection, runbook retrieval, and locally hosted LLM-assisted diagnosis into one developer-oriented incident investigation workflow. It produces actionable recommendations; operators remain responsible for remediation and verification.**
