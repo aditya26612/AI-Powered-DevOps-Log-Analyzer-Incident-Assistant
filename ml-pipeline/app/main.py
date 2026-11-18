@@ -1,3 +1,19 @@
+# Compatibility shim: modern Starlette versions removed on_startup/on_shutdown from Router
+import starlette.routing
+
+_orig_router_init = starlette.routing.Router.__init__
+
+
+def _patched_router_init(self, *args, **kwargs):
+    kwargs.pop("on_startup", None)
+    kwargs.pop("on_shutdown", None)
+    self.on_startup = []
+    self.on_shutdown = []
+    return _orig_router_init(self, *args, **kwargs)
+
+
+starlette.routing.Router.__init__ = _patched_router_init
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -32,4 +48,3 @@ app = FastAPI(
 )
 register_exception_handlers(app)
 app.include_router(api_router)
-
