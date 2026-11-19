@@ -6,6 +6,7 @@ Artifact Manager
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -18,7 +19,7 @@ from app.artifacts.paths import (
 )
 
 from app.domain.model_metadata import ModelMetadata
-from dataclasses import asdict
+from dataclasses import asdict, fields
 
 class ArtifactManager:
 
@@ -27,7 +28,11 @@ class ArtifactManager:
         artifact_directory: Path = ARTIFACT_DIRECTORY,
     ) -> None:
 
-        self._artifact_directory = artifact_directory
+        art_dir = Path(artifact_directory)
+        if not art_dir.exists() and (Path("ml-pipeline") / art_dir).exists():
+            art_dir = Path("ml-pipeline") / art_dir
+
+        self._artifact_directory = art_dir
 
         self._model_file = (
             self._artifact_directory / "model.pkl"
@@ -53,12 +58,14 @@ class ArtifactManager:
     def save_model(
         self,
         model,
-    ) -> None:
+    ) -> str:
 
         joblib.dump(
             model,
             self._model_file,
         )
+        with self._model_file.open("rb") as artifact:
+            return hashlib.file_digest(artifact, "sha256").hexdigest()
 
     def load_model(self):
 
@@ -84,7 +91,17 @@ class ArtifactManager:
             self._scaler_file,
         )
 
-    def load_scaler(self):
+    def load_scaler(self, allow_missing: bool = False):
+
+        if not self._scaler_file.exists():
+            if allow_missing:
+                return None
+            try:
+                metadata = self.load_metadata()
+                if not getattr(metadata, "requires_scaler", True):
+                    return None
+            except Exception:
+                pass
 
         ArtifactValidator.validate(
             self._scaler_file
@@ -134,11 +151,14 @@ class ArtifactManager:
 
             payload = json.load(fp)
 
-            payload["trained_at"] = datetime.fromisoformat(
-                payload["trained_at"]
-            )
+            if isinstance(payload.get("trained_at"), str):
+                payload["trained_at"] = datetime.fromisoformat(
+                    payload["trained_at"]
+                )
 
-            return ModelMetadata(**payload)
+            valid_fields = {f.name for f in fields(ModelMetadata)}
+            filtered = {k: v for k, v in payload.items() if k in valid_fields}
+            return ModelMetadata(**filtered)
 
     # ==========================================================
     # Validation
@@ -158,8 +178,14 @@ class ArtifactManager:
 
     def artifacts_exist(self) -> bool:
 
-        return (
-            self._model_file.exists()
-            and self._scaler_file.exists()
-            and self._metadata_file.exists()
-        )
+        if not (self._model_file.exists() and self._metadata_file.exists()):
+            return False
+
+        if self._scaler_file.exists():
+            return True
+
+        try:
+            metadata = self.load_metadata()
+            return not getattr(metadata, "requires_scaler", True)
+        except Exception:
+            return False

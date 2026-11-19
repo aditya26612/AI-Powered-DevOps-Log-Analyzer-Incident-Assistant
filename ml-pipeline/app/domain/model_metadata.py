@@ -48,3 +48,15 @@ class ModelMetadata:
     sklearn_version: str
 
     trained_at: datetime
+
+    max_samples: int | None = None
+
+    max_features: float | None = None
+
+    requires_scaler: bool = True
+
+    calibrated_decision_threshold: float = 0.0
+
+    status: str | None = None
+
+    sha256_model: str | None = None

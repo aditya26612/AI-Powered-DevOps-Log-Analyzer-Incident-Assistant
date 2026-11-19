@@ -211,10 +211,15 @@ public class LogServiceImpl implements LogService {
             MlPredictionResponse response =
                     mlInferenceClient.predict(request);
 
-            boolean isAnomaly = Boolean.TRUE.equals(response.anomaly()) ||
-                    (response.prediction() != null && response.prediction() == -1);
-
-            logEntity.setAnomaly(isAnomaly);
+            if (response == null || response.prediction() == null
+                    || (response.prediction() != 1 && response.prediction() != -1)
+                    || response.anomaly() == null || response.anomaly() != (response.prediction() == -1)
+                    || response.decisionScore() == null || !Double.isFinite(response.decisionScore())
+                    || response.modelVersion() == null || response.modelVersion().isBlank()
+                    || response.predictionLabel() == null || response.predictionLabel().isBlank()) {
+                throw new MlServiceException("Incomplete or inconsistent ML prediction");
+            }
+            logEntity.setAnomaly(response.anomaly());
 
             logEntity.setPrediction(
                     response.prediction()
@@ -297,8 +302,7 @@ public class LogServiceImpl implements LogService {
             LlmAnalysisRequest llmRequest = llmAnalysisMapper.toRequest(targetLog);
             LlmAnalysisResponse llmResponse = llmInferenceClient.analyze(llmRequest);
 
-            targetLog.setLlmAnalysisStatus(AnalysisStatus.COMPLETED);
-            targetLog.setLlmAnalyzedAt(LocalDateTime.now());
+            recordDiagnosis(targetLog, llmResponse);
             logRepository.save(targetLog);
 
             IncidentDiagnosis diagnosis = IncidentDiagnosis.builder()
@@ -310,7 +314,11 @@ public class LogServiceImpl implements LogService {
                     .build();
 
             log.info("Automated incident diagnosis completed for logId={}, dispatching alerts...", logId);
-            notificationService.sendIncidentAlert(targetLog, diagnosis);
+            try {
+                notificationService.sendIncidentAlert(targetLog, diagnosis);
+            } catch (Exception ex) {
+                log.warn("Incident alert dispatch failed for logId={}", logId);
+            }
 
         } catch (Exception ex) {
             log.error("Automated diagnosis failed for logId={}: {}", logId, ex.getMessage());
@@ -507,13 +515,7 @@ public class LogServiceImpl implements LogService {
                             llmRequest
                     );
 
-            logEntity.setLlmAnalysisStatus(
-                    AnalysisStatus.COMPLETED
-            );
-
-            logEntity.setLlmAnalyzedAt(
-                    LocalDateTime.now()
-            );
+            recordDiagnosis(logEntity, llmResponse);
 
             Log savedLog =
                     logRepository.save(logEntity);
@@ -550,6 +552,15 @@ public class LogServiceImpl implements LogService {
 
             throw ex;
         }
+    }
+
+    private void recordDiagnosis(Log entity, LlmAnalysisResponse response) {
+        entity.setLlmSummary(response.summary());
+        entity.setLlmRootCause(response.rootCause());
+        entity.setLlmRecommendation(response.recommendation());
+        entity.setLlmSeverity(response.severity());
+        entity.setLlmAnalyzedAt(LocalDateTime.now());
+        entity.setLlmAnalysisStatus(AnalysisStatus.COMPLETED);
     }
 
 
@@ -663,7 +674,9 @@ public class LogServiceImpl implements LogService {
 
         // 4. Heuristic / Deterministic Rule Check (Tier 1)
         List<String> heuristicFlags = new ArrayList<>();
-        boolean isError = logEntity.getLevel() == LogLevel.ERROR || logEntity.getLevel() == LogLevel.WARN;
+        boolean isError = logEntity.getLevel() == LogLevel.ERROR ||
+                logEntity.getLevel() == LogLevel.WARN ||
+                logEntity.getLevel() == LogLevel.FATAL;
         if (isError) {
             heuristicFlags.add("HIGH_SEVERITY_LEVEL");
         }

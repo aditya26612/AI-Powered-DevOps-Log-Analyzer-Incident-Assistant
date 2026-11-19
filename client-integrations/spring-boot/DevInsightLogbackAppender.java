@@ -29,7 +29,7 @@ public class DevInsightLogbackAppender extends UnsynchronizedAppenderBase<ILoggi
                     .withZone(ZoneId.systemDefault());
 
     private String devInsightUrl = "http://localhost:8080/api/v1/logs";
-    private String apiKey = "devinsight_internal_ml_key_secret_12345";
+    private String apiKey = "";
     private String userEmail = "devops@company.com";
     private String serviceName = "spring-boot-service";
     private String environment = "PRODUCTION";

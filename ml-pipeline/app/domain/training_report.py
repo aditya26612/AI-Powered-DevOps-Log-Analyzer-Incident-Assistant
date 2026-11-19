@@ -34,3 +34,23 @@ class TrainingReport:
     training_time_seconds: float
 
     artifacts_saved: bool
+
+    precision: float | None = None
+
+    recall: float | None = None
+
+    f1_score: float | None = None
+
+    f2_score: float | None = None
+
+    roc_auc: float | None = None
+
+    pr_auc: float | None = None
+
+    false_positive_rate: float | None = None
+
+    false_alerts_per_1000: float | None = None
+
+    test_sample_count: int | None = None
+
+    confusion_matrix: dict[str, int] | None = None

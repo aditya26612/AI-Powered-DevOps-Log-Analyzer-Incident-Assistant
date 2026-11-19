@@ -2,6 +2,7 @@
 Example FastAPI application instrumented with DevInsight
 """
 import logging
+import os
 import sys
 from fastapi import FastAPI, HTTPException
 from devinsight_logger import DevInsightHandler
@@ -19,9 +20,9 @@ logger.addHandler(console_handler)
 # DevInsight Asynchronous Log Streaming Handler
 devinsight_handler = DevInsightHandler(
     gateway_url="http://localhost:8080",
-    api_key="devinsight_internal_ml_key_secret_12345",
+    api_key=os.environ["DEVINSIGHT_API_KEY"],
     application_name="checkout-service",
-    environment="PRODUCTION"
+    environment="DEVELOPMENT"
 )
 devinsight_handler.setFormatter(formatter)
 logger.addHandler(devinsight_handler)

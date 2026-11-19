@@ -24,3 +24,5 @@ class PredictionResult:
     prediction: int
     is_anomaly: bool
     decision_score: float
+    shadow_prediction: int | None = None
+    shadow_decision_score: float | None = None

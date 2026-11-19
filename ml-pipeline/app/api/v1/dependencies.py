@@ -32,13 +32,14 @@ def verify_internal_api_key(
     Validates inter-service requests using the shared internal API key.
     Rejects unauthorized callers attempting to invoke the ML model directly.
     """
-    settings = get_settings()
+    internal_api_key = get_settings().INTERNAL_API_KEY
+    if not internal_api_key.strip():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ML prediction authentication is not configured",
+        )
 
-    # Allow local development if explicitly configured with empty secret
-    if not settings.INTERNAL_API_KEY:
-        return
-
-    if not x_api_key or x_api_key != settings.INTERNAL_API_KEY:
+    if not x_api_key or x_api_key != internal_api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized: Invalid or missing X-API-Key header",

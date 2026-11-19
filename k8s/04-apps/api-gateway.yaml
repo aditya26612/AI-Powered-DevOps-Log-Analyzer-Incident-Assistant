@@ -43,6 +43,11 @@ spec:
                 secretKeyRef:
                   name: devinsight-secrets
                   key: JWT_SECRET
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: devinsight-secrets
+                  key: INTERNAL_API_KEY
           resources:
             requests:
               cpu: 200m

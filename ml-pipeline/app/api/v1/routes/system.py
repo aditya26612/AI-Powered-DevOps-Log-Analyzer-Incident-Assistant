@@ -44,6 +44,10 @@ def health(
     "/model",
     response_model=ModelInfoResponse,
 )
+@router.get(
+    "/model-info",
+    response_model=ModelInfoResponse,
+)
 def model_info(
     system_service: SystemService = Depends(get_system_service),
 ) -> ModelInfoResponse:

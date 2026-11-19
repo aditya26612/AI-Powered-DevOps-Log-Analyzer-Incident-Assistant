@@ -32,6 +32,14 @@ import java.util.regex.Pattern;
  */
 public abstract class AbstractLogParser implements LogParser {
 
+    // Honor an explicit severity immediately after an optional ISO-style timestamp.
+    // Otherwise, a WARN entry mentioning "failure" is incorrectly detected as ERROR.
+    private static final Pattern EXPLICIT_LEVEL_PREFIX = Pattern.compile(
+            "^(?:\\d{4}-\\d{2}-\\d{2}(?:T\\S+|\\s+\\S+)\\s+)?"
+                    + "(?<level>TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|ERR|FATAL|CRITICAL|SEVERE)\\b",
+            Pattern.CASE_INSENSITIVE
+    );
+
     /**
      * Validates the incoming ingestion request.
      *
@@ -216,7 +224,8 @@ public abstract class AbstractLogParser implements LogParser {
         String normalized = level.trim().toUpperCase();
 
         return switch (normalized) {
-            case "FATAL", "CRITICAL", "SEVERE", "ERROR", "ERR" -> LogLevel.ERROR;
+            case "FATAL" -> LogLevel.FATAL;
+            case "CRITICAL", "SEVERE", "ERROR", "ERR" -> LogLevel.ERROR;
             case "WARN", "WARNING" -> LogLevel.WARN;
             case "DEBUG" -> LogLevel.DEBUG;
             case "TRACE" -> LogLevel.TRACE;
@@ -230,6 +239,11 @@ public abstract class AbstractLogParser implements LogParser {
     protected LogLevel detectSeverityFromText(String text) {
         if (text == null || text.isBlank()) {
             return defaultLogLevel();
+        }
+
+        Matcher explicitLevel = EXPLICIT_LEVEL_PREFIX.matcher(text.trim());
+        if (explicitLevel.find()) {
+            return parseFlexibleLogLevel(explicitLevel.group("level"));
         }
 
         String upper = text.toUpperCase();

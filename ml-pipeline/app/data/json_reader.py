@@ -11,8 +11,14 @@ class JsonReader:
 
     @staticmethod
     def read(path: str | Path) -> pd.DataFrame:
-
-        dataframe = pd.read_json(path)
+        path_str = str(path)
+        if path_str.endswith(".jsonl"):
+            dataframe = pd.read_json(path, lines=True)
+        else:
+            try:
+                dataframe = pd.read_json(path)
+            except ValueError:
+                dataframe = pd.read_json(path, lines=True)
 
         DatasetValidator.validate(dataframe)
 

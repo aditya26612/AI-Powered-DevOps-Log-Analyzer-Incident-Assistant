@@ -17,6 +17,7 @@ import com.project.log_layer.integration.client.MlInferenceClient;
 import com.project.log_layer.integration.dto.LlmAnalysisRequest;
 import com.project.log_layer.integration.dto.LlmAnalysisResponse;
 import com.project.log_layer.integration.dto.MlPredictionRequest;
+import com.project.log_layer.integration.dto.MlPredictionResponse;
 import com.project.log_layer.integration.exception.LlmServiceException;
 import com.project.log_layer.integration.exception.MlServiceException;
 import com.project.log_layer.mapper.LlmAnalysisMapper;
@@ -35,10 +36,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -236,6 +240,10 @@ class LogServiceImplTest {
         );
 
         assertNotNull(log.getLlmAnalyzedAt());
+        assertEquals(llmResponse.summary(), log.getLlmSummary());
+        assertEquals(llmResponse.rootCause(), log.getLlmRootCause());
+        assertEquals(llmResponse.recommendation(), log.getLlmRecommendation());
+        assertEquals(llmResponse.severity(), log.getLlmSeverity());
 
         // ML lifecycle must remain untouched.
         assertEquals(
@@ -490,7 +498,51 @@ class LogServiceImplTest {
     }
 
     @Test
-    void ingest_shouldMarkMlAnalysisFailed_whenMlFails() {
+    void ingest_shouldPersistDiagnosis_whenErrorTriggersAfterCommit() throws Exception {
+        LogIngestRequest request = LogIngestRequest.builder()
+                .rawLog("ERROR database unavailable").source(LogSource.SPRING_BOOT).build();
+        ParsedLogData parsed = ParsedLogData.builder().build();
+        Log entity = Log.builder().id(1L).level(LogLevel.ERROR).build();
+        MlPredictionRequest mlRequest = MlPredictionRequest.builder().build();
+        LlmAnalysisRequest llmRequest = LlmAnalysisRequest.builder().build();
+        LlmAnalysisResponse diagnosis = new LlmAnalysisResponse("Database offline", "Connection refused",
+                "HIGH", "Check database availability");
+        CompletableFuture<LlmAnalysisResponse> storedDiagnosis = new CompletableFuture<>();
+
+        when(parserFactory.getParser(LogSource.SPRING_BOOT)).thenReturn(logParser);
+        when(logParser.parse(request)).thenReturn(parsed);
+        when(parsedLogMapper.toEntity(parsed)).thenReturn(entity);
+        when(mlPredictionMapper.toRequest(entity)).thenReturn(mlRequest);
+        when(mlInferenceClient.predict(mlRequest)).thenReturn(new MlPredictionResponse(1, "Normal", false, 0.1, "2.0.0-candidate"));
+        when(notificationProperties.isAutoDiagnoseAnomalies()).thenReturn(true);
+        when(logRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(llmAnalysisMapper.toRequest(entity)).thenReturn(llmRequest);
+        when(llmInferenceClient.analyze(llmRequest)).thenReturn(diagnosis);
+        when(logRepository.save(entity)).thenAnswer(invocation -> {
+            if (entity.getLlmAnalysisStatus() == AnalysisStatus.COMPLETED) {
+                storedDiagnosis.complete(new LlmAnalysisResponse(entity.getLlmSummary(), entity.getLlmRootCause(),
+                        entity.getLlmSeverity(), entity.getLlmRecommendation()));
+            }
+            return entity;
+        });
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            logService.ingest(request);
+            verifyNoInteractions(llmInferenceClient);
+            assertFalse(entity.getAnomaly());
+            assertEquals(1, TransactionSynchronizationManager.getSynchronizations().size());
+            TransactionSynchronizationManager.getSynchronizations().getFirst().afterCommit();
+            assertEquals(diagnosis, storedDiagnosis.get(5, TimeUnit.SECONDS));
+            verify(notificationService, timeout(5000)).sendIncidentAlert(eq(entity), any());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"unavailable", "empty", "incomplete"})
+    void ingest_shouldMarkMlAnalysisFailed_whenMlFails(String failure) {
 
         UUID correlationId = UUID.randomUUID();
 
@@ -553,12 +605,13 @@ class LogServiceImplTest {
         when(mlPredictionMapper.toRequest(log))
                 .thenReturn(mlRequest);
 
-        when(mlInferenceClient.predict(mlRequest))
-                .thenThrow(
-                        new MlServiceException(
-                                "ML Service unavailable."
-                        )
-                );
+        var prediction = when(mlInferenceClient.predict(mlRequest));
+        switch (failure) {
+            case "empty" -> prediction.thenReturn(null);
+            case "incomplete" -> prediction.thenReturn(
+                    com.project.log_layer.integration.dto.MlPredictionResponse.builder().prediction(1).build());
+            default -> prediction.thenThrow(new MlServiceException("ML Service unavailable."));
+        }
 
         when(logRepository.save(log))
                 .thenReturn(log);

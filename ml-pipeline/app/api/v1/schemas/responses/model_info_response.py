@@ -15,3 +15,8 @@ class ModelInfoResponse(BaseModel):
     python_version: str
     sklearn_version: str
     trained_at: datetime
+    requires_scaler: bool | None = None
+    calibrated_decision_threshold: float | None = None
+    active_threshold: float | None = None
+    status: str | None = None
+    sha256_model: str | None = None

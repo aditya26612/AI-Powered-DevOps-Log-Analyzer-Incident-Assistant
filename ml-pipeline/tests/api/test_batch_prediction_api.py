@@ -1,13 +1,6 @@
-from fastapi.testclient import TestClient
+def test_batch_prediction(prediction_client):
 
-from app.main import app
-
-client = TestClient(app)
-
-
-def test_batch_prediction():
-
-    response = client.post(
+    response = prediction_client.post(
         "/api/v1/predict/batch",
         json={
             "logs": [

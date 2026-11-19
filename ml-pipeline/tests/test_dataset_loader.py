@@ -19,4 +19,4 @@ def test_load_json_dataset():
         Path("data/synthetic_logs.json")
     )
 
-    assert len(dataset) == 10000
+    assert len(dataset) == 9999

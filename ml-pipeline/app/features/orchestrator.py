@@ -37,6 +37,7 @@ class FeatureOrchestrator:
             RegexExtractor(),
             StatisticalExtractor(),
         )
+        self.feature_names = list(FEATURE_NAMES)
 
     def extract(
         self,

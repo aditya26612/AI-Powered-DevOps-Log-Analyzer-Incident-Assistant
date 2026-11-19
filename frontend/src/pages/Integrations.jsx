@@ -232,7 +232,7 @@ const Integrations = () => {
 
   const generateSnippet = () => {
     const activeInt = integrations.find((i) => i.applicationName === appName);
-    const apiKey = activeInt ? activeInt.apiKey : "devinsight_internal_ml_key_secret_12345";
+    const apiKey = activeInt ? activeInt.apiKey : "<application-api-key>";
     const gatewayUrl = "http://localhost:8080";
 
     switch (selectedStack) {

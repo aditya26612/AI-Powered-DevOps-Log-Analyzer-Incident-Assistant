@@ -25,22 +25,30 @@ class ModelFactory:
     """
 
     @staticmethod
-    def create_model() -> IsolationForest:
+    def create_model(
+        n_estimators: int = N_ESTIMATORS,
+        contamination: float = CONTAMINATION,
+        max_samples: int | float | str = MAX_SAMPLES,
+        max_features: float = MAX_FEATURES,
+        bootstrap: bool = BOOTSTRAP,
+        random_state: int = RANDOM_STATE,
+        n_jobs: int = N_JOBS,
+    ) -> IsolationForest:
 
         return IsolationForest(
-            n_estimators=N_ESTIMATORS,
-            contamination=CONTAMINATION,
-            max_samples=MAX_SAMPLES,
-            max_features=MAX_FEATURES,
-            bootstrap=BOOTSTRAP,
-            random_state=RANDOM_STATE,
-            n_jobs=N_JOBS,
+            n_estimators=n_estimators,
+            contamination=contamination,
+            max_samples=max_samples,
+            max_features=max_features,
+            bootstrap=bootstrap,
+            random_state=random_state,
+            n_jobs=n_jobs,
         )
 
     @staticmethod
-    def create_scaler():
+    def create_scaler(enable_scaling: bool = USE_STANDARD_SCALER):
 
-        if USE_STANDARD_SCALER:
+        if enable_scaling:
             return StandardScaler()
 
         return None

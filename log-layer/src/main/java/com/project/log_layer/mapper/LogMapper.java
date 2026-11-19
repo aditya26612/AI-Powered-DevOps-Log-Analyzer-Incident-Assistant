@@ -27,6 +27,8 @@ public interface LogMapper {
      * @return LogResponse
      */
 
+    @Mapping(target = "summary", source = "llmSummary")
+    @Mapping(target = "suggestedFix", source = "llmRecommendation")
     LogResponse toLogResponse(Log log);
 
     /**

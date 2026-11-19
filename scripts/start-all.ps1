@@ -23,11 +23,11 @@ if (-not $DbPassword) {
 }
 
 if (-not $JwtSecret) {
-    $JwtSecret = "devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!"
+    $JwtSecret = [guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
 }
 
 if (-not $InternalApiKey) {
-    $InternalApiKey = "devinsight_internal_ml_key_secret_12345"
+    $InternalApiKey = [guid]::NewGuid().ToString("N")
 }
 
 $RootDir = Split-Path -Parent $PSScriptRoot
@@ -158,6 +158,7 @@ Start-ServiceWindow `
     -Command "mvn -f api-gateway\pom.xml spring-boot:run" `
     -Environment @{
         JWT_SECRET = $JwtSecret
+        INTERNAL_API_KEY = $InternalApiKey
     }
 
 # Frontend

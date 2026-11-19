@@ -36,7 +36,13 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting DevInsight ML Pipeline...")
 
-    yield
+    from app.api.v1.dependencies import get_prediction_service
+    service = get_prediction_service()
+    try:
+        yield
+    finally:
+        service.close()
+        get_prediction_service.cache_clear()
 
     logger.info("Shutting down DevInsight ML Pipeline...")
 

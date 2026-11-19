@@ -10,7 +10,7 @@ services:
       - "5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD before starting DevInsight}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
@@ -78,7 +78,7 @@ services:
     expose:
       - "8000"
     environment:
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-devinsight_internal_ml_key_secret_12345}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY before starting DevInsight}
       ENVIRONMENT: production
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/v1/system/health\")'"]
@@ -105,8 +105,8 @@ services:
       - "8081"
     environment:
       DB_HOST: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD before starting DevInsight}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET before starting DevInsight}
     depends_on:
       postgres:
         condition: service_healthy
@@ -129,7 +129,7 @@ services:
       - "8084"
     environment:
       DB_HOST: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD before starting DevInsight}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -157,9 +157,9 @@ services:
       - "8082"
     environment:
       DB_HOST: postgres
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-devinsight_internal_ml_key_secret_12345}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD before starting DevInsight}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET before starting DevInsight}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY before starting DevInsight}
       ML_SERVICE_URL: http://ml-pipeline:8000
       LLM_SERVICE_URL: http://llm-service:8084
     depends_on:
@@ -187,7 +187,8 @@ services:
     environment:
       USER_SERVICE_URL: http://user-service:8081
       LOG_SERVICE_URL: http://log-layer:8082
-      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET before starting DevInsight}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY before starting DevInsight}
     depends_on:
       - user-service
       - log-layer

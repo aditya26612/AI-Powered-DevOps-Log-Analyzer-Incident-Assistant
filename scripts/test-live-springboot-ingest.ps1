@@ -7,7 +7,8 @@
 
 param(
     [string]$GatewayUrl = "http://localhost:8080",
-    [string]$ApiKey = "devinsight_internal_ml_key_secret_12345",
+    [Parameter(Mandatory = $true)]
+    [string]$ApiKey,
     [string]$ServiceName = "order-payment-service"
 )
 
@@ -29,7 +30,7 @@ org.postgresql.util.PSQLException: FATAL: remaining connection slots are reserve
 $body = @{
     rawLog = $logPayload
     source = "SPRING_BOOT"
-    environment = "PRODUCTION"
+    environment = "DEVELOPMENT"
     applicationName = $ServiceName
 } | ConvertTo-Json
 
@@ -40,7 +41,6 @@ try {
     $headers = @{
         "Content-Type" = "application/json"
         "X-API-Key" = $ApiKey
-        "X-User-Email" = "gokusengar666@gmail.com"
     }
 
     $response = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/logs" -Method Post -Headers $headers -Body $body

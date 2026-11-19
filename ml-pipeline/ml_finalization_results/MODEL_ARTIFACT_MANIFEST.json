@@ -1,0 +1,92 @@
+{
+  "manifest_version": "1.0.0",
+  "generated_at": "2026-11-19T16:40:00Z",
+  "system": "DevInsight Anomaly Detection Subsystem",
+  "models": {
+    "v1_deployed": {
+      "model_name": "IsolationForest",
+      "model_version": "1.0.0",
+      "status": "DEPLOYED_AUTHORITATIVE",
+      "algorithm": "IsolationForest",
+      "feature_version": "1.0.0",
+      "feature_count": 41,
+      "requires_scaler": true,
+      "decision_threshold": 0.00,
+      "artifact_path": "artifacts/model.pkl",
+      "scaler_path": "artifacts/scaler.pkl",
+      "metadata_path": "artifacts/metadata.json",
+      "sha256_model": "f20a0402a69f405faa6f17cc5b8d4677ee5c3769b4e0fc4a2db3d0abddcd221f",
+      "sha256_scaler": "c3cea0ccb34fb2b90f62c675f2503d664b220e94da6e8ce03e4c7d73346fe356",
+      "sha256_metadata": "b8140a4ce8974016c29faa52654add483027225628da54446d6c8aca3670787e",
+      "training_dataset": "data/synthetic_logs.json",
+      "training_dataset_sha256": "2dc711f213fbeafae0fa82b2d557b88977380488e3ac1db4e5b8260a057cc61c",
+      "training_sample_count": 9999,
+      "contamination": 0.05,
+      "random_state": 42
+    },
+    "v2_candidate": {
+      "model_name": "CuratedIsolationForest",
+      "model_version": "2.0.0-candidate",
+      "status": "SHADOW_MODE_CANDIDATE",
+      "algorithm": "IsolationForest",
+      "feature_version": "2.0.0",
+      "feature_count": 40,
+      "requires_scaler": false,
+      "original_candidate_threshold": -0.02,
+      "calibrated_operating_threshold": 0.00,
+      "conservative_threshold": 0.02,
+      "artifact_path": "artifacts/candidates/v2_curated_isolation_forest/model.pkl",
+      "metadata_path": "artifacts/candidates/v2_curated_isolation_forest/metadata.json",
+      "sha256_model": "f4d1d9939b4cbd2dc5da7e8ca60da0ea5b5f4688283a4530a35d1d45bca2451d",
+      "sha256_metadata": "102c4310f0ada5f2d2cad8246ded9e34ed2737bbb39fe223029dec1712466071",
+      "training_dataset": "data/synthetic_logs.json",
+      "training_dataset_sha256": "2dc711f213fbeafae0fa82b2d557b88977380488e3ac1db4e5b8260a057cc61c",
+      "training_sample_count": 7999,
+      "contamination": 0.08,
+      "n_estimators": 300,
+      "max_samples": 512,
+      "max_features": 0.85,
+      "random_state": 42
+    }
+  },
+  "datasets": {
+    "dataset_a_synthetic": {
+      "path": "data/synthetic_logs.json",
+      "sha256": "2dc711f213fbeafae0fa82b2d557b88977380488e3ac1db4e5b8260a057cc61c",
+      "sample_count": 9999,
+      "provenance": "synthetic_generator",
+      "label_source": "programmatic_rule",
+      "review_status": "synthetic_ground_truth"
+    },
+    "dataset_b_operational": {
+      "path": "data/labeled_operational_logs.jsonl",
+      "sha256": "01d08117afe00dc7ca16515505e55a931d70352b5541c9cebf1ed6df3ad0d710",
+      "sample_count": 215,
+      "adjudicated_sample_count": 213,
+      "uncertain_sample_count": 2,
+      "provenance": "synthetic_scenario",
+      "label_source": "synthetic_scenario",
+      "review_status": "not_human_verified"
+    },
+    "dataset_c_probes": {
+      "path": "data/operational_challenge_scenarios.jsonl",
+      "sha256": "b0bf0a5ae8e811d67525d4f7774aaf52406e499082f70f51f39491e8693dfc8b",
+      "sample_count": 39,
+      "categories": [
+        "database_failures",
+        "distributed_systems",
+        "infrastructure",
+        "security_and_auth",
+        "application_behavior",
+        "adversarial_and_robustness"
+      ]
+    }
+  },
+  "schema_compatibility": {
+    "v1_feature_schema": "FeatureOrchestrator (41 features, numeric service_hash, scaled with StandardScaler)",
+    "v2_feature_schema": "CuratedFeatureOrchestrator (40 features, 7 one-hot service indicators, raw tree input, no scaler)",
+    "cross_feeding_protection": "Enforced by versioned schemas; Feeding V1 features to V2 or vice versa raises ValueError / length mismatch",
+    "fastapi_transport": "PredictionRequest -> LogEntry -> PredictionResult -> PredictionResponse",
+    "java_contract": "MlPredictionRequest (serviceName, level, message, timestamp) -> MlPredictionResponse (prediction, predictionLabel, anomaly, decisionScore, modelVersion)"
+  }
+}

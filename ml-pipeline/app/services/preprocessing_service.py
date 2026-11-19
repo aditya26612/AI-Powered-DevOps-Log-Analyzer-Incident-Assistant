@@ -50,6 +50,8 @@ class PreprocessingService:
         """
         Fit scaler during training.
         """
+        if self._scaler is None:
+            return features
 
         return self._scaler.fit_transform(features)
 
@@ -60,5 +62,7 @@ class PreprocessingService:
         """
         Transform data using an already-fitted scaler.
         """
+        if self._scaler is None:
+            return features
 
         return self._scaler.transform(features)

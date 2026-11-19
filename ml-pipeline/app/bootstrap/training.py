@@ -11,13 +11,14 @@ Author : DevInsight AI
 Version: 1.0.0
 ===============================================================================
 """
+from pathlib import Path
 from app.models.model_factory import ModelFactory
 
 from app.artifacts.artifact_manager import ArtifactManager
 from app.core.training_config import TrainingConfig
 from app.data.dataset_loader import DatasetLoader
 from app.features.orchestrator import FeatureOrchestrator
-from app.models.model_factory import ModelFactory
+from app.features.curated_orchestrator import CuratedFeatureOrchestrator
 from app.services.evaluator import Evaluator
 from app.services.feature_matrix_builder import FeatureMatrixBuilder
 from app.services.preprocessing_service import PreprocessingService
@@ -34,7 +35,12 @@ class TrainingBootstrap:
 
         config = config or TrainingConfig()
 
-        orchestrator = FeatureOrchestrator()
+        if getattr(config, "feature_set", "curated") == "no_severity":
+            orchestrator = CuratedFeatureOrchestrator(include_severity=False)
+        elif getattr(config, "feature_set", "curated") == "curated":
+            orchestrator = CuratedFeatureOrchestrator(include_severity=True)
+        else:
+            orchestrator = FeatureOrchestrator()
 
         dataset_loader = DatasetLoader()
 
@@ -42,16 +48,27 @@ class TrainingBootstrap:
             orchestrator
         )
 
-        scaler = ModelFactory.create_scaler()
+        scaler = ModelFactory.create_scaler(
+            enable_scaling=config.enable_scaling
+        )
 
         preprocessor = PreprocessingService(scaler)
         trainer = Trainer(
-            ModelFactory.create_model()
+            ModelFactory.create_model(
+                n_estimators=config.n_estimators,
+                contamination=config.contamination,
+                max_samples=config.max_samples,
+                max_features=config.max_features,
+                bootstrap=config.bootstrap,
+                random_state=config.random_state,
+            )
         )
 
         evaluator = Evaluator()
 
-        artifact_manager = ArtifactManager()
+        artifact_manager = ArtifactManager(
+            artifact_directory=getattr(config, "model_output_dir", None) or Path("artifacts")
+        )
 
         return TrainingPipeline(
             dataset_loader=dataset_loader,

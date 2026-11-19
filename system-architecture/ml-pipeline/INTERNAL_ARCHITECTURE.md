@@ -3,14 +3,15 @@
 > **Service:** `ml-pipeline`  
 > **Runtime / Framework:** Python 3.11, FastAPI, Uvicorn, scikit-learn, NumPy, Pydantic v2  
 > **Server Port:** `8000`  
-> **Model:** Isolation Forest (`model.pkl` + `scaler.pkl`)  
+> **Model:** V2 Curated Isolation Forest by default, with a scaled V1 rollback profile
+>
 > **Execution Model:** Asynchronous ASGI event loop (Uvicorn) with CPU-bound scikit-learn inference
 
 ---
 
 ## 1. Module Overview & Package Structure
 
-The ML Pipeline is a specialized machine learning microservice designed for low-latency anomaly detection across unstructured log entries. It converts raw log fields into multi-dimensional numerical feature vectors, scales them, and scores them using an unsupervised Isolation Forest model.
+The ML Pipeline converts structured log fields into ordered numeric features and scores them with an unsupervised Isolation Forest. V2 uses 40 raw curated features, including explicit service categories. The V1 rollback path uses 41 legacy features and a saved StandardScaler. See the [ML Pipeline guide](../../ml-pipeline/README.md) for artifact paths and startup commands.
 
 ```text
 ml-pipeline
@@ -71,10 +72,10 @@ ml-pipeline
     ```json
     {
       "prediction": -1,
-      "prediction_label": "ANOMALY",
+      "prediction_label": "Anomaly",
       "is_anomaly": true,
-      "decision_score": -0.4285,
-      "model_version": "1.0.0"
+      "decision_score": -0.07592874256934068,
+      "model_version": "2.0.0-candidate"
     }
     ```
 
@@ -89,16 +90,16 @@ ml-pipeline
      ↓
   FeatureMatrixBuilder.build()
      ↓
-  PreprocessingService.transform() (StandardScaler)
+  PreprocessingService.transform() (V1 scaling or V2 passthrough)
      ↓
-  model.predict() & model.decision_function()
+  model.decision_function() and active cutoff comparison
      ↓
   PredictionResult
   ```
 
-### `FeatureOrchestrator.py` & The Feature Extractors
+### Feature orchestrators and extractors
 * **Role:** Generates an ordered, validated numeric vector from semi-structured log fields.
-* **Specialized Extractors:**
+* **Specialized Extractors:** V2 combines severity, message statistics, operational indicators, hour of day and service categories. The legacy metadata details below apply to V1.
   1. **`MetadataExtractor`:**
      * Encodes log level into ordinal scale: `DEBUG=0`, `INFO=1`, `WARN=2`, `ERROR=3`, `FATAL=4`.
      * Extracts cyclical temporal features: `hour_of_day` ($0\text{--}23$) and `day_of_week` ($0\text{--}6$).
@@ -113,16 +114,12 @@ ml-pipeline
   4. **`StatisticalExtractor` (`entropy.py`):**
      * Computes **Shannon Entropy**:
        $$H(X) = -\sum_{i=1}^{n} P(x_i) \log_2 P(x_i)$$
-     * Standard human-readable log messages have low entropy ($3.0\text{--}4.5$). Binary dumps, serialized tokens, encrypted payloads, and dense hex stack traces have high entropy ($>5.5$), acting as a strong signal for anomalies.
   5. **`FeatureValidator`:**
-     * Verifies that every feature matches the exact order and type defined in `FEATURE_NAMES` before matrix assembly.
+     * The startup loader checks ordered feature names and dimensions against the selected extractor.
 
 ### `ArtifactManager.py` & `ArtifactValidator.py`
-* **Role:** Thread-safe artifact loader.
-* **Integrity Guarantee:**
-  * Checks for the physical existence of `model.pkl`, `scaler.pkl`, and `metadata.json` on disk.
-  * Validates that the loaded scaler feature count matches the extractor output dimensions.
-  * Throws `ModelNotLoadedException` (HTTP 503) if artifacts are missing or corrupted.
+* **Role:** Loads persisted metadata and the V1 scaler when selected.
+* **Startup checks:** `PredictionBootstrap.load_bundle` validates metadata, extractor schema, estimator and scaler dimensions, and the model checksum when available. Startup fails if the selected bundle is missing or invalid.
 
 ---
 
@@ -130,57 +127,27 @@ ml-pipeline
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor Client as Log Layer (:8082 WebClient)
-    participant Uvicorn as Uvicorn ASGI Server
-    participant Router as prediction.py (:8000)
-    participant Dep as dependencies.py (Singleton)
-    participant Svc as PredictionService
-    participant Orch as FeatureOrchestrator
-    participant Extractors as Metadata/Text/Regex/Entropy Extractors
-    participant Preproc as PreprocessingService (StandardScaler)
-    participant Model as IsolationForest (model.pkl)
+    participant Log as Log Layer
+    participant API as FastAPI
+    participant Svc as Prediction Service
+    participant Model as Isolation Forest
 
-    Client->>Uvicorn: POST /api/v1/predict { timestamp, level, service_name, message }
-    Uvicorn->>Router: Parse JSON into PredictionRequest
-    Router->>Dep: get_prediction_service()
-    Dep-->>Router: PredictionService singleton (pre-warmed)
-    Router->>Svc: predict(LogEntry)
-    
-    rect rgb(20, 30, 50)
-        Note over Svc,Extractors: Stage 1: Feature Extraction
-        Svc->>Orch: extract(LogEntry)
-        Orch->>Extractors: Run Metadata, Text, Regex, Shannon Entropy
-        Extractors-->>Orch: 15+ numeric features
-        Orch->>Orch: FeatureValidator.validate(features)
-        Orch-->>Svc: FeatureVector (ordered float array)
-    end
-
-    rect rgb(35, 25, 45)
-        Note over Svc,Preproc: Stage 2: Feature Matrix & Scaling
-        Svc->>Preproc: transform(matrix)
-        Preproc->>Preproc: Apply z-score normalization: (X - mean) / std
-        Preproc-->>Svc: Scaled 2D NumPy array
-    end
-
-    rect rgb(20, 45, 30)
-        Note over Svc,Model: Stage 3: Isolation Forest Inference
-        Svc->>Model: predict(scaled_matrix)
-        Model-->>Svc: -1 (Anomaly) or 1 (Normal)
-        Svc->>Model: decision_function(scaled_matrix)
-        Model-->>Svc: float score (e.g. -0.4285)
-    end
-
-    Svc-->>Router: PredictionResult { prediction: -1, score: -0.4285, is_anomaly: true }
-    Router-->>Uvicorn: PredictionResponse Pydantic model
-    Uvicorn-->>Client: HTTP 200 OK JSON
+    Log->>API: POST /api/v1/predict
+    API->>API: Validate request and internal key
+    API->>Svc: Score structured log
+    Svc->>Svc: Build ordered feature matrix
+    Svc->>Model: Compute decision score
+    Model-->>Svc: Decision score
+    Svc->>Svc: Apply active cutoff
+    Svc-->>API: Prediction and model version
+    API-->>Log: HTTP prediction response
 ```
 
 ---
 
 ## 4. Key Design Patterns Applied
 
-1. **Singleton Pattern (`PredictionBootstrap`):** Loads the scikit-learn model and scaler into memory once during application startup. Inference calls reuse the warm model without repeated disk I/O.
+1. **Process-scoped service (`get_prediction_service`):** Loads the model and any required scaler during application startup. Inference calls reuse the loaded bundle.
 2. **Strategy Pattern (`Extractors`):** Distinct feature extraction strategies (`MetadataExtractor`, `TextExtractor`, etc.) implement a common `extract()` contract.
 3. **Pipeline Pattern:** Clear separation of stages: Ingestion $\rightarrow$ Feature Extraction $\rightarrow$ Matrix Construction $\rightarrow$ Scaling $\rightarrow$ Model Inference $\rightarrow$ Response Mapping.
 4. **Dependency Injection (FastAPI `Depends`):** Decouples HTTP request routing from inference service instantiation.
@@ -189,6 +156,6 @@ sequenceDiagram
 
 ## 5. Concurrency & Performance Details
 
-* **Inference Complexity:** Isolation Forest inference traverses $k$ decision trees ($O(k \cdot \text{tree\_depth})$). With 100 trees of maximum depth 8, single prediction time is computationally lightweight.
+* **Inference Complexity:** Isolation Forest traverses its fitted trees for each log. The current V2 artifact has 300 trees with a sample cap of 512 per tree.
 * **Warm Artifact Cache:** `joblib.load()` occurs at process initialization; inference requires zero disk operations.
 * **Batch Endpoint Support:** `POST /api/v1/predict/batch` leverages vectorized NumPy matrix operations, achieving higher throughput when processing bulk log streams.

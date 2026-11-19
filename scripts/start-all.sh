@@ -8,8 +8,8 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)"
 
 export DB_PASSWORD="${DB_PASSWORD:-postgres}"
-export JWT_SECRET="${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}"
-export INTERNAL_API_KEY="${INTERNAL_API_KEY:-devinsight_internal_ml_key_secret_12345}"
+export JWT_SECRET="${JWT_SECRET:?Set JWT_SECRET before starting DevInsight}"
+export INTERNAL_API_KEY="${INTERNAL_API_KEY:?Set INTERNAL_API_KEY before starting DevInsight}"
 export USER_SERVICE_URL="${USER_SERVICE_URL:-http://localhost:8081}"
 export LOG_SERVICE_URL="${LOG_SERVICE_URL:-http://localhost:8082}"
 export ML_SERVICE_URL="${ML_SERVICE_URL:-http://localhost:8000}"

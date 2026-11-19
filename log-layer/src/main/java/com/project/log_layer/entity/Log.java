@@ -245,6 +245,18 @@ public class Log {
     @Column(name = "llm_analyzed_at")
     private LocalDateTime llmAnalyzedAt;
 
+    @Column(name = "llm_summary", columnDefinition = "TEXT")
+    private String llmSummary;
+
+    @Column(name = "llm_root_cause", columnDefinition = "TEXT")
+    private String llmRootCause;
+
+    @Column(name = "llm_recommendation", columnDefinition = "TEXT")
+    private String llmRecommendation;
+
+    @Column(name = "llm_severity", columnDefinition = "TEXT")
+    private String llmSeverity;
+
     /**
      * Timestamp when the log was persisted.
      */

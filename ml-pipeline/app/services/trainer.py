@@ -43,6 +43,13 @@ class Trainer:
 
         self._model = model
 
+    @property
+    def model(self) -> IsolationForest:
+        """
+        Return the underlying model instance.
+        """
+        return self._model
+
     def train(
         self,
         X: np.ndarray,

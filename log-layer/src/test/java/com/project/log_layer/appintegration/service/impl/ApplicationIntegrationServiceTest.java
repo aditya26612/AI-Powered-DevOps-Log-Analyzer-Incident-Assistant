@@ -60,7 +60,7 @@ class ApplicationIntegrationServiceTest {
         });
 
         ApplicationIntegrationResponse response =
-                integrationService.createOrUpdateIntegration(request, "aditya@iiitn.ac.in");
+                integrationService.createOrUpdateIntegration(request, "operator@example.com");
 
         assertThat(response).isNotNull();
         assertThat(response.getApplicationName()).isEqualTo("order-service");
@@ -83,7 +83,7 @@ class ApplicationIntegrationServiceTest {
         });
 
         ApplicationIntegrationResponse response =
-                integrationService.createOrUpdateIntegration(request, "aditya@iiitn.ac.in");
+                integrationService.createOrUpdateIntegration(request, "operator@example.com");
 
         assertThat(response.getCodeSnippet()).contains("DevInsightHandler");
         assertThat(response.getTechStack()).isEqualTo(TechStack.PYTHON);

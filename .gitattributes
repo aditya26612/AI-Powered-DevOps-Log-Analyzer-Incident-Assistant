@@ -1,0 +1,6 @@
+# These text artifacts are verified against SHA-256 hashes of their exact bytes.
+/ml-pipeline/artifacts/metadata.json -text whitespace=cr-at-eol
+/ml-pipeline/artifacts/candidates/v2_curated_isolation_forest/metadata.json -text whitespace=cr-at-eol
+/ml-pipeline/data/synthetic_logs.json -text whitespace=cr-at-eol
+/ml-pipeline/data/labeled_operational_logs.jsonl -text whitespace=cr-at-eol
+/ml-pipeline/data/operational_challenge_scenarios.jsonl -text whitespace=cr-at-eol

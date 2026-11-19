@@ -29,20 +29,20 @@ system-architecture/
 
 | Module / Service | Tech Stack | Port | Internal Architecture Guide | Core Design Patterns |
 |---|---|---|---|---|
-| **API Gateway** | Spring Boot 3, WebFlux, Netty | `8080` | [api-gateway/INTERNAL_ARCHITECTURE.md](file:///c:/Users/Aastha%20sengar/Desktop/AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/system-architecture/api-gateway/INTERNAL_ARCHITECTURE.md) | Gateway Routing, Chain of Responsibility, Exchange Mutation |
-| **User Service** | Spring Boot 3, Spring Security | `8081` | [user-service/INTERNAL_ARCHITECTURE.md](file:///c:/Users/Aastha%20sengar/Desktop/AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/system-architecture/user-service/INTERNAL_ARCHITECTURE.md) | Repository, DTO, Password Hashing Strategy, Global Exception Handling |
-| **Log Layer** | Spring Boot 3, JPA, WebClient | `8082` | [log-layer/INTERNAL_ARCHITECTURE.md](file:///c:/Users/Aastha%20sengar/Desktop/AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/system-architecture/log-layer/INTERNAL_ARCHITECTURE.md) | Strategy (Parsers), Factory Method, Template Method, Reactive Adapter, Specification |
-| **ML Pipeline** | Python 3.11, FastAPI, scikit-learn | `8000` | [ml-pipeline/INTERNAL_ARCHITECTURE.md](file:///c:/Users/Aastha%20sengar/Desktop/AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/system-architecture/ml-pipeline/INTERNAL_ARCHITECTURE.md) | Singleton Model Cache, Extraction Strategy, Transformation Pipeline, Dependency Injection |
-| **LLM Service** | Spring Boot 3, Spring AI, Ollama | `8084` | [llm-service/INTERNAL_ARCHITECTURE.md](file:///c:/Users/Aastha%20sengar/Desktop/AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/system-architecture/llm-service/INTERNAL_ARCHITECTURE.md) | Hybrid Retrieval Fusion (RRF), Provider Strategy, Template Builder, Defensive Parsing |
+| **API Gateway** | Spring Boot 3, WebFlux, Netty | `8080` | [api-gateway/INTERNAL_ARCHITECTURE.md](api-gateway/INTERNAL_ARCHITECTURE.md) | Gateway Routing, Chain of Responsibility, Exchange Mutation |
+| **User Service** | Spring Boot 3, Spring Security | `8081` | [user-service/INTERNAL_ARCHITECTURE.md](user-service/INTERNAL_ARCHITECTURE.md) | Repository, DTO, Password Hashing Strategy, Global Exception Handling |
+| **Log Layer** | Spring Boot 3, JPA, WebClient | `8082` | [log-layer/INTERNAL_ARCHITECTURE.md](log-layer/INTERNAL_ARCHITECTURE.md) | Strategy (Parsers), Factory Method, Template Method, Reactive Adapter, Specification |
+| **ML Pipeline** | Python 3.11, FastAPI, scikit-learn | `8000` | [ml-pipeline/INTERNAL_ARCHITECTURE.md](ml-pipeline/INTERNAL_ARCHITECTURE.md) | Singleton Model Cache, Extraction Strategy, Transformation Pipeline, Dependency Injection |
+| **LLM Service** | Spring Boot 3, Spring AI, Ollama | `8084` | [llm-service/INTERNAL_ARCHITECTURE.md](llm-service/INTERNAL_ARCHITECTURE.md) | Hybrid Retrieval Fusion (RRF), Provider Strategy, Template Builder, Defensive Parsing |
 
 ---
 
 ## Architectural Deep Dives
 
-* **[EXTERNAL_INTERACTIONS.md](file:///c:/Users/Aastha%20sengar/Desktop/AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/system-architecture/EXTERNAL_INTERACTIONS.md):**  
-  Details how the microservices communicate over the network, including the trusted header enrichment contract (`X-User-Email`), inter-service payload schemas, synchronous vs asynchronous boundary partitioning ($<90\text{ ms}$ vs deep analysis), and fault-tolerance fallback paths.
+* **[EXTERNAL_INTERACTIONS.md](EXTERNAL_INTERACTIONS.md):**
+  Details how the microservices communicate over the network, including the trusted header enrichment contract (`X-User-Email`), inter-service payload schemas, synchronous vs asynchronous boundary partitioning (ingestion acceptance and background diagnosis), and fault-tolerance fallback paths.
 
-* **[COMPLETE_PROJECT_FLOWCHART.md](file:///c:/Users/Aastha%20sengar/Desktop/AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/system-architecture/COMPLETE_PROJECT_FLOWCHART.md):**  
+* **[COMPLETE_PROJECT_FLOWCHART.md](COMPLETE_PROJECT_FLOWCHART.md):**
   Contains complete visual diagrams:
   1. Master End-to-End System Flowchart (Client $\rightarrow$ Gateway $\rightarrow$ Log Layer $\rightarrow$ ML $\rightarrow$ DB $\rightarrow$ RAG $\rightarrow$ Ollama $\rightarrow$ Slack $\rightarrow$ UI).
   2. Request-Response Lifecycle Sequence Diagram with timing boundaries.

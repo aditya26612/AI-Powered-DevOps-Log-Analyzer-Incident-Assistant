@@ -97,9 +97,9 @@ class SystemService:
                 model_version=metadata.model_version,
                 algorithm=metadata.algorithm,
                 artifacts=ArtifactHealthResponse(
-                    model=True,
-                    scaler=True,
-                    metadata=True,
+                    model=self._artifact_manager.model_exists(),
+                    scaler=self._artifact_manager.scaler_exists() or not getattr(metadata, "requires_scaler", True),
+                    metadata=self._artifact_manager.metadata_exists(),
                 ),
             )
 
@@ -129,4 +129,9 @@ class SystemService:
             python_version=metadata.python_version,
             sklearn_version=metadata.sklearn_version,
             trained_at=metadata.trained_at,
+            requires_scaler=getattr(metadata, "requires_scaler", None),
+            calibrated_decision_threshold=getattr(metadata, "calibrated_decision_threshold", None),
+            active_threshold=self._settings.ANOMALY_THRESHOLD,
+            status=getattr(metadata, "status", None),
+            sha256_model=getattr(metadata, "sha256_model", None),
         )

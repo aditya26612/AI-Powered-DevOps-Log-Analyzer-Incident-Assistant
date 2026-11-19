@@ -56,7 +56,7 @@ flowchart LR
    * The Gateway acts as a cryptographic boundary. Downstream services (`log-layer`, `user-service`) do not re-verify the raw cryptographic JWT signature on every internal call.
    * Instead, the Gateway strips any incoming client-provided `X-User-Email` header and injects the **cryptographically verified** email:
      ```http
-     X-User-Email: gokusengar666@gmail.com
+     X-User-Email: operator@example.com
      ```
    * The `LogLayer` simply reads `CurrentUser.getEmail(httpServletRequest)`, ensuring data isolation without database lookup overhead.
 

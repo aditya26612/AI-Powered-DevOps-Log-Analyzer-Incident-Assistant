@@ -35,3 +35,11 @@ class LogEntry:
     exception: str | None = None
 
     correlation_id: str | None = None
+
+    is_anomaly: bool | None = None
+
+    label: str | None = None
+
+    label_rationale: str | None = None
+
+    log_id: str | None = None

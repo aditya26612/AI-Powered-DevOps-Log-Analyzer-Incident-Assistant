@@ -38,6 +38,13 @@ Thumbs.db
 .env.*
 !.env.example
 !.env.prod.example
+*.pem
+*.key
+*.p12
+*.pfx
+.pgpass
+pgpass.conf
+*.dump
 
 # ==============================
 # Logs / Runtime files
@@ -60,6 +67,27 @@ logs/
 /docs/DEVINSIGHT_INTERVIEW_MASTER_HANDBOOK.md
 
 # ==============================
+# Validating test
+# ==============================
+/validation/
+
+
+# Local ML experiments and superseded reports
+/ml-pipeline/experiments/
+/ml-pipeline/ml_audit_results/
+/ml-pipeline/ml_improvement_results/
+/ml-pipeline/ml_finalization_results/*
+!/ml-pipeline/ml_finalization_results/MODEL_ARTIFACT_MANIFEST.json
+!/ml-pipeline/ml_finalization_results/DATASET_PROVENANCE_AND_QUALITY.md
+/ml-pipeline/tools/build_evidence_archive.py
+
+# Superseded local verification records
+/docs/V2_FINAL_INTEGRATION_REPORT.md
+/docs/verification/live-dependencies.json
+/docs/verification/python-unit.xml
+/docs/verification/release.xml
+
+# ==============================
 # Audit / In doc & Local Notes
 # ==============================
 /interview-prep-audit/
@@ -69,3 +97,19 @@ logs/
 /docs/INDUSTRIAL_LOG_ANALYZER_REPORT_AND_BLUEPRINT.md
 /INDUSTRIAL_LOG_ANALYZER_REPORT_AND_BLUEPRINT.md
 *.backup.md
+
+/.dist/
+/devinsight*_evidence.zip
+/devinsight_ml_audit_complete.zip
+
+/docs/*
+!/docs/assets/
+!/docs/screenshots/
+!/docs/verification/
+/docs/verification/*
+!/docs/verification/rag_retrieval_experiments_and_final_decision.md
+
+# Local handoff and tools that depend on unpublished evidence
+/WORK_CONTINUATION.md
+/ml-pipeline/tools/verify_local_release.py
+/scripts/build_release_archive.py

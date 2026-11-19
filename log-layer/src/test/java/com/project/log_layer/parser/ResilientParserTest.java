@@ -125,6 +125,68 @@ class ResilientParserTest {
     }
 
     @Test
+    void kubernetesParser_shouldHonorExplicitWarnBeforeFailureKeywordInFallback() {
+        // The benchmark fixture is a simplified Kubernetes log without stdout/stderr + flag.
+        String log = "2026-11-18T12:00:00Z WARN [pod/benchmarkcalculator] "
+                + "Restarting container because of synthetic probe failure";
+        LogIngestRequest request = LogIngestRequest.builder()
+                .rawLog(log)
+                .source(LogSource.KUBERNETES)
+                .environment(Environment.TESTING)
+                .applicationName("benchmarkcalculator")
+                .build();
+
+        ParsedLogData parsed = kubernetesParser.parse(request);
+        assertEquals(LogLevel.WARN, parsed.getLogLevel());
+        assertTrue(parsed.getMessage().contains("probe failure"));
+    }
+
+    @Test
+    void kubernetesParser_shouldHonorExplicitWarnInStandardStdoutFormat() {
+        String log = "2026-11-18T12:00:00Z stdout F WARN synthetic probe failure";
+        LogIngestRequest request = LogIngestRequest.builder()
+                .rawLog(log)
+                .source(LogSource.KUBERNETES)
+                .environment(Environment.TESTING)
+                .build();
+
+        ParsedLogData parsed = kubernetesParser.parse(request);
+        assertEquals(LogLevel.WARN, parsed.getLogLevel());
+        assertEquals("stdout", parsed.getMetadata().get("stream"));
+    }
+
+    @Test
+    void genericParser_shouldStillDetectFailureWithoutExplicitSeverity() {
+        LogIngestRequest request = LogIngestRequest.builder()
+                .rawLog("Database connection failed without a severity label")
+                .source(LogSource.CUSTOM)
+                .environment(Environment.TESTING)
+                .build();
+
+        ParsedLogData parsed = genericLogParser.parse(request);
+        assertEquals(LogLevel.ERROR, parsed.getLogLevel());
+    }
+
+    @Test
+    void parser_shouldPreserveFatalLogLevel() {
+        LogIngestRequest fatalRequest = LogIngestRequest.builder()
+                .rawLog("2026-11-19T12:00:00Z FATAL [auth-pod] Core memory corrupted, emergency halt")
+                .source(LogSource.KUBERNETES)
+                .environment(Environment.PRODUCTION)
+                .build();
+        ParsedLogData parsedFatal = kubernetesParser.parse(fatalRequest);
+        assertEquals(LogLevel.FATAL, parsedFatal.getLogLevel());
+
+        LogIngestRequest fatalSpringRequest = LogIngestRequest.builder()
+                .rawLog("2026-11-19 12:00:00.000 FATAL 1 --- [main] c.p.service : Fatal failure detected")
+                .source(LogSource.SPRING_BOOT)
+                .environment(Environment.PRODUCTION)
+                .build();
+        ParsedLogData parsedSpringFatal = springBootParser.parse(fatalSpringRequest);
+        assertEquals(LogLevel.FATAL, parsedSpringFatal.getLogLevel());
+    }
+
+    @Test
     void parserFactory_shouldFallbackToGenericParserForUnknownSource() {
         LogParser parser = parserFactory.getParser(LogSource.KAFKA);
         assertNotNull(parser);

@@ -1,3 +1,4 @@
+
 package com.project.log_layer.integration.client;
 
 import com.project.log_layer.integration.config.LlmServiceProperties;
@@ -11,202 +12,225 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class WebClientLlmInferenceClientTest {
 
-    @Test
-    void shouldReturnLlmAnalysisResponseWhenRequestSucceeds() {
+        @Test
+        void shouldReturnLlmAnalysisResponseWhenRequestSucceeds() throws IOException {
 
-        LlmServiceProperties properties = new LlmServiceProperties();
-        properties.setBaseUrl("http://localhost:8084");
-        properties.setAnalyzeEndpoint("/api/v1/llm/analyze");
+                HttpServer server = HttpServer.create(
+                                new InetSocketAddress(0), 0);
 
-        WebClient webClient = WebClient.builder()
-                .baseUrl(properties.getBaseUrl())
-                .build();
+                server.createContext("/api/v1/llm/analyze", exchange -> {
 
-        WebClientLlmInferenceClient client =
-                new WebClientLlmInferenceClient(webClient, properties);
+                        String responseBody = """
+                                        {
+                                            "summary": "Database connection failed.",
+                                            "rootCause": "PostgreSQL database is unreachable.",
+                                            "severity": "CRITICAL",
+                                            "recommendation": "Verify database availability, network connectivity, and database credentials."
+                                        }
+                                        """;
 
-        LlmAnalysisRequest request = createRequest();
+                        byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
 
-        LlmAnalysisResponse response = client.analyze(request);
+                        exchange.getResponseHeaders().set(
+                                        "Content-Type", "application/json");
 
-        assertEquals(
-                "Database connection failed.",
-                response.summary()
-        );
-        assertEquals(
-                "PostgreSQL database is unreachable.",
-                response.rootCause()
-        );
-        assertEquals(
-                "CRITICAL",
-                response.severity()
-        );
-        assertEquals(
-                "Verify database availability, network connectivity, and database credentials.",
-                response.recommendation()
-        );
-    }
+                        exchange.sendResponseHeaders(200, bytes.length);
 
+                        try (OutputStream os = exchange.getResponseBody()) {
+                                os.write(bytes);
+                        }
+                });
 
-    @Test
-    void shouldThrowLlmServiceExceptionWhenServiceIsUnavailable() {
+                server.start();
 
-        LlmServiceProperties properties = new LlmServiceProperties();
-        properties.setBaseUrl("http://localhost:59999");
-        properties.setAnalyzeEndpoint("/api/v1/llm/analyze");
+                try {
+                        LlmServiceProperties properties = new LlmServiceProperties();
 
-        WebClient webClient = WebClient.builder()
-                .baseUrl(properties.getBaseUrl())
-                .build();
+                        properties.setBaseUrl(
+                                        "http://localhost:" + server.getAddress().getPort());
 
-        WebClientLlmInferenceClient client =
-                new WebClientLlmInferenceClient(webClient, properties);
+                        properties.setAnalyzeEndpoint("/api/v1/llm/analyze");
 
-        LlmAnalysisRequest request = createRequest();
+                        WebClient webClient = WebClient.builder()
+                                        .baseUrl(properties.getBaseUrl())
+                                        .build();
 
-        LlmServiceException exception = assertThrows(
-                LlmServiceException.class,
-                () -> client.analyze(request)
-        );
+                        WebClientLlmInferenceClient client = new WebClientLlmInferenceClient(webClient, properties);
 
-        assertEquals(
-                "Unable to connect to LLM Service.",
-                exception.getMessage()
-        );
-    }
+                        LlmAnalysisResponse response = client.analyze(createRequest());
 
-    @Test
-    void shouldThrowLlmServiceExceptionWhenServiceReturns500() throws IOException {
+                        assertEquals(
+                                        "Database connection failed.",
+                                        response.summary());
 
-        HttpServer server = HttpServer.create(
-                new InetSocketAddress(0),
-                0
-        );
+                        assertEquals(
+                                        "PostgreSQL database is unreachable.",
+                                        response.rootCause());
 
-        server.createContext(
-                "/api/v1/llm/analyze",
-                exchange -> {
+                        assertEquals(
+                                        "CRITICAL",
+                                        response.severity());
 
-                    String responseBody = "{\"error\":\"Internal server error\"}";
+                        assertEquals(
+                                        "Verify database availability, network connectivity, and database credentials.",
+                                        response.recommendation());
 
-                    exchange.sendResponseHeaders(
-                            500,
-                            responseBody.getBytes().length
-                    );
-
-                    try (OutputStream outputStream = exchange.getResponseBody()) {
-                        outputStream.write(responseBody.getBytes());
-                    }
+                } finally {
+                        server.stop(0);
                 }
-        );
-
-        server.start();
-
-        try {
-            LlmServiceProperties properties = new LlmServiceProperties();
-            properties.setBaseUrl(
-                    "http://localhost:" + server.getAddress().getPort()
-            );
-            properties.setAnalyzeEndpoint("/api/v1/llm/analyze");
-
-            WebClient webClient = WebClient.builder()
-                    .baseUrl(properties.getBaseUrl())
-                    .build();
-
-            WebClientLlmInferenceClient client =
-                    new WebClientLlmInferenceClient(webClient, properties);
-
-            LlmAnalysisRequest request = createRequest();
-
-            LlmServiceException exception = assertThrows(
-                    LlmServiceException.class,
-                    () -> client.analyze(request)
-            );
-
-            assertEquals(
-                    "LLM Service returned server error: {\"error\":\"Internal server error\"}",
-                    exception.getMessage()
-            );
-
-        } finally {
-            server.stop(0);
         }
-    }
 
-    @Test
-    void shouldThrowLlmServiceExceptionWhenServiceReturns400() throws IOException {
+        @Test
+        void shouldThrowLlmServiceExceptionWhenServiceIsUnavailable() {
 
-        HttpServer server = HttpServer.create(
-                new InetSocketAddress(0),
-                0
-        );
+                LlmServiceProperties properties = new LlmServiceProperties();
+                properties.setBaseUrl("http://localhost:59999");
+                properties.setAnalyzeEndpoint("/api/v1/llm/analyze");
 
-        server.createContext(
-                "/api/v1/llm/analyze",
-                exchange -> {
+                WebClient webClient = WebClient.builder()
+                                .baseUrl(properties.getBaseUrl())
+                                .build();
 
-                    String responseBody = "{\"error\":\"Invalid request\"}";
+                WebClientLlmInferenceClient client = new WebClientLlmInferenceClient(webClient, properties);
 
-                    exchange.sendResponseHeaders(
-                            400,
-                            responseBody.getBytes().length
-                    );
+                LlmAnalysisRequest request = createRequest();
 
-                    try (OutputStream outputStream = exchange.getResponseBody()) {
-                        outputStream.write(responseBody.getBytes());
-                    }
+                LlmServiceException exception = assertThrows(
+                                LlmServiceException.class,
+                                () -> client.analyze(request));
+
+                assertEquals(
+                                "Unable to connect to LLM Service.",
+                                exception.getMessage());
+        }
+
+        @Test
+        void shouldThrowLlmServiceExceptionWhenServiceReturns500() throws IOException {
+
+                HttpServer server = HttpServer.create(
+                                new InetSocketAddress(0),
+                                0);
+
+                server.createContext(
+                                "/api/v1/llm/analyze",
+                                exchange -> {
+
+                                        String responseBody = "{\"error\":\"Internal server error\"}";
+
+                                        byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
+
+                                        exchange.sendResponseHeaders(
+                                                        500,
+                                                        bytes.length);
+
+                                        try (OutputStream outputStream = exchange.getResponseBody()) {
+                                                outputStream.write(bytes);
+                                        }
+                                });
+
+                server.start();
+
+                try {
+                        LlmServiceProperties properties = new LlmServiceProperties();
+
+                        properties.setBaseUrl(
+                                        "http://localhost:" + server.getAddress().getPort());
+
+                        properties.setAnalyzeEndpoint("/api/v1/llm/analyze");
+
+                        WebClient webClient = WebClient.builder()
+                                        .baseUrl(properties.getBaseUrl())
+                                        .build();
+
+                        WebClientLlmInferenceClient client = new WebClientLlmInferenceClient(webClient, properties);
+
+                        LlmAnalysisRequest request = createRequest();
+
+                        LlmServiceException exception = assertThrows(
+                                        LlmServiceException.class,
+                                        () -> client.analyze(request));
+
+                        assertEquals(
+                                        "LLM Service returned server error: {\"error\":\"Internal server error\"}",
+                                        exception.getMessage());
+
+                } finally {
+                        server.stop(0);
                 }
-        );
-
-        server.start();
-
-        try {
-            LlmServiceProperties properties = new LlmServiceProperties();
-            properties.setBaseUrl(
-                    "http://localhost:" + server.getAddress().getPort()
-            );
-            properties.setAnalyzeEndpoint("/api/v1/llm/analyze");
-
-            WebClient webClient = WebClient.builder()
-                    .baseUrl(properties.getBaseUrl())
-                    .build();
-
-            WebClientLlmInferenceClient client =
-                    new WebClientLlmInferenceClient(webClient, properties);
-
-            LlmAnalysisRequest request = createRequest();
-
-            LlmServiceException exception = assertThrows(
-                    LlmServiceException.class,
-                    () -> client.analyze(request)
-            );
-
-            assertEquals(
-                    "LLM Service returned client error: {\"error\":\"Invalid request\"}",
-                    exception.getMessage()
-            );
-
-        } finally {
-            server.stop(0);
         }
-    }
 
-    private LlmAnalysisRequest createRequest() {
-        return LlmAnalysisRequest.builder()
-                .timestamp("2026-10-06T00:00:00")
-                .level("ERROR")
-                .serviceName("payment-service")
-                .message("Database connection failed")
-                .prediction(1)
-                .predictionLabel("DATABASE_ERROR")
-                .decisionScore(0.95)
-                .modelVersion("1.0.0")
-                .build();
-    }
+        @Test
+        void shouldThrowLlmServiceExceptionWhenServiceReturns400() throws IOException {
+
+                HttpServer server = HttpServer.create(
+                                new InetSocketAddress(0),
+                                0);
+
+                server.createContext(
+                                "/api/v1/llm/analyze",
+                                exchange -> {
+
+                                        String responseBody = "{\"error\":\"Invalid request\"}";
+
+                                        byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
+
+                                        exchange.sendResponseHeaders(
+                                                        400,
+                                                        bytes.length);
+
+                                        try (OutputStream outputStream = exchange.getResponseBody()) {
+                                                outputStream.write(bytes);
+                                        }
+                                });
+
+                server.start();
+
+                try {
+                        LlmServiceProperties properties = new LlmServiceProperties();
+
+                        properties.setBaseUrl(
+                                        "http://localhost:" + server.getAddress().getPort());
+
+                        properties.setAnalyzeEndpoint("/api/v1/llm/analyze");
+
+                        WebClient webClient = WebClient.builder()
+                                        .baseUrl(properties.getBaseUrl())
+                                        .build();
+
+                        WebClientLlmInferenceClient client = new WebClientLlmInferenceClient(webClient, properties);
+
+                        LlmAnalysisRequest request = createRequest();
+
+                        LlmServiceException exception = assertThrows(
+                                        LlmServiceException.class,
+                                        () -> client.analyze(request));
+
+                        assertEquals(
+                                        "LLM Service returned client error: {\"error\":\"Invalid request\"}",
+                                        exception.getMessage());
+
+                } finally {
+                        server.stop(0);
+                }
+        }
+
+        private LlmAnalysisRequest createRequest() {
+                return LlmAnalysisRequest.builder()
+                                .timestamp("2026-10-06T00:00:00")
+                                .level("ERROR")
+                                .serviceName("payment-service")
+                                .message("Database connection failed")
+                                .prediction(1)
+                                .predictionLabel("DATABASE_ERROR")
+                                .decisionScore(0.95)
+                                .modelVersion("1.0.0")
+                                .build();
+        }
 }

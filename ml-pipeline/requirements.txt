@@ -6,4 +6,4 @@ numpy
 pandas
 python-dotenv
 joblib
-scikit-learn
+scikit-learn==1.8.0

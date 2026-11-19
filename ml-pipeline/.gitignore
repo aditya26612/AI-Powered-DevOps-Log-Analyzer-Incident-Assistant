@@ -15,3 +15,12 @@ artifacts/*
 .coverage
 
 *.log
+!artifacts/model.pkl
+!artifacts/scaler.pkl
+!artifacts/metadata.json
+!artifacts/candidates/
+artifacts/candidates/*
+!artifacts/candidates/v2_curated_isolation_forest/
+artifacts/candidates/v2_curated_isolation_forest/*
+!artifacts/candidates/v2_curated_isolation_forest/model.pkl
+!artifacts/candidates/v2_curated_isolation_forest/metadata.json

@@ -66,7 +66,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-devinsight_internal_ml_key_secret_12345}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY before starting DevInsight}
       ENVIRONMENT: production
     networks:
       - devinsight-net
@@ -84,7 +84,7 @@ services:
     environment:
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET before starting DevInsight}
     depends_on:
       postgres:
         condition: service_healthy
@@ -128,8 +128,8 @@ services:
     environment:
       DB_HOST: postgres
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
-      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-devinsight_internal_ml_key_secret_12345}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET before starting DevInsight}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY before starting DevInsight}
       ML_SERVICE_URL: http://ml-pipeline:8000
       LLM_SERVICE_URL: http://llm-service:8084
     depends_on:
@@ -153,7 +153,8 @@ services:
     environment:
       USER_SERVICE_URL: http://user-service:8081
       LOG_SERVICE_URL: http://log-layer:8082
-      JWT_SECRET: ${JWT_SECRET:-devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET before starting DevInsight}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?Set INTERNAL_API_KEY before starting DevInsight}
     depends_on:
       - user-service
       - log-layer
