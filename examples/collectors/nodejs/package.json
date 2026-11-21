@@ -1,0 +1,13 @@
+{
+  "name": "devinsight-node-example",
+  "version": "0.3.0",
+  "private": true,
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "devinsight-log-collector": "file:../../../client-integrations/nodejs",
+    "winston": "^3.17.0",
+    "winston-transport": "^4.9.0"
+  }
+}

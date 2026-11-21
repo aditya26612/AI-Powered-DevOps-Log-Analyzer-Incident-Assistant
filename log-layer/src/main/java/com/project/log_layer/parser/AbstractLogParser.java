@@ -4,13 +4,23 @@ import com.project.log_layer.dto.request.ingest.LogIngestRequest;
 import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.exception.InvalidLogFormatException;
 import com.project.log_layer.parser.model.ParsedLogData;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,13 +42,21 @@ import java.util.regex.Pattern;
  */
 public abstract class AbstractLogParser implements LogParser {
 
-    // Honor an explicit severity immediately after an optional ISO-style timestamp.
-    // Otherwise, a WARN entry mentioning "failure" is incorrectly detected as ERROR.
+    private static final int MAX_RAW_LENGTH = 16_384;
+    protected static final String TIMESTAMP = "\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}"
+            + "(?:[.,]\\d{1,9})?(?:Z|[+-]\\d{2}:?\\d{2})?";
+    private static final Pattern TIMESTAMP_PREFIX = Pattern.compile("^" + TIMESTAMP + "(?=\\s|$)");
+    protected static final String LEVEL = "TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|ERR|FATAL|CRITICAL|SEVERE";
     private static final Pattern EXPLICIT_LEVEL_PREFIX = Pattern.compile(
-            "^(?:\\d{4}-\\d{2}-\\d{2}(?:T\\S+|\\s+\\S+)\\s+)?"
-                    + "(?<level>TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|ERR|FATAL|CRITICAL|SEVERE)\\b",
-            Pattern.CASE_INSENSITIVE
-    );
+            "^(?:(?:" + TIMESTAMP + ")\\s+)?(?:\\[(?<bracket>" + LEVEL
+                    + ")\\]|(?<level>" + LEVEL + "))(?=\\s|:|$)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PYTHON_TRACEBACK = Pattern.compile(
+            "^(?:" + TIMESTAMP + "\\s+)?Traceback \\(most recent call last\\):\\R[ \\t]+File ");
+    private static final ObjectMapper STRUCTURED_LOG = new ObjectMapper(JsonFactory.builder()
+            .streamReadConstraints(StreamReadConstraints.builder().maxNestingDepth(12)
+                    .maxStringLength(MAX_RAW_LENGTH).maxNumberLength(128).build())
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     /**
      * Validates the incoming ingestion request.
@@ -59,6 +77,11 @@ public abstract class AbstractLogParser implements LogParser {
             throw new InvalidLogFormatException(
                     "Raw log cannot be empty."
             );
+        }
+        String raw = request.getRawLog();
+        if (raw.length() > MAX_RAW_LENGTH || raw.indexOf(0) >= 0
+                || !StandardCharsets.UTF_8.newEncoder().canEncode(raw)) {
+            throw new InvalidLogFormatException("Raw log exceeds the supported text limits.");
         }
     }
 
@@ -160,13 +183,13 @@ public abstract class AbstractLogParser implements LogParser {
             DateTimeFormatter formatter) {
 
         if (timestamp == null || timestamp.isBlank()) {
-            return LocalDateTime.now();
+            return LocalDateTime.now(ZoneOffset.UTC);
         }
 
         try {
             return OffsetDateTime
                     .parse(timestamp, formatter)
-                    .toLocalDateTime();
+                    .withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
         } catch (DateTimeParseException ex) {
             return parseFlexibleTimestamp(timestamp);
         }
@@ -178,28 +201,24 @@ public abstract class AbstractLogParser implements LogParser {
      */
     protected LocalDateTime parseFlexibleTimestamp(String timestamp) {
         if (timestamp == null || timestamp.isBlank()) {
-            return LocalDateTime.now();
+            return LocalDateTime.now(ZoneOffset.UTC);
         }
 
-        String cleaned = timestamp.trim();
+        String cleaned = timestamp.trim().replace(' ', 'T').replace(',', '.')
+                .replaceFirst("([+-]\\d{2})(\\d{2})$", "$1:$2");
 
         // Try standard ISO Offset (e.g. 2026-06-26T20:15:31.123+05:30 or Z)
         try {
-            return OffsetDateTime.parse(cleaned, DateTimeFormatter.ISO_OFFSET_DATE_TIME).toLocalDateTime();
-        } catch (Exception ignored) {}
+            return OffsetDateTime.parse(cleaned, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    .withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        } catch (DateTimeParseException ignored) {}
 
         // Try ISO Local (e.g. 2026-06-26T20:15:31.123)
         try {
             return LocalDateTime.parse(cleaned, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        } catch (Exception ignored) {}
+        } catch (DateTimeParseException ignored) {}
 
-        // Try space-separated (e.g. 2026-06-26 20:15:31.123 or 2026-06-26 20:15:31)
-        try {
-            String isoCandidate = cleaned.replace(" ", "T");
-            return LocalDateTime.parse(isoCandidate, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        } catch (Exception ignored) {}
-
-        return LocalDateTime.now();
+        return LocalDateTime.now(ZoneOffset.UTC);
     }
 
     /**
@@ -221,7 +240,7 @@ public abstract class AbstractLogParser implements LogParser {
             return defaultLogLevel();
         }
 
-        String normalized = level.trim().toUpperCase();
+        String normalized = level.trim().toUpperCase(Locale.ROOT);
 
         return switch (normalized) {
             case "FATAL" -> LogLevel.FATAL;
@@ -234,7 +253,7 @@ public abstract class AbstractLogParser implements LogParser {
     }
 
     /**
-     * Detects severity from message text using heuristic keywords.
+     * Recognizes a severity header or a Python traceback header followed by a frame.
      */
     protected LogLevel detectSeverityFromText(String text) {
         if (text == null || text.isBlank()) {
@@ -243,20 +262,13 @@ public abstract class AbstractLogParser implements LogParser {
 
         Matcher explicitLevel = EXPLICIT_LEVEL_PREFIX.matcher(text.trim());
         if (explicitLevel.find()) {
-            return parseFlexibleLogLevel(explicitLevel.group("level"));
+            String level = explicitLevel.group("level");
+            return parseFlexibleLogLevel(level == null ? explicitLevel.group("bracket") : level);
         }
 
-        String upper = text.toUpperCase();
-        if (upper.contains("FATAL") || upper.contains("CRITICAL") || upper.contains("ERROR")
-                || upper.contains("EXCEPTION") || upper.contains("FAIL") || upper.contains("PANIC")
-                || upper.contains("CRASHLOOPBACKOFF") || upper.contains("OOMKILLED")) {
+        if (PYTHON_TRACEBACK.matcher(text.trim()).find()) {
             return LogLevel.ERROR;
         }
-
-        if (upper.contains("WARN") || upper.contains("WARNING") || upper.contains("DEPRECATED")) {
-            return LogLevel.WARN;
-        }
-
         return defaultLogLevel();
     }
 
@@ -270,32 +282,50 @@ public abstract class AbstractLogParser implements LogParser {
             com.project.log_layer.enums.LogSource source) {
 
         String trimmed = rawLog != null ? rawLog.trim() : "";
-        LogLevel level = detectSeverityFromText(trimmed);
-        LocalDateTime timestamp = parseFlexibleTimestamp(null);
-
-        // Attempt to extract leading timestamp if present
-        String[] tokens = trimmed.split("\\s+", 3);
-        if (tokens.length > 0 && tokens[0].length() >= 10 && tokens[0].contains("-")) {
-            timestamp = parseFlexibleTimestamp(tokens[0]);
+        JsonNode structured = structuredLog(trimmed);
+        String message = textField(structured, "message", MAX_RAW_LENGTH);
+        if (message != null && (message.indexOf(0) >= 0 || !StandardCharsets.UTF_8.newEncoder().canEncode(message))) {
+            message = null;
         }
-
+        boolean recognized = message != null;
+        Matcher timestamp = TIMESTAMP_PREFIX.matcher(trimmed);
         String appName = safeTrim(request.getApplicationName());
         if (appName == null || appName.isBlank()) {
-            appName = source.name().toLowerCase() + "-service";
+            appName = source.name().toLowerCase(Locale.ROOT) + "-service";
         }
 
         return ParsedLogData.builder()
-                .timestamp(timestamp)
-                .logLevel(level)
-                .message(trimmed)
+                .timestamp(parseFlexibleTimestamp(recognized ? textField(structured, "timestamp", 40)
+                        : timestamp.find() ? timestamp.group() : null))
+                .logLevel(recognized ? parseFlexibleLogLevel(textField(structured, "level", 20))
+                        : detectSeverityFromText(trimmed))
+                .message(recognized ? message : trimmed)
                 .applicationName(appName)
                 .serviceName(appName)
                 .hostName(safeTrim(request.getHostName()))
                 .environment(request.getEnvironment())
                 .source(source)
-                .rawLog(rawLog)
+                .rawLog(request.getRawLog())
+                .fallback(!recognized)
                 .metadata(buildMetadata())
                 .build();
+    }
+
+    private static JsonNode structuredLog(String input) {
+        if (!input.startsWith("{")) {
+            return null;
+        }
+        try {
+            return STRUCTURED_LOG.readTree(input);
+        } catch (JsonProcessingException ex) {
+            return null;
+        }
+    }
+
+    private static String textField(JsonNode document, String name, int limit) {
+        JsonNode field = document == null ? null : document.get(name);
+        return field != null && field.isTextual() && !field.textValue().isBlank() && field.textValue().length() <= limit
+                ? field.textValue() : null;
     }
 
     /**

@@ -32,6 +32,7 @@ class LlmAnalysisApiIntegrationTest {
 
         mockMvc.perform(
                         post("/api/v1/llm/analyze")
+                                .header("X-Internal-Api-Key", "stage02-llm-internal-test-fixture")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(request)
                 )

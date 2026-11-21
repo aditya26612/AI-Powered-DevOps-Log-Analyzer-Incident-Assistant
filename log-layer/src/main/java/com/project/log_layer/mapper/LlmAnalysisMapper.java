@@ -9,6 +9,7 @@ import org.mapstruct.Mapping;
 public interface LlmAnalysisMapper {
 
     @Mapping(source = "applicationName", target = "serviceName")
+    @Mapping(target = "message", expression = "java(log.analysisMessage())")
     LlmAnalysisRequest toRequest(Log log);
 
 }

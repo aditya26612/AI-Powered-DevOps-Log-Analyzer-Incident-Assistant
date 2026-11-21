@@ -1,23 +1,24 @@
 package com.project.log_layer.integration.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.project.log_layer.integration.config.MlServiceProperties;
 import com.project.log_layer.integration.dto.MlPredictionRequest;
 import com.project.log_layer.integration.dto.MlPredictionResponse;
 import com.project.log_layer.integration.exception.MlServiceException;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.time.Duration;
+import java.util.concurrent.Semaphore;
+import reactor.core.publisher.Mono;
 
-@Slf4j
 @Service
 public class WebClientMlInferenceClient implements MlInferenceClient {
 
     private final WebClient mlWebClient;
     private final MlServiceProperties mlServiceProperties;
+    private final Semaphore slots = new Semaphore(4);
 
     public WebClientMlInferenceClient(
             @Qualifier("mlWebClient") WebClient mlWebClient,
@@ -27,49 +28,48 @@ public class WebClientMlInferenceClient implements MlInferenceClient {
         this.mlServiceProperties = mlServiceProperties;
     }
 
-//    @Override
-//    public MlPredictionResponse predict(MlPredictionRequest request) {
-//        throw new UnsupportedOperationException("Not implemented yet");
-//    }
-
     @Override
     public MlPredictionResponse predict(MlPredictionRequest request) {
-
+        if (!slots.tryAcquire()) {
+            throw new MlServiceException("ML client at capacity");
+        }
         try {
-
             return mlWebClient
                     .post()
                     .uri(mlServiceProperties.getPredictEndpoint())
                     .bodyValue(request)
                     .retrieve()
 
-                    .onStatus(
-                            HttpStatusCode::is4xxClientError,
-                            response -> response.bodyToMono(String.class)
-                                    .map(body -> new MlServiceException(
-                                            "ML Service returned client error: " + body))
-                    )
-
-                    .onStatus(
-                            HttpStatusCode::is5xxServerError,
-                            response -> response.bodyToMono(String.class)
-                                    .map(body -> new MlServiceException(
-                                            "ML Service returned server error: " + body))
-                    )
-
-                    .bodyToMono(MlPredictionResponse.class)
+                    .onStatus(status -> !status.is2xxSuccessful(),
+                            response -> Mono.just(new MlServiceException("ML HTTP " + response.statusCode().value())))
+                    .bodyToMono(JsonNode.class)
+                    .map(WebClientMlInferenceClient::readPrediction)
                     .timeout(mlServiceProperties.getTimeout() != null
                             ? mlServiceProperties.getTimeout()
                             : Duration.ofSeconds(5))
                     .block();
 
-        } catch (Exception ex) {
-
-            throw new MlServiceException(
-                    "Unable to connect to ML Service.",
-                    ex
-            );
+        } catch (MlServiceException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            // Do not retain WebClient error bodies, request metadata, or malformed JSON in the cause.
+            throw new MlServiceException("ML transport or decoding failure");
+        } finally {
+            slots.release();
         }
     }
 
+    static MlPredictionResponse readPrediction(JsonNode body) {
+        JsonNode prediction = body.path("prediction");
+        JsonNode label = body.path("prediction_label");
+        JsonNode anomaly = body.path("is_anomaly");
+        JsonNode score = body.path("decision_score");
+        JsonNode version = body.path("model_version");
+        if (!prediction.isIntegralNumber() || !prediction.canConvertToInt() || !label.isTextual()
+                || !anomaly.isBoolean() || !score.isNumber() || !version.isTextual()) {
+            throw new MlServiceException("Invalid ML response field types");
+        }
+        return new MlPredictionResponse(prediction.intValue(), label.textValue(), anomaly.booleanValue(),
+                score.doubleValue(), version.textValue());
+    }
 }

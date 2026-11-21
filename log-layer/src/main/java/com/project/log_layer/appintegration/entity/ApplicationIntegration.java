@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * Represents an enterprise application integration registered with DevInsight.
@@ -15,7 +16,7 @@ import java.time.LocalDateTime;
  * and service-specific Slack alert routing channels.
  */
 @Entity
-@Table(name = "application_integrations", indexes = {
+@Table(name = "application_integrations", uniqueConstraints = @UniqueConstraint(columnNames = {"organization_id", "application_name"}), indexes = {
         @Index(name = "idx_integration_app_name", columnList = "application_name"),
         @Index(name = "idx_integration_api_key", columnList = "api_key"),
         @Index(name = "idx_integration_user_email", columnList = "user_email")
@@ -31,7 +32,16 @@ public class ApplicationIntegration {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "application_name", nullable = false, unique = true, length = 100)
+    @Column(name = "organization_id")
+    private UUID organizationId;
+
+    @Column(name = "deactivated_at")
+    private java.time.OffsetDateTime deactivatedAt;
+
+    @Column(name = "slack_webhook_ciphertext")
+    private String slackWebhookCiphertext;
+
+    @Column(name = "application_name", nullable = false, length = 100)
     private String applicationName;
 
     @Enumerated(EnumType.STRING)
@@ -42,7 +52,7 @@ public class ApplicationIntegration {
     @Column(name = "environment", nullable = false, length = 30)
     private Environment environment;
 
-    @Column(name = "api_key", nullable = false, length = 120)
+    @Column(name = "api_key", length = 120)
     private String apiKey;
 
     @Column(name = "slack_webhook_url", length = 500)

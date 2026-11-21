@@ -7,6 +7,8 @@ import com.project.log_layer.integration.exception.LlmServiceException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.core.codec.DecodingException;
+import reactor.core.publisher.Mono;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -38,19 +40,8 @@ public class WebClientLlmInferenceClient implements LlmInferenceClient {
                     .bodyValue(request)
                     .retrieve()
 
-                    .onStatus(
-                            HttpStatusCode::is4xxClientError,
-                            response -> response.bodyToMono(String.class)
-                                    .map(body -> new LlmServiceException(
-                                            "LLM Service returned client error: " + body))
-                    )
-
-                    .onStatus(
-                            HttpStatusCode::is5xxServerError,
-                            response -> response.bodyToMono(String.class)
-                                    .map(body -> new LlmServiceException(
-                                            "LLM Service returned server error: " + body))
-                    )
+                    .onStatus(HttpStatusCode::isError,
+                            response -> Mono.just(LlmServiceException.http(response.statusCode().value())))
 
                     .bodyToMono(LlmAnalysisResponse.class)
                     .timeout(llmServiceProperties.getTimeout() != null
@@ -60,11 +51,10 @@ public class WebClientLlmInferenceClient implements LlmInferenceClient {
 
         } catch (LlmServiceException ex) {
             throw ex;
+        } catch (DecodingException ex) {
+            throw LlmServiceException.malformed();
         } catch (Exception ex) {
-            throw new LlmServiceException(
-                    "Unable to connect to LLM Service.",
-                    ex
-            );
+            throw new LlmServiceException("Unable to connect to LLM Service.");
         }
     }
 }

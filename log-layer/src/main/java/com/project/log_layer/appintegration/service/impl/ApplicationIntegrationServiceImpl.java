@@ -16,7 +16,6 @@ import com.project.log_layer.exception.LogNotFoundException;
 import com.project.log_layer.service.LogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -25,8 +24,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/** Legacy implementation retained for the pre-Stage 02 regression tests. */
 @Slf4j
-@Service
 @RequiredArgsConstructor
 public class ApplicationIntegrationServiceImpl implements ApplicationIntegrationService {
 

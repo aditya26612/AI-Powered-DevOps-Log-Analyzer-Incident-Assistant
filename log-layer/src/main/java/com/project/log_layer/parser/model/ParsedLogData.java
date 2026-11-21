@@ -82,6 +82,8 @@ public class ParsedLogData {
      */
     private String rawLog;
 
+    private boolean fallback;
+
     /**
      * Parser-specific attributes.
      *

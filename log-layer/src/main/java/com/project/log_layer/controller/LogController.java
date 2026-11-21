@@ -1,11 +1,9 @@
 package com.project.log_layer.controller;
 
 import com.project.log_layer.dto.request.analysis.LogAnalysisRequest;
-import com.project.log_layer.dto.request.ingest.BatchLogRequest;
 import com.project.log_layer.dto.request.ingest.LogIngestRequest;
 import com.project.log_layer.dto.request.search.LogFilterRequest;
 import com.project.log_layer.dto.response.analysis.LogAnalysisResponse;
-import com.project.log_layer.dto.response.common.BatchOperationResponse;
 import com.project.log_layer.dto.response.common.PagedResponse;
 import com.project.log_layer.dto.response.log.LogResponse;
 import com.project.log_layer.service.LogService;
@@ -36,19 +34,6 @@ public class LogController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
-    }
-
-    /**
-     * Ingest multiple logs.
-     */
-    @PostMapping("/batch")
-    public ResponseEntity<BatchOperationResponse> ingestBatch(
-            @Valid @RequestBody BatchLogRequest request) {
-
-        BatchOperationResponse response =
-                logService.ingestBatch(request);
-
-        return ResponseEntity.ok(response);
     }
 
     /**

@@ -36,12 +36,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -88,7 +86,7 @@ class LogServiceImplTest {
     private LlmAnalysisFailureService llmAnalysisFailureService;
 
     @Mock
-    private com.project.log_layer.notification.service.NotificationService notificationService;
+    private com.project.log_layer.diagnosis.DiagnosisQueue diagnosisQueue;
 
     @Mock
     private com.project.log_layer.notification.config.NotificationProperties notificationProperties;
@@ -99,7 +97,7 @@ class LogServiceImplTest {
     @BeforeEach
     void setUp() {
         lenient()
-                .when(httpServletRequest.getHeader("X-User-Email"))
+                .when(httpServletRequest.getAttribute(com.project.log_layer.util.CurrentUser.VERIFIED_EMAIL))
                 .thenReturn("test@example.com");
         lenient()
                 .when(notificationProperties.isAutoDiagnoseAnomalies())
@@ -498,46 +496,35 @@ class LogServiceImplTest {
     }
 
     @Test
-    void ingest_shouldPersistDiagnosis_whenErrorTriggersAfterCommit() throws Exception {
-        LogIngestRequest request = LogIngestRequest.builder()
-                .rawLog("ERROR database unavailable").source(LogSource.SPRING_BOOT).build();
-        ParsedLogData parsed = ParsedLogData.builder().build();
-        Log entity = Log.builder().id(1L).level(LogLevel.ERROR).build();
-        MlPredictionRequest mlRequest = MlPredictionRequest.builder().build();
-        LlmAnalysisRequest llmRequest = LlmAnalysisRequest.builder().build();
-        LlmAnalysisResponse diagnosis = new LlmAnalysisResponse("Database offline", "Connection refused",
-                "HIGH", "Check database availability");
-        CompletableFuture<LlmAnalysisResponse> storedDiagnosis = new CompletableFuture<>();
+    void ingest_shouldEnqueueOwnedErrorWithoutCallingLlm() {
+        assertDurableError(0.1);
+    }
 
+    @Test
+    void ingest_operationalDeadlockEnqueuesWhenV2ReportsNonAnomaly() {
+        assertDurableError(0.0977);
+    }
+
+    private void assertDurableError(double score) {
+        var request = LogIngestRequest.builder().rawLog("ERROR database unavailable").source(LogSource.SPRING_BOOT).build();
+        var parsed = ParsedLogData.builder().build();
+        var entity = Log.builder().id(42L).organizationId(UUID.randomUUID()).level(LogLevel.ERROR).build();
+        var mlRequest = MlPredictionRequest.builder().build();
         when(parserFactory.getParser(LogSource.SPRING_BOOT)).thenReturn(logParser);
         when(logParser.parse(request)).thenReturn(parsed);
         when(parsedLogMapper.toEntity(parsed)).thenReturn(entity);
         when(mlPredictionMapper.toRequest(entity)).thenReturn(mlRequest);
-        when(mlInferenceClient.predict(mlRequest)).thenReturn(new MlPredictionResponse(1, "Normal", false, 0.1, "2.0.0-candidate"));
+        when(mlInferenceClient.predict(mlRequest)).thenReturn(new MlPredictionResponse(1, "Normal", false, score, "2.0.0-candidate"));
         when(notificationProperties.isAutoDiagnoseAnomalies()).thenReturn(true);
-        when(logRepository.findById(1L)).thenReturn(Optional.of(entity));
-        when(llmAnalysisMapper.toRequest(entity)).thenReturn(llmRequest);
-        when(llmInferenceClient.analyze(llmRequest)).thenReturn(diagnosis);
-        when(logRepository.save(entity)).thenAnswer(invocation -> {
-            if (entity.getLlmAnalysisStatus() == AnalysisStatus.COMPLETED) {
-                storedDiagnosis.complete(new LlmAnalysisResponse(entity.getLlmSummary(), entity.getLlmRootCause(),
-                        entity.getLlmSeverity(), entity.getLlmRecommendation()));
-            }
-            return entity;
-        });
+        when(logRepository.save(entity)).thenReturn(entity);
 
-        TransactionSynchronizationManager.initSynchronization();
-        try {
-            logService.ingest(request);
-            verifyNoInteractions(llmInferenceClient);
-            assertFalse(entity.getAnomaly());
-            assertEquals(1, TransactionSynchronizationManager.getSynchronizations().size());
-            TransactionSynchronizationManager.getSynchronizations().getFirst().afterCommit();
-            assertEquals(diagnosis, storedDiagnosis.get(5, TimeUnit.SECONDS));
-            verify(notificationService, timeout(5000)).sendIncidentAlert(eq(entity), any());
-        } finally {
-            TransactionSynchronizationManager.clearSynchronization();
-        }
+        logService.ingest(request);
+
+        assertEquals(AnalysisStatus.PENDING, entity.getLlmAnalysisStatus());
+        assertFalse(entity.getAnomaly());
+        assertEquals(score, entity.getDecisionScore(), 0.0001);
+        verify(diagnosisQueue).enqueue(entity, null);
+        verifyNoInteractions(llmInferenceClient);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -635,6 +622,7 @@ class LogServiceImplTest {
         );
 
         assertNotNull(log.getAnalyzedAt());
+        assertNull(log.getLlmAnalysisStatus());
 
         verify(mlInferenceClient).predict(mlRequest);
         verify(logRepository).save(log);

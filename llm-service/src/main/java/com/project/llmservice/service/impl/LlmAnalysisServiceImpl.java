@@ -40,7 +40,7 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
             ProviderFactory providerFactory,
             ResponseParser responseParser,
             RequestMapper requestMapper,
-            @Qualifier("hybridRetriever") Retriever retriever
+            @Qualifier("sharedDiagnosisRetriever") Retriever retriever
     ) {
         this.promptBuilder = promptBuilder;
         this.providerFactory = providerFactory;
@@ -58,12 +58,6 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
         logger.info("LLM ANALYSIS STARTED");
         logger.info("========================================");
 
-        logger.info(
-                "Service: {} | Level: {}",
-                request.getServiceName(),
-                request.getLevel()
-        );
-
         // 1. Convert incoming request into prompt context.
         PromptContext context =
                 requestMapper.toPromptContext(request);
@@ -73,11 +67,6 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
                 request.getLevel() + " " +
                         request.getServiceName() + " " +
                         request.getMessage();
-
-        logger.info(
-                "Retrieval query constructed for service: {}",
-                request.getServiceName()
-        );
 
         // 3. Retrieve relevant documents using Hybrid Retrieval.
         List<RetrievalResult> results =
@@ -162,13 +151,6 @@ public class LlmAnalysisServiceImpl implements LlmAnalysisService {
         // 10. Parse LLM response.
         LlmAnalysisResponse response =
                 responseParser.parse(rawResponse);
-
-        // 11. Log parsed response fields.
-        logger.info("===== PARSED RESPONSE =====");
-        logger.info("Summary: {}", response.getSummary());
-        logger.info("Root Cause: {}", response.getRootCause());
-        logger.info("Severity: {}", response.getSeverity());
-        logger.info("Recommendation: {}", response.getRecommendation());
 
         long duration =
                 System.currentTimeMillis() - startTime;

@@ -34,7 +34,7 @@ class MlPredictionMapperTest {
                 "serviceName must map from log.serviceName, not applicationName");
         assertEquals("ERROR", request.level());
         assertEquals("Hikari connection pool exhausted", request.message());
-        assertEquals("2026-07-20T18:00:00", request.timestamp());
+        assertEquals(java.time.Instant.parse("2026-07-20T18:00:00Z"), java.time.Instant.parse(request.timestamp()));
     }
 
     @Test

@@ -17,5 +17,6 @@ class BatchPredictionRequest(BaseModel):
     logs: list[PredictionRequest] = Field(
         ...,
         min_length=1,
+        max_length=32,
         description="Collection of logs for batch prediction.",
     )

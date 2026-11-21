@@ -10,6 +10,8 @@ import org.mapstruct.Named;
 public interface MlPredictionMapper {
 
     @Mapping(target = "serviceName", source = "log", qualifiedByName = "resolveServiceName")
+    @Mapping(target = "message", expression = "java(log.analysisMessage())")
+    @Mapping(target = "timestamp", expression = "java(log.getTimestamp().toInstant(java.time.ZoneOffset.UTC).toString())")
     MlPredictionRequest toRequest(Log log);
 
     @Named("resolveServiceName")

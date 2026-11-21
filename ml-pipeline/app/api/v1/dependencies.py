@@ -5,6 +5,7 @@ API Dependencies
 """
 
 from functools import lru_cache
+from hmac import compare_digest
 from typing import Optional
 
 from fastapi import Header, HTTPException, status
@@ -39,7 +40,7 @@ def verify_internal_api_key(
             detail="ML prediction authentication is not configured",
         )
 
-    if not x_api_key or x_api_key != internal_api_key:
+    if not x_api_key or not compare_digest(x_api_key.encode("utf-8"), internal_api_key.encode("utf-8")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized: Invalid or missing X-API-Key header",

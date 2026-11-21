@@ -1,6 +1,7 @@
 package com.project.log_layer.specification;
 
 import com.project.log_layer.entity.Log;
+import com.project.log_layer.enums.AnalysisStatus;
 import com.project.log_layer.enums.Environment;
 import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.enums.LogSource;
@@ -77,7 +78,8 @@ public final class LogSpecification {
         }
 
         return (root, query, cb) ->
-                cb.equal(root.get("anomaly"), anomaly);
+                cb.and(cb.equal(root.get("analysisStatus"), AnalysisStatus.COMPLETED),
+                        cb.equal(root.get("anomaly"), anomaly));
     }
 
     public static Specification<Log> hasCorrelationId(UUID correlationId) {

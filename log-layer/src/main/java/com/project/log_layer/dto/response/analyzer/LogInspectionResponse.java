@@ -1,6 +1,7 @@
 package com.project.log_layer.dto.response.analyzer;
 
 import com.project.log_layer.enums.Environment;
+import com.project.log_layer.enums.AnalysisStatus;
 import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.enums.LogSource;
 import lombok.*;
@@ -28,6 +29,10 @@ public class LogInspectionResponse {
 
     private boolean hasAnomaly;
     private Double confidenceScore;
+    private AnalysisStatus analysisStatus;
+    private String operationalRuleId;
+    private boolean diagnosisEligible;
+    private AnalysisStatus llmAnalysisStatus;
 
     private DetectionMetrics detectionMetrics;
     private IncidentDiagnosis incidentDiagnosis;

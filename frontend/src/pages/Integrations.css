@@ -941,3 +941,12 @@
 .text-green { color: #34d399 !important; }
 .text-amber { color: #fbbf24 !important; }
 .text-indigo { color: #818cf8 !important; }
+
+.tenant-onboarding { display: grid; gap: 1rem; }
+.tenant-panel { padding: 1rem; border: 1px solid currentColor; border-radius: .75rem; }
+.tenant-panel form { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin: .75rem 0; }
+.tenant-panel label { display: grid; gap: .25rem; }
+.tenant-panel button, .tenant-panel input, .tenant-panel select { padding: .45rem .65rem; }
+.tenant-panel li > button { margin-left: .5rem; }
+.tenant-secret { padding: .75rem; margin: .75rem 0; border: 1px solid currentColor; }
+.tenant-secret output { display: block; overflow-wrap: anywhere; font-family: monospace; }

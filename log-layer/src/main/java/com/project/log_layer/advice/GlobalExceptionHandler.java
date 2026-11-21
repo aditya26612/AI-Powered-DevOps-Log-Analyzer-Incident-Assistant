@@ -123,6 +123,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(response);
     }
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<java.util.Map<String, String>> handleStatus(
+            org.springframework.web.server.ResponseStatusException exception) {
+        if (exception.getReason() == null) {
+            return ResponseEntity.status(exception.getStatusCode()).build();
+        }
+        return ResponseEntity.status(exception.getStatusCode())
+                .body(java.util.Map.of("message", exception.getReason()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(
             Exception ex,

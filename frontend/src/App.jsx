@@ -10,6 +10,7 @@ import LogIngestion from "./pages/LogIngestion";
 import LogAnalysis from "./pages/LogAnalysis";
 import LogInspector from "./pages/LogInspector";
 import Integrations from "./pages/Integrations";
+import Incidents from "./pages/Incidents";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/integrations" element={<Integrations />} />
+            <Route path="/incidents" element={<Incidents />} />
             <Route path="/analyzer" element={<LogInspector />} />
             <Route path="/logs/ingest" element={<LogIngestion />} />
             <Route

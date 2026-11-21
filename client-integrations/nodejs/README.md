@@ -1,36 +1,21 @@
-# DevInsight Node.js Integration SDK
+# DevInsight Node.js collector
 
-Drop-in Winston logging transport for Node.js applications (Express, NestJS, Fastify, Koa).
+The local devinsight-log-collector package targets Node.js 20 or newer. Its core uses built-in Node modules. Winston users can import the package's winston export and install winston-transport as shown in the runnable example.
 
-## Quick Start (30 Seconds)
-
-### 1. Copy `devinsight-transport.js` into your project
-
-### 2. Add it to your Winston logger configuration:
+Provide DEVINSIGHT_API_KEY, DEVINSIGHT_APPLICATION_NAME and DEVINSIGHT_ENVIRONMENT through protected process configuration. The optional DEVINSIGHT_ENDPOINT is the full Gateway batch URL.
 
 ```javascript
-const winston = require('winston');
-const DevInsightTransport = require('./devinsight-transport');
+const { DevInsightCollector } = require("devinsight-log-collector");
+async function main() {
+  const collector = new DevInsightCollector();
+  collector.capture("INFO", "Payment accepted");
+  await collector.close();
+  console.log(collector.stats());
+}
 
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console(),
-    new DevInsightTransport({
-      gatewayUrl: 'http://localhost:8080',
-      apiKey: 'your_service_api_key_here',
-      applicationName: 'order-api',
-      environment: 'PRODUCTION'
-    })
-  ]
-});
-
-// Logs and unhandled errors stream directly to DevInsight
-logger.error(new Error('FATAL: Database connection timeout!'));
+main().catch(() => { process.exitCode = 1; });
 ```
 
+For Winston use the transport alongside your normal console and file transports, and await its close method during shutdown.
+
+See the [Winston collector example](../../examples/collectors/nodejs).

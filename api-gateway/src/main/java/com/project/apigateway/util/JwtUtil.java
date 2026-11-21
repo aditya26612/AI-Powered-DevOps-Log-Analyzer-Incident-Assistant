@@ -2,13 +2,12 @@ package com.project.apigateway.util;
 
 import com.project.apigateway.properties.JwtProperties;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.JwtException;
+import com.project.apigateway.security.SignedIdentity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
@@ -18,9 +17,7 @@ public class JwtUtil {
     private final JwtProperties jwtProperties;
 
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(
-                jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8)
-        );
+        return SignedIdentity.signingKey(jwtProperties.getSecret());
     }
 
     public String extractEmail(String token) {
@@ -36,20 +33,20 @@ public class JwtUtil {
         return extractClaims(token).getExpiration();
     }
 
-    public boolean isTokenValid(String token) {
+    public Long extractUserId(String token) {
+        return SignedIdentity.userId(extractClaims(token));
+    }
 
+    public boolean isTokenValid(String token) {
         try {
-            return !extractExpiration(token).before(new Date());
-        } catch (Exception ex) {
+            extractClaims(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
 
     private Claims extractClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        return SignedIdentity.verify(token, getSigningKey());
     }
 }

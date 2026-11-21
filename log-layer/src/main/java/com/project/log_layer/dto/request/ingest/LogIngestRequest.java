@@ -4,6 +4,8 @@ import com.project.log_layer.enums.Environment;
 import com.project.log_layer.enums.LogSource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.util.UUID;
@@ -22,7 +24,11 @@ public class LogIngestRequest {
      * Original raw log received from the client.
      */
     @NotBlank(message = "Raw log must not be empty.")
+    @Size(max = 16384)
     private String rawLog;
+
+    @Positive
+    private Long applicationId;
 
     /**
      * Source of the log.
@@ -40,11 +46,13 @@ public class LogIngestRequest {
      * Spring Boot application name.
      */
     @NotBlank(message = "Application name is required.")
+    @Size(max = 100)
     private String applicationName;
 
     /**
      * Host name or container name.
      */
+    @Size(max = 150)
     private String hostName;
 
     /**

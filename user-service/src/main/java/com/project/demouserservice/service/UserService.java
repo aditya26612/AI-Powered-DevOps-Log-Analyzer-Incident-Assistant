@@ -7,7 +7,6 @@ import com.project.demouserservice.dto.RegisterRequest;
 import com.project.demouserservice.dto.UserResponse;
 import com.project.demouserservice.entity.Role;
 import com.project.demouserservice.entity.UserEntity;
-import com.project.demouserservice.exception.AdminRegistrationNotAllowedException;
 import com.project.demouserservice.exception.InvalidCredentialsException;
 import com.project.demouserservice.exception.UserAlreadyExistsException;
 import com.project.demouserservice.exception.UserNotFoundException;
@@ -42,13 +41,8 @@ public class UserService implements IUserService {
                 passwordEncoder.encode(request.getPassword())
         );
 
-        if(request.getRole() == Role.ADMIN){
-            throw new AdminRegistrationNotAllowedException(
-                    "Cannot register as ADMIN"
-            );
-        }
-
-        user.setRole(request.getRole());
+        // Server-controlled default role: defaults to DEVELOPER when omitted by public registration
+        user.setRole(Role.DEVELOPER);
 
         UserEntity savedUser = userRepo.save(user);
 

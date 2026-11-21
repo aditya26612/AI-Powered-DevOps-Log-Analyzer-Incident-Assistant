@@ -4,30 +4,15 @@ import com.project.log_layer.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
 
 public final class CurrentUser {
+    public static final String VERIFIED_EMAIL = CurrentUser.class.getName() + ".verifiedEmail";
+    public static final String SERVICE_EMAIL = "system@devinsight.io";
 
-    private static final String USER_EMAIL_HEADER =
-            "X-User-Email";
+    private CurrentUser() {}
 
-    private CurrentUser() {
-    }
-
-    public static String getEmail(
-            HttpServletRequest request) {
-
-        String email =
-                request.getHeader(USER_EMAIL_HEADER);
-
-        if (email != null && !email.isBlank()) {
+    public static String getEmail(HttpServletRequest request) {
+        if (request.getAttribute(VERIFIED_EMAIL) instanceof String email && !email.isBlank()) {
             return email;
         }
-
-        String apiKey = request.getHeader("X-API-Key");
-        if (apiKey != null && !apiKey.isBlank()) {
-            return "system@devinsight.io";
-        }
-
-        throw new UnauthorizedException(
-                "Authenticated user information is missing."
-        );
+        throw new UnauthorizedException("Authenticated user information is missing.");
     }
 }

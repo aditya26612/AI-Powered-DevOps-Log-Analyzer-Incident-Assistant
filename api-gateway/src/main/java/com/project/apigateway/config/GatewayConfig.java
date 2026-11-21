@@ -27,8 +27,10 @@ public class GatewayConfig {
 
                 .route("log-service", route -> route
                         .path("/api/v1/logs/**",
+                                "/api/v2/logs/batch",
                                 "/api/v1/analyzer/**",
-                                "/api/v1/integrations/**")
+                                "/api/v1/integrations/**",
+                                "/api/v1/organizations/**")
                         .uri(logServiceUrl))
                 .build();
     }

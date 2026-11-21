@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -18,6 +19,8 @@ import java.util.UUID;
  * on Log entities.
  */
 public interface LogRepository extends JpaRepository<Log, Long>, JpaSpecificationExecutor<Log> {
+
+    Optional<Log> findByIdAndOrganizationId(Long id, UUID organizationId);
 
     /**
      * Returns logs filtered by log level.

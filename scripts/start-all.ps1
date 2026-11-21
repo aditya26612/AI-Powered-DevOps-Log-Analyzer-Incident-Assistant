@@ -1,185 +1,166 @@
-# ==============================================================================
-# DevInsight - Complete One-Click Orchestrator
-# ==============================================================================
-
-param (
-    [string]$DbPassword = $env:DB_PASSWORD,
-    [string]$JwtSecret = $env:JWT_SECRET,
-    [string]$InternalApiKey = $env:INTERNAL_API_KEY
+[CmdletBinding()]
+param(
+    [ValidateRange(1, 900)][int]$ReadinessTimeoutSeconds = 180,
+    [ValidateRange(1, 65535)][int]$DatabasePort = 5432,
+    [switch]$Kafka,
+    [switch]$KafkaFixture,
+    [switch]$KafkaPublisherOnly
 )
 
-Clear-Host
+$ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'local-runtime.ps1')
 
-Write-Host "=====================================================================" -ForegroundColor Cyan
-Write-Host "             DEVINSIGHT - ALL-IN-ONE SYSTEM LAUNCHER                 " -ForegroundColor Cyan
-Write-Host "=====================================================================" -ForegroundColor Cyan
+if (($KafkaFixture -or $KafkaPublisherOnly) -and !$Kafka) {
+    throw 'KafkaFixture and KafkaPublisherOnly require -Kafka.'
+}
+if ($KafkaFixture -and $DatabasePort -ne 55438) {
+    throw 'The Kafka fixture requires isolated PostgreSQL port 55438.'
+}
+$kafkaSettings = @{}
+if ($Kafka) {
+    . (Join-Path $PSScriptRoot 'kafka-runtime.ps1')
+    $kafkaSettings = Get-DevInsightKafkaApplicationEnvironment -Fixture:$KafkaFixture -PublisherOnly:$KafkaPublisherOnly
+}
+$protectedKafkaVariables = @('DEVINSIGHT_KAFKA_ENABLED','DEVINSIGHT_KAFKA_PRODUCER_USERNAME',
+    'DEVINSIGHT_KAFKA_PRODUCER_PASSWORD','DEVINSIGHT_KAFKA_CONSUMER_USERNAME','DEVINSIGHT_KAFKA_CONSUMER_PASSWORD')
 
-# 1. Credentials
-if (-not $DbPassword) {
-    $DbPassword = Read-Host "Enter PostgreSQL password (Enter for postgres)"
-    if (-not $DbPassword) {
-        $DbPassword = "postgres"
+$root = Split-Path -Parent $PSScriptRoot
+$config = Get-DevInsightConfig -Path (Join-Path $root '.env.local')
+foreach ($name in 'DB_PASSWORD', 'JWT_SECRET', 'INTERNAL_API_KEY') {
+    if (-not $config[$name]) { throw "$name is missing. Use scripts/setup-local-env.ps1 for initial setup." }
+}
+if ([Text.Encoding]::UTF8.GetByteCount($config.JWT_SECRET) -lt 32 -or $config.INTERNAL_API_KEY.Length -lt 16) {
+    throw 'Credential length validation failed. JWT_SECRET requires 32 UTF-8 bytes and INTERNAL_API_KEY requires 16 characters.'
+}
+Write-Host 'Persistent local credentials configured. Launching with ACTIVE_MODEL=v2.'
+
+$services = @(Get-DevInsightServices)
+$records = @{}
+$databaseNames = @{ 'user-service' = 'devinsight'; 'log-layer' = 'log_layer_db'; 'llm-service' = 'llm_service_db' }
+$lock = Open-DevInsightLifecycleLock
+try {
+    foreach ($record in Get-DevInsightRecords) {
+        if (Get-DevInsightManagedProcess $record) { throw 'DevInsight is already running. Use scripts/stop-all.ps1 before restarting.' }
     }
+    $occupied = @(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in $services.Port })
+    if ($occupied.Count) {
+        throw "DevInsight service ports already in use: $(($occupied.LocalPort | Sort-Object -Unique) -join ', ')."
+    }
+
+    $runId = [Guid]::NewGuid().ToString('N')
+    $runDirectory = Join-Path $DevInsightRuntimeDir $runId
+    [IO.Directory]::CreateDirectory($runDirectory) | Out-Null
+    Write-Host "Service logs: $runDirectory"
+
+    foreach ($service in $services) {
+        $workerEnvironment = @{
+            DB_PASSWORD = $null
+            JWT_SECRET = $null
+            INTERNAL_API_KEY = $null
+            SLACK_WEBHOOK_ENCRYPTION_KEY = $null
+            LOG_LAYER_DB_USERNAME = $null
+            LOG_LAYER_DB_PASSWORD = $null
+            SERVER_ADDRESS = '127.0.0.1'
+        }
+        foreach ($name in $protectedKafkaVariables) { $workerEnvironment[$name] = $null }
+        if ($service.Id -eq 'log-layer') {
+            foreach ($name in $kafkaSettings.Keys) { $workerEnvironment[$name] = $kafkaSettings[$name] }
+        }
+        if ($databaseNames.ContainsKey($service.Id)) {
+            $workerEnvironment.DB_PASSWORD = $config.DB_PASSWORD
+            if ($PSBoundParameters.ContainsKey('DatabasePort')) {
+                $workerEnvironment.SPRING_DATASOURCE_URL = "jdbc:postgresql://127.0.0.1:$DatabasePort/$($databaseNames[$service.Id])"
+            }
+        }
+        if ($service.Id -in 'api-gateway', 'user-service', 'log-layer') {
+            $workerEnvironment.JWT_SECRET = $config.JWT_SECRET
+        }
+        if ($service.Id -in 'api-gateway', 'user-service', 'log-layer', 'ml-pipeline', 'llm-service') {
+            $workerEnvironment.INTERNAL_API_KEY = $config.INTERNAL_API_KEY
+        }
+        if ($service.Id -eq 'log-layer') {
+            $workerEnvironment.SLACK_WEBHOOK_ENCRYPTION_KEY = $config.SLACK_WEBHOOK_ENCRYPTION_KEY
+            $workerEnvironment.LOG_LAYER_DB_USERNAME = $config.LOG_LAYER_DB_USERNAME
+            $workerEnvironment.LOG_LAYER_DB_PASSWORD = $config.LOG_LAYER_DB_PASSWORD
+        }
+        if ($service.Id -eq 'ml-pipeline') { $workerEnvironment.ACTIVE_MODEL = 'v2' }
+
+        # Hidden workers use their own console. A redirected launcher can exit
+        # while the workers continue writing to their own log files.
+        $powershellPath = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+        $arguments = '-NoProfile -NonInteractive -File "{0}" -Service {1} -RunId {2}' -f $DevInsightWorker, $service.Id, $runId
+        $previousEnvironment = @{}
+        try {
+            foreach ($name in $workerEnvironment.Keys) {
+                $previousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+                [Environment]::SetEnvironmentVariable($name, $workerEnvironment[$name], 'Process')
+            }
+            $child = Start-Process -FilePath $powershellPath -ArgumentList $arguments -WorkingDirectory $root -WindowStyle Hidden -PassThru
+        } finally {
+            foreach ($name in $previousEnvironment.Keys) {
+                [Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], 'Process')
+            }
+        }
+        try {
+            $process = Get-CimInstance Win32_Process -Filter "ProcessId = $($child.Id)"
+            if (-not $process) { throw "$($service.Name) exited before it could be recorded. Check its service log." }
+            $record = @{
+                RunId = $runId
+                DatabasePort = $DatabasePort
+                KafkaFixture = [bool]$KafkaFixture
+                Service = $service.Id
+                ProcessId = $child.Id
+                StartTicks = $process.CreationDate.ToUniversalTime().Ticks.ToString()
+            }
+            $path = Join-Path $runDirectory "$($service.Id).process.json"
+            $record | ConvertTo-Json -Compress | Set-Content -LiteralPath "$path.tmp" -Encoding UTF8
+            [IO.File]::Move("$path.tmp", $path)
+            $records[$service.Id] = $record
+            Write-Host "[LAUNCHED] $($service.Name)"
+        } catch {
+            if (-not $child.HasExited) { taskkill.exe /PID $child.Id /T /F | Out-Host }
+            throw
+        } finally {
+            $child.Dispose()
+        }
+    }
+} finally {
+    $lock.Dispose()
 }
 
-if (-not $JwtSecret) {
-    $JwtSecret = [guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
+$remaining = @($services)
+$results = @{}
+$deadline = [DateTime]::UtcNow.AddSeconds($ReadinessTimeoutSeconds)
+while ($remaining.Count -and [DateTime]::UtcNow -lt $deadline) {
+    $connections = @(Get-NetTCPConnection -State Listen)
+    $processes = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CreationDate)
+    foreach ($service in $remaining) {
+        if ([DateTime]::UtcNow -ge $deadline) { break }
+        $managed = Get-DevInsightManagedProcess $records[$service.Id]
+        if (-not $managed) {
+            $results[$service.Id] = @{ Ready = $false; Summary = 'PROCESS EXITED' }
+            continue
+        }
+        $uri = 'http://127.0.0.1:{0}{1}' -f $service.Port, $service.Path
+        $probe = Invoke-DevInsightProbe -Uri $uri -Kind $service.Kind -TimeoutSeconds 2
+        if ($probe.Ready -and -not (Test-DevInsightListener $managed $service.Port $connections $processes)) {
+            $probe = @{ Ready = $false; Summary = 'LISTENER OWNERSHIP UNVERIFIED' }
+        }
+        $results[$service.Id] = $probe
+        if ($probe.Ready) { Write-Host "[$($probe.Summary)] $($service.Name)" }
+    }
+    $remaining = @($remaining | Where-Object { -not $results[$_.Id].Ready })
+    if ($remaining.Count -and $remaining.Count -eq @($remaining | Where-Object { $results[$_.Id].Summary -eq 'PROCESS EXITED' }).Count) { break }
+    if ($remaining.Count) { Start-Sleep -Seconds 1 }
 }
 
-if (-not $InternalApiKey) {
-    $InternalApiKey = [guid]::NewGuid().ToString("N")
+if ($remaining.Count) {
+    foreach ($service in $remaining) {
+        $summary = $results[$service.Id].Summary
+        if (-not $summary) { $summary = 'READINESS CHECK NOT REACHED' }
+        Write-Warning "$($service.Name): $summary"
+    }
+    Write-Error "DevInsight did not reach readiness. See $runDirectory and use scripts/stop-all.ps1 to stop this launch."
+    exit 1
 }
-
-$RootDir = Split-Path -Parent $PSScriptRoot
-
-Write-Host "`n[1/3] Environment Configuration" -ForegroundColor White
-Write-Host "DB_PASSWORD      : [CONFIGURED]" -ForegroundColor Gray
-Write-Host "JWT_SECRET       : [CONFIGURED]" -ForegroundColor Gray
-Write-Host "INTERNAL_API_KEY : [CONFIGURED]" -ForegroundColor Gray
-
-# 2. Pre-flight checks
-Write-Host "`n[2/3] Performing Pre-flight Checks..." -ForegroundColor White
-
-foreach ($check in @(
-    @{ Name = "PostgreSQL"; Port = 5432 },
-    @{ Name = "Ollama"; Port = 11434 }
-)) {
-    $result = Test-NetConnection localhost -Port $check.Port -WarningAction SilentlyContinue
-
-    if ($result.TcpTestSucceeded) {
-        Write-Host "  [OK] $($check.Name) detected on port $($check.Port)" -ForegroundColor Green
-    }
-    else {
-        Write-Host "  [WARNING] $($check.Name) is not listening on port $($check.Port)" -ForegroundColor Yellow
-    }
-}
-
-# 3. Service launcher
-function ConvertTo-PsLiteral {
-    param([string]$Value)
-
-    return "'" + $Value.Replace("'", "''") + "'"
-}
-
-function Start-ServiceWindow {
-    param (
-        [string]$Title,
-        [string]$Directory,
-        [string]$Banner,
-        [string]$Command,
-        [hashtable]$Environment = @{}
-    )
-
-    $parts = @(
-        '$Host.UI.RawUI.WindowTitle = ' + (ConvertTo-PsLiteral $Title)
-        'Set-Location -LiteralPath ' + (ConvertTo-PsLiteral $Directory)
-    )
-
-    foreach ($key in $Environment.Keys) {
-        $parts += ('$env:' + $key + ' = ' + (ConvertTo-PsLiteral ([string]$Environment[$key])))
-    }
-
-    $parts += 'Write-Host ' + (ConvertTo-PsLiteral $Banner) + ' -ForegroundColor Cyan'
-    $parts += $Command
-
-    $script = $parts -join "`n"
-
-    $encoded = [Convert]::ToBase64String(
-        [Text.Encoding]::Unicode.GetBytes($script)
-    )
-
-    Start-Process -FilePath "powershell.exe" -ArgumentList @(
-        "-NoExit",
-        "-EncodedCommand",
-        $encoded
-    )
-}
-
-Write-Host "`n[3/3] Starting Application Services..." -ForegroundColor White
-
-# ML Pipeline
-Write-Host "Launching ML Pipeline :8000..." -ForegroundColor Cyan
-
-Start-ServiceWindow `
-    -Title "DevInsight: ML Pipeline (:8000)" `
-    -Directory (Join-Path $RootDir "ml-pipeline") `
-    -Banner "ML PIPELINE (FastAPI :8000)" `
-    -Command "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000" `
-    -Environment @{
-        INTERNAL_API_KEY = $InternalApiKey
-    }
-
-# User Service
-Write-Host "Launching User Service :8081..." -ForegroundColor Green
-
-Start-ServiceWindow `
-    -Title "DevInsight: User Service (:8081)" `
-    -Directory $RootDir `
-    -Banner "USER SERVICE (:8081)" `
-    -Command "mvn -f user-service\pom.xml spring-boot:run" `
-    -Environment @{
-        DB_PASSWORD = $DbPassword
-        JWT_SECRET = $JwtSecret
-    }
-
-# Log Layer
-Write-Host "Launching Log Layer :8082..." -ForegroundColor Magenta
-
-Start-ServiceWindow `
-    -Title "DevInsight: Log Layer (:8082)" `
-    -Directory $RootDir `
-    -Banner "LOG LAYER (:8082)" `
-    -Command "mvn -f log-layer\pom.xml spring-boot:run" `
-    -Environment @{
-        DB_PASSWORD = $DbPassword
-        JWT_SECRET = $JwtSecret
-        INTERNAL_API_KEY = $InternalApiKey
-    }
-
-# LLM Service
-Write-Host "Launching LLM Service :8084..." -ForegroundColor Yellow
-
-Start-ServiceWindow `
-    -Title "DevInsight: LLM Service (:8084)" `
-    -Directory $RootDir `
-    -Banner "LLM SERVICE (:8084)" `
-    -Command "mvn -f llm-service\pom.xml spring-boot:run" `
-    -Environment @{
-        DB_PASSWORD = $DbPassword
-    }
-
-# API Gateway
-Write-Host "Launching API Gateway :8080..." -ForegroundColor Blue
-
-Start-ServiceWindow `
-    -Title "DevInsight: API Gateway (:8080)" `
-    -Directory $RootDir `
-    -Banner "API GATEWAY (:8080)" `
-    -Command "mvn -f api-gateway\pom.xml spring-boot:run" `
-    -Environment @{
-        JWT_SECRET = $JwtSecret
-        INTERNAL_API_KEY = $InternalApiKey
-    }
-
-# Frontend
-Write-Host "Launching React Frontend :5173..." -ForegroundColor Green
-
-Start-ServiceWindow `
-    -Title "DevInsight: Frontend (:5173)" `
-    -Directory (Join-Path $RootDir "frontend") `
-    -Banner "FRONTEND (Vite :5173)" `
-    -Command "npm run dev"
-
-# Final information
-Write-Host "`n=====================================================================" -ForegroundColor Cyan
-Write-Host "             DEVINSIGHT PLATFORM IS STARTING!                        " -ForegroundColor Green
-Write-Host "=====================================================================" -ForegroundColor Cyan
-
-Write-Host "`nAccess URLs:" -ForegroundColor White
-Write-Host "Frontend Dashboard : http://localhost:5173" -ForegroundColor Yellow
-Write-Host "Live Log Inspector : http://localhost:5173/analyzer" -ForegroundColor Yellow
-Write-Host "API Gateway        : http://localhost:8080" -ForegroundColor Yellow
-Write-Host "ML Pipeline Docs   : http://localhost:8000/docs" -ForegroundColor Yellow
-
-Write-Host "`nTo stop all services, run .\stop-all.ps1" -ForegroundColor Gray
-Write-Host "=====================================================================" -ForegroundColor Cyan
+Write-Host 'All six DevInsight services verified ready.'

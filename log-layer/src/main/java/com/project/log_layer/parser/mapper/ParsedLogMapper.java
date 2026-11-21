@@ -16,6 +16,7 @@ public interface ParsedLogMapper {
     @Mapping(target = "id", ignore = true)
 
     @Mapping(target = "correlationId", ignore = true)
+    @Mapping(target = "correlationOrigin", ignore = true)
 
     @Mapping(target = "createdAt", ignore = true)
 
@@ -30,6 +31,9 @@ public interface ParsedLogMapper {
     @Mapping(target = "anomalyScore",
             constant = "0.0")
 
+    @Mapping(target = "externalEventId", ignore = true)
+    @Mapping(target = "externalEventDigest", ignore = true)
+    @Mapping(target = "externalMetadata", ignore = true)
     Log toEntity(ParsedLogData parsedLogData);
 
 }

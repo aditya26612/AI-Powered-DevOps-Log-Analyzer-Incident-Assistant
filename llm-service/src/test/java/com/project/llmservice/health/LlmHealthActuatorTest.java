@@ -30,9 +30,8 @@ class LlmHealthActuatorTest {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"))
-                .andExpect(jsonPath("$.components.llm.status").value("UP"))
-                .andExpect(jsonPath("$.components.llm.details.provider")
-                        .value("OLLAMA"));
+                .andExpect(jsonPath("$.components").doesNotExist())
+                .andExpect(jsonPath("$.details").doesNotExist());
     }
 
     @Test
@@ -44,10 +43,7 @@ class LlmHealthActuatorTest {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.status").value("DOWN"))
-                .andExpect(jsonPath("$.components.llm.status").value("DOWN"))
-                .andExpect(jsonPath("$.components.llm.details.provider")
-                        .value("OLLAMA"))
-                .andExpect(jsonPath("$.components.llm.details.reason")
-                        .value("LLM provider is unavailable"));
+                .andExpect(jsonPath("$.components").doesNotExist())
+                .andExpect(jsonPath("$.details").doesNotExist());
     }
 }

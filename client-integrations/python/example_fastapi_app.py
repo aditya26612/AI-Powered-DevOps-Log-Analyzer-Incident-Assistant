@@ -2,7 +2,7 @@
 Example FastAPI application instrumented with DevInsight
 """
 import logging
-import os
+from contextlib import asynccontextmanager
 import sys
 from fastapi import FastAPI, HTTPException
 from devinsight_logger import DevInsightHandler
@@ -18,16 +18,18 @@ console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 # DevInsight Asynchronous Log Streaming Handler
-devinsight_handler = DevInsightHandler(
-    gateway_url="http://localhost:8080",
-    api_key=os.environ["DEVINSIGHT_API_KEY"],
-    application_name="checkout-service",
-    environment="DEVELOPMENT"
-)
-devinsight_handler.setFormatter(formatter)
-logger.addHandler(devinsight_handler)
+@asynccontextmanager
+async def lifespan(app):
+    handler = DevInsightHandler()
+    logger.addHandler(handler)
+    try:
+        yield
+    finally:
+        logger.removeHandler(handler)
+        handler.close()
 
-app = FastAPI(title="Checkout Payment Service")
+
+app = FastAPI(title="Checkout Payment Service", lifespan=lifespan)
 
 @app.get("/")
 def read_root():

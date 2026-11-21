@@ -266,7 +266,7 @@ const LogInspector = () => {
             {/* Anomaly Badge */}
             <div className="metric-card">
               <div className="metric-card-header">
-                <span>Anomaly Detection</span>
+                <span>Statistical anomaly</span>
                 <Cpu size={16} />
               </div>
               <div className="metric-value-row">
@@ -275,7 +275,9 @@ const LogInspector = () => {
                     result.hasAnomaly ? "anomaly" : "normal"
                   }`}
                 >
-                  {result.hasAnomaly ? (
+                  {result.analysisStatus !== "COMPLETED" ? (
+                    "UNAVAILABLE"
+                  ) : result.hasAnomaly ? (
                     <>
                       <ShieldAlert size={15} />
                       ANOMALY DETECTED
@@ -288,11 +290,13 @@ const LogInspector = () => {
                   )}
                 </span>
               </div>
-              {result.detectionMetrics?.decisionScore !== undefined && (
+              {Number.isFinite(result.detectionMetrics?.decisionScore) && (
                 <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "8px" }}>
                   Decision Score: <strong>{result.detectionMetrics.decisionScore.toFixed(4)}</strong>
                 </div>
               )}
+              {result.operationalRuleId && <div>Operational incident · {result.level}</div>}
+              {result.llmAnalysisStatus && <div>Diagnosis · {result.llmAnalysisStatus}</div>}
             </div>
 
             {/* Severity */}

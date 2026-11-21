@@ -1,14 +1,14 @@
 package com.project.demouserservice.dto;
 
-import com.project.demouserservice.entity.Role;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
+@JsonIgnoreProperties("role")
 public class RegisterRequest {
 
     @Email(message = "Invalid email format")
@@ -17,7 +17,4 @@ public class RegisterRequest {
 
     @NotBlank(message = "Password cannot be empty")
     private String password;
-
-    @NotNull(message = "Role is required")
-    private Role role;
 }

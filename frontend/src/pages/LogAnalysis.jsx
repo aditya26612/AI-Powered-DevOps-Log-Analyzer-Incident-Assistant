@@ -506,13 +506,21 @@ const LogAnalysis = () => {
             <div className="ml-item">
 
               <span className="ml-item-label">
-                Analysis Status
+                ML scoring status
               </span>
 
               <span className="ml-item-value">
                 {log.analysisStatus || "N/A"}
               </span>
 
+            </div>
+            <div className="ml-item">
+              <span className="ml-item-label">Operational triage</span>
+              <span className="ml-item-value">{log.operationalRuleId ? `Critical · ${log.level}` : "No rule matched"}</span>
+            </div>
+            <div className="ml-item">
+              <span className="ml-item-label">Diagnosis status</span>
+              <span className="ml-item-value">{log.llmAnalysisStatus || (log.diagnosisEligible ? "Eligible" : "Not scheduled")}</span>
             </div>
 
           </div>

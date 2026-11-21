@@ -29,8 +29,15 @@ public class RagIngestionService {
      * within this application instance.
      */
     public synchronized void ingest() {
+        rebuild(true);
+    }
 
-        log.info("Starting RAG knowledge ingestion");
+    public synchronized void loadSharedIndex() {
+        rebuild(false);
+    }
+
+    private void rebuild(boolean synchronizeStorage) {
+        log.info("Preparing packaged RAG knowledge");
 
         // 1. Load source documents.
         List<KnowledgeDocument> documents =
@@ -97,18 +104,14 @@ public class RagIngestionService {
         BM25Index.PreparedIndex preparedIndex =
                 bm25Retriever.prepareIndex(allChunks);
 
-        // 5. Generate embeddings and synchronize PostgreSQL.
-        // If this operation fails, the existing BM25 index remains active.
-        vectorStoreService.synchronizeDocuments(
-                allChunks,
-                managedSourceDocumentIds
-        );
+        if (synchronizeStorage) {
+            vectorStoreService.synchronizeDocuments(allChunks, managedSourceDocumentIds);
+        }
 
-        // 6. Publish BM25 only after PostgreSQL succeeds.
         bm25Retriever.publishIndex(preparedIndex);
 
         log.info(
-                "RAG ingestion completed successfully. "
+                "Packaged knowledge index ready. "
                         + "Sources: {}, Chunks: {}",
                 managedSourceDocumentIds.size(),
                 allChunks.size()

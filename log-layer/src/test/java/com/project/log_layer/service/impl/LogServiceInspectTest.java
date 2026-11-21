@@ -86,7 +86,7 @@ class LogServiceInspectTest {
 
     @BeforeEach
     void setUp() {
-        lenient().when(httpServletRequest.getHeader("X-User-Email")).thenReturn("devops@company.com");
+        lenient().when(httpServletRequest.getAttribute(com.project.log_layer.util.CurrentUser.VERIFIED_EMAIL)).thenReturn("devops@company.com");
         lenient().when(notificationProperties.isAutoDiagnoseAnomalies()).thenReturn(false);
     }
 

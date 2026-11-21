@@ -70,7 +70,7 @@ DevInsight is a microservices-based log observability and incident-investigation
 - [13. API Reference](#13-api-reference)
   - [13.1 Authentication APIs](#131-authentication-apis)
   - [13.2 Log APIs](#132-log-apis)
-  - [13.3 Application Integration & Telemetry Hub APIs](#133-application-integration-telemetry-hub-apis)
+  - [13.3 Organization Applications and Ingestion Credentials](#133-organization-applications-and-ingestion-credentials)
   - [13.4 ML Pipeline APIs](#134-ml-pipeline-apis)
   - [13.5 LLM Service APIs](#135-llm-service-apis)
 - [14. Prerequisites](#14-prerequisites)
@@ -157,7 +157,7 @@ Summary + Root Cause + Suggested Fix
 
 DevInsight separates user authentication, log ingestion, anomaly scoring, and LLM-assisted analysis into five backend services. **Spring Cloud Gateway is reactive (WebFlux/Netty)**; the User Service and Log Layer use Spring MVC/JPA, and the Log Layer waits synchronously for ML inference through `WebClient.block()`. Only selected LLM diagnosis and alerting work is started asynchronously **after the log transaction commits**. Docker Compose and Kubernetes manifests are provided, but the presence of a manifest does not, by itself, establish a successful production deployment.
 
-The Gateway accepts **Bearer JWT** requests for people and **`X-API-Key`** requests for integrated applications. Per-application keys are checked with the Log Layer and cached at the Gateway for five minutes; account-role authorization and internal-key trust boundaries still require hardening (see [Security Considerations](#21-security-considerations)).
+The Gateway accepts **Bearer JWT** for user requests and **X-API-Key** for application log ingestion. It verifies application credentials against the Log Layer. Organization routes also verify membership.
 
 ### 2.1 End-to-End System Architecture
 
@@ -165,14 +165,14 @@ The Gateway accepts **Bearer JWT** requests for people and **`X-API-Key`** reque
 flowchart TD
     subgraph Clients["1. Applications and Operator UI"]
       App["Spring Boot / Python / Node.js / Go apps"]
-      Collectors["Logback / logging handlers / Fluent Bit"]
+      Collectors["Logback / Python logging / Winston"]
       UI["React + Vite dashboard :5173"]
       App --> Collectors
     end
 
     subgraph Ingress["2. API Gateway"]
       GW["Spring Cloud Gateway :8080<br/>WebFlux + Netty"]
-      Auth["JWT and X-API-Key filter<br/>Dynamic-key verification + TTL cache"]
+      Auth["JWT and X-API-Key filter<br/>Authoritative app-key verification"]
       GW --> Auth
     end
 
@@ -192,11 +192,11 @@ flowchart TD
     end
 
     Slack["Slack Webhook<br/>incident notification"]
-    Collectors -->|"POST /api/v1/logs + API key"| GW
+    Collectors -->|"POST /api/v1/logs/batch + app key"| GW
     UI -->|"REST + Bearer JWT"| GW
     Auth -->|"/api/v1/auth/**, /users/**"| User
-    Auth -->|"/logs/**, /analyzer/**, /integrations/**"| Log
-    Auth -.->|"Verify uncached app key"| Log
+    Auth -->|"/logs/**, /analyzer/**, /organizations/**"| Log
+    Auth -.->|"Verify app key"| Log
     User --> PG1
     Log --> PG2
     Log -->|"Synchronous prediction request"| ML
@@ -225,7 +225,7 @@ sequenceDiagram
     participant Slack as Slack Webhook
 
     App->>GW: POST /api/v1/logs + X-API-Key
-    GW->>GW: Authenticate (cached app key or verification)
+    GW->>GW: Authenticate against the active credential
     GW->>LL: Forward authenticated request
     LL->>LL: Parse and enrich log record
     LL->>ML: POST /api/v1/predict + internal X-API-Key
@@ -505,12 +505,12 @@ User PostgreSQL                    |
   - **Kubernetes & Docker**: Fluent Bit DaemonSet scraping stdout/stderr across pods with namespace tagging.
   - **Database & Infra**: Syslog and error log collectors for PostgreSQL, Redis, and Nginx.
   - **Java / Spring Boot**: Drop-in XML `DevInsightLogbackAppender`.
-- **Application Integration Management API**: Endpoints under `/api/v1/integrations` for service registration, listing, lookup, deletion, generated `dvi_...` keys, alert preferences, and simulation. These use tenant-scoped lookups in the Log Layer; see the outstanding Gateway authorization limitations in Section 21.
+- **Organization application management**: Register applications per organization, issue and revoke ingestion credentials, and configure their Slack destination under `/api/v1/organizations/{org}/applications`.
 
 ## 4.12 Dynamic Per-Service Slack Alert Routing Engine
 
 - **Targeted Notification Channels**: Supports per-integration webhook/channel preferences for directing incident notifications; effectiveness at reducing alert fatigue has not been independently measured.
-- **Dynamic Webhook Resolution**: `SlackNotificationService` can resolve integration-specific webhook URLs and fall back to configured defaults when present. The simulation response is not a receipt proving delivery.
+- **Slack Routing**: `SlackNotificationService` resolves the encrypted webhook using the verified organization and application IDs. Local development disables external delivery.
 - **Rich Block Kit Incident Cards**: Automated incident cards with severity indicators, microservice tags, statistical anomaly scores, root-cause explanations, and executable shell remediation commands.
 
 ## 4.13 Enterprise Observability Dark Mode (Datadog / Grafana APM Style)
@@ -625,7 +625,7 @@ AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/
 ├── scripts/                     # Orchestration & live simulation scripts
 │   ├── start-all.ps1            # Multi-service launcher (PowerShell)
 │   ├── start-all.sh             # Multi-service launcher (Bash)
-│   ├── stop-all.ps1             # Multi-service graceful teardown
+│   ├── stop-all.ps1             # Stops managed Windows service processes
 │   ├── test-live-springboot-ingest.ps1  # Real-time incident streaming simulator
 │   └── setup-db.sql             # Multi-database PostgreSQL init script
 │
@@ -657,7 +657,7 @@ Each service has its own dependencies, configuration, and responsibilities.
 
 ## 7.1 API Gateway
 
-**Technology:** Spring Cloud Gateway, Spring WebFlux/Netty, Spring Security. The Gateway checks JWTs and application keys. Dynamic integration keys are verified through the Log Layer, with a five-minute positive-result cache and a shorter negative-result cache.
+**Technology:** Spring Cloud Gateway, Spring WebFlux/Netty, Spring Security. The Gateway checks JWTs and application keys. The Log Layer verifies an active application credential for each ingestion request. Log Layer also verifies JWTs independently.
 
 The API Gateway acts as the single entry point for frontend requests.
 
@@ -676,7 +676,7 @@ Responsibilities:
 /api/v1/users/**         → User Service (:8081)
 /api/v1/logs/**          → Log Layer (:8082)
 /api/v1/analyzer/**      → Log Layer (:8082)
-/api/v1/integrations/**  → Log Layer (:8082)
+/api/v1/organizations/** → Log Layer (:8082)
 ```
 
 The Gateway uses reactive security configuration through `SecurityWebFilterChain`. **Current limitation:** `anyExchange().authenticated()` does not enforce fine-grained endpoint roles for `ROLE_SERVICE` versus human users; see Section 21.
@@ -1333,7 +1333,7 @@ ROOT_CAUSE
 SUGGESTED_FIX
 ```
 
-### Live Analyzer and batch ingestion status
+### Live Analyzer and external batch ingestion
 
 ```http
 POST /api/v1/analyzer/inspect
@@ -1341,48 +1341,27 @@ POST /api/v1/logs/inspect
 POST /api/v1/logs/batch
 ```
 
-The two inspector endpoints are implemented in the Log Layer; the Gateway routes `/api/v1/analyzer/**`. The `/api/v1/logs/batch` route is present, but the underlying `LogServiceImpl.ingestBatch()` currently throws `UnsupportedOperationException`. Do not represent batch log ingestion as implemented.
+The inspector endpoints are implemented in the Log Layer. Application-scoped POST requests to `/api/v1/logs/batch` accept up to 10 events and 64 KiB of UTF-8 JSON. A successful response contains committed log IDs. Stable event IDs allow safe retries.
 
-### Delete a Log
+Optional Kafka ingestion uses `POST /api/v2/logs/batch`. HTTP 202 confirms broker acceptance. Collectors default to synchronous ingestion and can opt into Kafka with `DEVINSIGHT_DELIVERY_MODE=ASYNC_KAFKA`.
 
-```http
-DELETE /api/v1/logs/{id}
-```
+HTTP and Kafka share parsing and scoring. The V2 model is `2.0.0-candidate` with 40 features and a threshold of `-0.02`. Log views distinguish model results, error severity, and diagnosis status.
 
-## 13.3 Application Integration & Telemetry Hub APIs
+The Incidents view shows tenant-scoped event history, association reasons, lifecycle state, and diagnosis status.
 
-The current `ApplicationIntegrationController` exposes the following routes (without an extra `/register` or `/list` suffix):
+Incident matching uses rolling event-time windows and optional W3C trace context. Diagnosis jobs persist in PostgreSQL. A worker can recover an expired claim, and authorized organization members can retry a failed diagnosis. The verified local baseline is Flyway V7 and 461 passing tests.
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/integrations` | Create or update an application integration for the authenticated user |
-| `GET` | `/api/v1/integrations` | List integrations belonging to the authenticated user |
-| `GET` | `/api/v1/integrations/{name}` | Retrieve a named integration scoped to its owner |
-| `POST` | `/api/v1/integrations/test` | Submit a simulated log through ingestion; background diagnosis is not guaranteed complete in the immediate response |
-| `DELETE` | `/api/v1/integrations/{id}` | Delete an integration scoped to its owner |
-| `GET` | `/api/v1/integrations/verify-key` | Internal key-verification route used by the Gateway via `X-API-Key` header |
+See the [Spring Boot](examples/collectors/spring-boot), [Python](examples/collectors/python), and [Node.js](examples/collectors/nodejs) collector examples.
 
-### Example registration payload
+### Historical retention
 
-```json
-{
-  "applicationName": "checkout-service",
-  "techStack": "PYTHON",
-  "environment": "PRODUCTION",
-  "slackWebhookUrl": "<configure-your-webhook>",
-  "slackChannel": "#devops-alerts",
-  "alertOnAnomaly": true,
-  "alertOnError": true
-}
-```
+The public API preserves historical logs. Tenant log reads and diagnosis require a signed user token and a verified organization selection.
 
-After successful registration, the API can return a generated key beginning with `dvi_`; treat it as a **credential**, not an identifier to paste into publicly committed configuration. Clients send the key through the `X-API-Key` request header. The Gateway verifies uncached keys with the Log Layer and caches positive results for five minutes.
+## 13.3 Organization Applications and Ingestion Credentials
 
-**Important:** `verify-key` still accepts an optional `apiKey` query parameter for backwards compatibility, even though the Gateway now sends a header. The internal-key identity trust boundary and route-level distinction between user JWTs and service keys require further hardening; see Section 21.
+Create an organization, register an application under it, then issue a scoped ingestion key. Application credentials support expiration, rotation and revocation. Copy the value when it is issued, and supply it in the `X-API-Key` header to `POST /api/v1/logs`. Slack configuration is scoped to the application and returns a configuration flag.
 
-### Simulation results
-
-The `/test` endpoint responds after submitting the simulated log. A `slackDispatched` field derived from webhook configuration is **not a confirmed Slack delivery receipt**; inspect the downstream notifier for actual delivery status.
+The former integration-management routes are retired. Gateway continues to verify ingestion credentials through an internal Log Layer endpoint.
 
 ## 13.4 ML Pipeline APIs
 
@@ -1807,11 +1786,14 @@ For quick local development without manual multi-terminal management, automated 
 
 ### Windows (PowerShell)
 
-The launcher generates a JWT signing secret and an internal API key for the run when those variables are unset. Set them in the launching shell if you need to reuse local sessions or keys across restarts.
+Run `setup-local-env.ps1` once if persistent local configuration is missing. The Windows launcher reuses the saved credentials through service-specific child environments. It binds all six services to loopback, disables local Slack and email delivery, and checks HTTP readiness before reporting success. Service logs are under `logs/local-services/`.
 
 ```powershell
 # Start the application services using the provided launcher:
 .\scripts\start-all.ps1
+
+# Verify an existing local stack without writing records:
+.\scripts\test-local-endpoints.ps1
 
 # Stop the launched application services:
 .\scripts\stop-all.ps1
@@ -2054,15 +2036,17 @@ An earlier verification run recorded **98 Python non-HTTP**, **30 targeted Log L
 
 # 21. Security Considerations
 
-The application uses a reactive Gateway filter, JWTs for operator identity, and application/API keys for machine ingestion. Security is a work in progress; **the current implementation should not be exposed as a multi-tenant production service without additional authorization and secret-management work**.
+The application uses a reactive Gateway filter, JWTs for operator identity, and application keys for log ingestion. Local organization isolation is enforced. Production deployment requires separate review of TLS, network isolation, secrets, and rate limits.
 
 ### JWT authentication
 
-The User Service provides registration and login, hashes passwords with BCrypt, and issues JWTs. The Gateway validates bearer tokens and forwards a derived `X-User-Email` header to downstream services.
+The User Service provides registration and login, hashes passwords with BCrypt, and issues JWTs. New bearer tokens retain the email subject and carry a signed numeric `user_id`. Gateway and Log Layer validate the token separately. Sign in again before making organization requests with an older email-only token.
 
 ```http
 Authorization: Bearer <your-jwt>
 ```
+
+Public registration ignores the legacy role field and creates every new user as `DEVELOPER`. Existing user roles are preserved.
 
 Public authentication endpoints:
 
@@ -2071,37 +2055,15 @@ POST /api/v1/auth/register
 POST /api/v1/auth/login
 ```
 
-### Application keys
+### Application credentials
 
-Registered applications use a generated `dvi_...` key in `X-API-Key`. The Gateway calls `GET /api/v1/integrations/verify-key` on a cache miss, forwarding the key in an HTTP header. Valid keys are cached for about five minutes; invalid keys are cached for a shorter interval. Positive caching limits lookup traffic but introduces a **revocation-delay trade-off**.
+Applications ingest with a generated `dvi_...` key in `X-API-Key`. Gateway and Log Layer consult current digest-backed storage, so newly checked requests observe revocations after they commit. The FastAPI predictor and LLM endpoints use scoped internal service authentication.
 
-The FastAPI ML prediction router separately validates the configured shared internal `X-API-Key`, supplied by the Java WebClient configuration.
+### Tenant access and configuration
 
-### Authentication boundaries and known gaps
+The Log Layer verifies actual organization membership and scopes application operations. PostgreSQL forces row security on logs. Application onboarding and key management are available at `/integrations`. The launcher reads persistent credentials from `.env.local` and passes them through process environments. Supported Slack destinations are encrypted with an application-specific context. Local Slack and email delivery stay disabled.
 
-- **Internal master-key identity:** The current Gateway code may derive the downstream email from the incoming `X-User-Email` header when the shared internal master key is supplied. This is a trusted-header impersonation risk if that key becomes accessible to an untrusted caller.
-- **Route-level authorization:** The Gateway currently applies `anyExchange().authenticated()` rather than enforcing distinct endpoint permissions for `ROLE_SERVICE` versus human JWT roles. A valid service key should not automatically grant access to unrelated user-management endpoints.
-- **Key verification compatibility:** The verification controller still accepts an optional `apiKey` query parameter even though the Gateway now sends the credential in a header. Prefer removing the query-param form after clients are migrated.
-- **Trusted downstream headers:** Container-network isolation reduces exposure, but user identity headers should also be verified at appropriate service trust boundaries rather than accepted from arbitrary direct callers.
-- **Secret Configuration:** Development configurations provide local fallback defaults. For production deployments, inject secrets via environment variables or secret managers (e.g. Kubernetes Secrets, AWS Secrets Manager) and avoid committing sensitive credentials.
-- **Webhook egress:** Slack notifications send selected diagnostic content to an external endpoint. Do not claim absolute zero data exfiltration because LLM inference is hosted locally.
-
-### Tenant ownership and CORS
-
-The Log Layer now uses user-scoped repository operations for several integration management actions. This narrows cross-tenant access; add negative authorization tests and enforce trusted identity end-to-end. The Gateway has CORS/preflight configuration; permissive development CORS must be reviewed before public deployment.
-
-### Secret handling checklist
-
-```text
-DB_PASSWORD
-JWT_SECRET
-INTERNAL_API_KEY
-NOTIFICATION_SLACK_WEBHOOK_URL
-```
-
-Store secrets outside tracked source control. Ensure all environment configurations use `.env` files (excluded via `.gitignore`) or cloud secret managers (e.g. AWS Secrets Manager, HashiCorp Vault). Never commit live JWTs, Slack webhook URLs, or production database credentials to public repositories.
-
-**Status:** Authentication features exist, but strong tenant isolation, role separation, secure secret provisioning, TLS, and real security testing are required for public production exposure.
+Use the Windows setup above to configure credentials and verify service readiness. Back up the development database before applying migrations.
 
 # 22. Known Limitations & Production Hardening
 

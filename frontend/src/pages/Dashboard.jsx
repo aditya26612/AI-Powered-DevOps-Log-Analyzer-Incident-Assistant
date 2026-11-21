@@ -8,11 +8,10 @@ import {
   CircleAlert,
   FileText,
   Search,
-  Trash2,
   Upload,
 } from "lucide-react";
 
-import { deleteLog, searchLogs } from "../api/logApi";
+import { searchLogs } from "../api/logApi";
 import "./Dashboard.css";
 
 const Dashboard = () => {
@@ -201,35 +200,6 @@ const Dashboard = () => {
 
   const handleSearch = () => {
     loadLogs(0, filters);
-  };
-
-  // =========================================================
-  // DELETE
-  // =========================================================
-
-  const handleDelete = async (id) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete Log #${id}?`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setError("");
-
-      await deleteLog(id);
-
-      await loadLogs(page, filters);
-    } catch (error) {
-      console.error("Failed to delete log:", error);
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to delete log."
-      );
-    }
   };
 
   // =========================================================
@@ -903,15 +873,7 @@ const Dashboard = () => {
                     Analyze
                   </button>
 
-                  <button
-                    className="danger-button"
-                    onClick={() =>
-                      handleDelete(log.id)
-                    }
-                  >
-                    <Trash2 size={13} />
-                    Delete
-                  </button>
+
 
                 </div>
 

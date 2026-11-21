@@ -13,7 +13,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 })
 public class WebClientConfig {
 
-    @Value("${internal.api-key:devinsight_internal_ml_key_secret_12345}")
+    @Value("${internal.api-key:}")
     private String internalApiKey;
 
     @Bean
@@ -34,7 +34,7 @@ public class WebClientConfig {
     ) {
         return builder
                 .baseUrl(properties.getBaseUrl())
-                .defaultHeader("X-API-Key", internalApiKey)
+                .defaultHeader("X-Internal-Api-Key", internalApiKey)
                 .build();
     }
 }

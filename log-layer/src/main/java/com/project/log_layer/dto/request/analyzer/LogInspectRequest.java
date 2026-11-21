@@ -3,6 +3,7 @@ package com.project.log_layer.dto.request.analyzer;
 import com.project.log_layer.enums.Environment;
 import com.project.log_layer.enums.LogSource;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.util.UUID;
@@ -21,6 +22,7 @@ public class LogInspectRequest {
      * Raw log or multi-line stack trace.
      */
     @NotBlank(message = "Log content must not be blank.")
+    @Size(max = 16384)
     private String log;
 
     /**
@@ -38,11 +40,13 @@ public class LogInspectRequest {
     /**
      * Name of the application or service.
      */
+    @Size(max = 100)
     private String applicationName;
 
     /**
      * Host or container name.
      */
+    @Size(max = 150)
     private String hostName;
 
     /**

@@ -20,10 +20,10 @@ public class NodeJsParser extends AbstractLogParser {
 
     private static final Pattern NODE_LOG_PATTERN = Pattern.compile(
             "^(\\d{4}-\\d{2}-\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:[+-]\\d{2}:?\\d{2}|Z)?)\\s+" +
-                    "(?:\\[?(\\w+)\\]?\\s+)?" +
+                    "(?:\\[?(" + LEVEL + ")\\]?\\s*:?\\s+)?" +
                     "(?:(\\S+)\\s*:\\s*)?" +
                     "(.*)$",
-            Pattern.DOTALL
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
     );
 
     @Override
@@ -36,35 +36,31 @@ public class NodeJsParser extends AbstractLogParser {
         validate(request);
         String rawLog = request.getRawLog();
 
-        try {
-            Matcher matcher = NODE_LOG_PATTERN.matcher(rawLog);
+        Matcher matcher = NODE_LOG_PATTERN.matcher(rawLog);
 
-            if (matcher.find()) {
-                LocalDateTime timestamp = parseFlexibleTimestamp(matcher.group(1));
-                String levelStr = matcher.group(2);
-                String serviceOrModule = matcher.group(3);
-                String message = matcher.group(4);
+        if (matcher.find()) {
+            LocalDateTime timestamp = parseFlexibleTimestamp(matcher.group(1));
+            String levelStr = matcher.group(2);
+            String serviceOrModule = matcher.group(3);
+            String message = matcher.group(4);
 
-                LogLevel level = (levelStr != null && !levelStr.isBlank())
-                        ? parseFlexibleLogLevel(levelStr)
-                        : detectSeverityFromText(rawLog);
+            LogLevel level = (levelStr != null && !levelStr.isBlank())
+                    ? parseFlexibleLogLevel(levelStr)
+                    : detectSeverityFromText(rawLog);
 
-                return ParsedLogData.builder()
-                        .timestamp(timestamp)
-                        .logLevel(level)
-                        .threadName("event-loop")
-                        .loggerName(serviceOrModule != null ? serviceOrModule : request.getApplicationName())
-                        .message(message != null ? message.trim() : rawLog.trim())
-                        .applicationName(safeTrim(request.getApplicationName()))
-                        .serviceName(safeTrim(request.getApplicationName()))
-                        .hostName(safeTrim(request.getHostName()))
-                        .environment(request.getEnvironment() != null ? request.getEnvironment() : com.project.log_layer.enums.Environment.PRODUCTION)
-                        .source(request.getSource())
-                        .rawLog(rawLog)
-                        .build();
-            }
-        } catch (Exception ignored) {
-            // Fall through to resilient fallback
+            return ParsedLogData.builder()
+                    .timestamp(timestamp)
+                    .logLevel(level)
+                    .threadName("event-loop")
+                    .loggerName(serviceOrModule != null ? serviceOrModule : request.getApplicationName())
+                    .message(message != null ? message.trim() : rawLog.trim())
+                    .applicationName(safeTrim(request.getApplicationName()))
+                    .serviceName(safeTrim(request.getApplicationName()))
+                    .hostName(safeTrim(request.getHostName()))
+                    .environment(request.getEnvironment() != null ? request.getEnvironment() : com.project.log_layer.enums.Environment.PRODUCTION)
+                    .source(request.getSource())
+                    .rawLog(rawLog)
+                    .build();
         }
 
         return fallbackGenericParse(rawLog, request, LogSource.NODEJS);

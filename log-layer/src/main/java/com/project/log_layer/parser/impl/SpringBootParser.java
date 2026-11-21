@@ -30,13 +30,13 @@ public class SpringBootParser extends AbstractLogParser {
 
     private static final java.util.regex.Pattern FLEXIBLE_SPRING_BOOT_PATTERN =
             java.util.regex.Pattern.compile(
-                    "^(?<timestamp>\\S+)\\s+" +
-                            "(?<level>TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL|SEVERE)\\s+" +
-                            "(?<pid>\\d+)?\\s*(?:---|---)?\\s*" +
-                            "(?:\\[(?<app>[^\\]]+)\\])?\\s*" +
-                            "(?:\\[(?<thread>[^\\]]+)\\])?\\s*" +
-                            "(?<logger>[\\w.$]+)\\s*:\\s*" +
-                            "(?<message>.*)$"
+                    "^(?<timestamp>" + TIMESTAMP + ")\\h++" +
+                            "(?<level>" + LEVEL + ")\\h++" +
+                            "(?:(?<pid>\\d++)\\h*+)?(?:---\\h*+)?" +
+                            "(?:\\[(?<thread>[^\\]]++)\\]\\h*+)?" +
+                            "(?:\\[(?<worker>[^\\]]++)\\]\\h*+)?" +
+                            "(?<logger>[\\w.$]++)\\h*+:\\h*+" +
+                            "(?<message>.*)$", java.util.regex.Pattern.CASE_INSENSITIVE
             );
 
     @Override
@@ -74,8 +74,15 @@ public class SpringBootParser extends AbstractLogParser {
         String level = extractOptionalGroup(matcher, RegexGroupNames.LEVEL);
         String message = extractOptionalGroup(matcher, RegexGroupNames.MESSAGE);
         String thread = extractOptionalGroup(matcher, RegexGroupNames.THREAD);
+        String worker = extractOptionalGroup(matcher, "worker");
+        if (worker != null) {
+            thread = worker;
+        }
         String logger = extractOptionalGroup(matcher, RegexGroupNames.LOGGER);
         String pid = extractOptionalGroup(matcher, RegexGroupNames.PID);
+        if (message == null && lines.length == 1) {
+            return fallbackGenericParse(rawLog, request, LogSource.SPRING_BOOT);
+        }
 
         // Assemble multi-line stack trace if present
         String completeMessage;

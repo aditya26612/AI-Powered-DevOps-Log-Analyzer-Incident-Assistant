@@ -158,7 +158,7 @@ class WebClientLlmInferenceClientTest {
                                         () -> client.analyze(request));
 
                         assertEquals(
-                                        "LLM Service returned server error: {\"error\":\"Internal server error\"}",
+                                        "LLM HTTP 500",
                                         exception.getMessage());
 
                 } finally {
@@ -213,7 +213,7 @@ class WebClientLlmInferenceClientTest {
                                         () -> client.analyze(request));
 
                         assertEquals(
-                                        "LLM Service returned client error: {\"error\":\"Invalid request\"}",
+                                        "LLM HTTP 400",
                                         exception.getMessage());
 
                 } finally {

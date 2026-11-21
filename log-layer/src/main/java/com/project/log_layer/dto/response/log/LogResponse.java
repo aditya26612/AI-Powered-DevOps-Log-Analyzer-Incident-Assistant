@@ -70,6 +70,18 @@ public class LogResponse {
      */
     private String message;
 
+    private String exception;
+
+    private com.project.log_layer.entity.Log.CorrelationOrigin correlationOrigin;
+    private String traceparent;
+    private com.project.log_layer.dto.request.ingest.TraceContext.Origin traceOrigin;
+
+    private java.util.Map<String, String> metadata;
+
+    private String operationalRuleId;
+
+    private boolean diagnosisEligible;
+
     /**
      * AI-generated short summary.
      *

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { ingestLog } from "../api/logApi";
+import { listApplications, selectionKey } from "../api/integrationApi";
 import "./LogIngestion.css";
 
 const LogIngestion = () => {
@@ -16,8 +17,7 @@ const LogIngestion = () => {
   const [formData, setFormData] = useState({
     rawLog: "",
     source: "",
-    environment: "",
-    applicationName: "",
+    applicationId: "",
     hostName: "",
     correlationId: "",
   });
@@ -25,6 +25,18 @@ const LogIngestion = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const [applications, setApplications] = useState([]);
+  const organization = localStorage.getItem(selectionKey);
+  useEffect(() => {
+    if (!organization) return;
+    let current = true;
+    listApplications(organization).then(
+      (rows) => { if (current) setApplications(rows); },
+      () => { if (current) setError("Could not load registered applications."); }
+    );
+    return () => { current = false; };
+  }, [organization]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -43,9 +55,12 @@ const LogIngestion = () => {
     setLoading(true);
 
     try {
-      const response = await ingestLog(formData);
-
-        console.log("Log created:", response);
+      const app = applications.find((item) => item.id === formData.applicationId);
+      if (!app) {
+        setError("Select a registered application for the active organization.");
+        return;
+      }
+      const response = await ingestLog({ ...formData, applicationName: app.applicationName, environment: app.environment });
 
         navigate("/dashboard", {
           state: {
@@ -53,7 +68,6 @@ const LogIngestion = () => {
           },
         });
     } catch (error) {
-      console.error(error);
 
       setError(
         error.response?.data?.message ||
@@ -226,69 +240,16 @@ const LogIngestion = () => {
 
             </div>
 
-            {/* =====================================
-                ENVIRONMENT
-                ===================================== */}
-
             <div className="ingestion-field">
-
-              <label htmlFor="environment">
-                Environment
-              </label>
-
-              <select
-                id="environment"
-                name="environment"
-                value={formData.environment}
-                onChange={handleChange}
-                required
-              >
-                <option value="">
-                  Select environment
-                </option>
-
-                <option value="DEVELOPMENT">
-                  Development
-                </option>
-
-                <option value="TESTING">
-                  Testing
-                </option>
-
-                <option value="QA">
-                  QA
-                </option>
-
-                <option value="STAGING">
-                  Staging
-                </option>
-
-                <option value="PRODUCTION">
-                  Production
-                </option>
+              <label htmlFor="applicationId">Registered application</label>
+              <select id="applicationId" name="applicationId"
+                value={formData.applicationId} onChange={handleChange} required>
+                <option value="">Select an application</option>
+                {applications.map((item) => (
+                  <option key={item.id} value={item.id}>{item.applicationName} · {item.environment}</option>
+                ))}
               </select>
-
-            </div>
-
-            {/* =====================================
-                APPLICATION
-                ===================================== */}
-
-            <div className="ingestion-field">
-
-              <label htmlFor="applicationName">
-                Application Name
-              </label>
-
-              <input
-                id="applicationName"
-                name="applicationName"
-                value={formData.applicationName}
-                onChange={handleChange}
-                placeholder="e.g. payment-service"
-                required
-              />
-
+              {!organization && <p>Select an organization on the Integrations page.</p>}
             </div>
 
             {/* =====================================

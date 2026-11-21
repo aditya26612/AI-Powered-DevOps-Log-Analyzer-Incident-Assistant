@@ -2,14 +2,13 @@ package com.project.log_layer.service.impl;
 
 import com.project.log_layer.dto.request.analysis.LogAnalysisRequest;
 import com.project.log_layer.dto.request.analyzer.LogInspectRequest;
-import com.project.log_layer.dto.request.ingest.BatchLogRequest;
+import com.project.log_layer.dto.request.ingest.ExternalLogEvent;
 import com.project.log_layer.dto.request.ingest.LogIngestRequest;
 import com.project.log_layer.dto.request.search.LogFilterRequest;
 import com.project.log_layer.dto.response.analysis.LogAnalysisResponse;
 import com.project.log_layer.dto.response.analyzer.DetectionMetrics;
 import com.project.log_layer.dto.response.analyzer.IncidentDiagnosis;
 import com.project.log_layer.dto.response.analyzer.LogInspectionResponse;
-import com.project.log_layer.dto.response.common.BatchOperationResponse;
 import com.project.log_layer.dto.response.common.PagedResponse;
 import com.project.log_layer.dto.response.log.LogResponse;
 import com.project.log_layer.entity.Log;
@@ -18,6 +17,7 @@ import com.project.log_layer.enums.Environment;
 import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.enums.LogSource;
 import com.project.log_layer.exception.InvalidSearchCriteriaException;
+import com.project.log_layer.exception.InvalidLogFormatException;
 import com.project.log_layer.exception.LogNotFoundException;
 import com.project.log_layer.integration.client.LlmInferenceClient;
 import com.project.log_layer.integration.client.MlInferenceClient;
@@ -27,6 +27,8 @@ import com.project.log_layer.integration.dto.MlPredictionRequest;
 import com.project.log_layer.integration.dto.MlPredictionResponse;
 import com.project.log_layer.integration.exception.LlmServiceException;
 import com.project.log_layer.integration.exception.MlServiceException;
+import com.project.log_layer.incident.IncidentCorrelation;
+import com.project.log_layer.diagnosis.DiagnosisQueue;
 import com.project.log_layer.mapper.LlmAnalysisMapper;
 import com.project.log_layer.mapper.LogMapper;
 import com.project.log_layer.mapper.MlPredictionMapper;
@@ -37,10 +39,16 @@ import com.project.log_layer.parser.model.ParsedLogData;
 import com.project.log_layer.repository.LogRepository;
 import com.project.log_layer.service.LlmAnalysisFailureService;
 import com.project.log_layer.service.LogService;
+import com.project.log_layer.service.OperationalTriage;
+import io.micrometer.core.instrument.Metrics;
 import com.project.log_layer.specification.LogSpecificationBuilder;
 import com.project.log_layer.util.CurrentUser;
+import com.project.log_layer.security.TenantIdentity;
+import com.project.log_layer.tenant.ApplicationCredentials;
+import com.project.log_layer.tenant.TenantSqlScope;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import com.project.log_layer.notification.config.NotificationProperties;
-import com.project.log_layer.notification.service.NotificationService;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -54,14 +62,17 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.annotation.Propagation;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -72,6 +83,10 @@ public class LogServiceImpl implements LogService {
     private final LogSpecificationBuilder logSpecificationBuilder;
 
     private final LogRepository logRepository;
+    private final ApplicationCredentials applicationCredentials;
+    private final TenantSqlScope tenantScope;
+    private final IncidentCorrelation incidentCorrelation;
+    private final DiagnosisQueue diagnosisQueue;
 
     private final ParserFactory parserFactory;
 
@@ -91,10 +106,8 @@ public class LogServiceImpl implements LogService {
 
     private final HttpServletRequest httpServletRequest;
 
-    private final NotificationService notificationService;
 
     private final NotificationProperties notificationProperties;
-
 
     /**
      * Generates a correlation ID for the log.
@@ -116,38 +129,108 @@ public class LogServiceImpl implements LogService {
      */
     @Override
     public LogResponse ingest(LogIngestRequest request) {
-
-        ParsedLogData parsedLogData =
-                parseLog(request);
-
-        Log log =
-                parsedLogMapper.toEntity(parsedLogData);
-
-        /*
-         * Associate the log with the authenticated user.
-         *
-         * The email comes from the X-User-Email header
-         * inserted by the API Gateway after validating
-         * the JWT.
-         */
-        log.setUserEmail(
-                CurrentUser.getEmail(httpServletRequest)
-        );
-
-        enrichLogEntity(log, request);
-
-        performMlAnalysis(log);
-
-        Log savedLog =
-                logRepository.save(log);
-
-        if (shouldTriggerAutoDiagnosis(savedLog)) {
-            triggerAsyncDiagnosisAndNotification(savedLog.getId());
+        UUID organizationId = TenantIdentity.organization(httpServletRequest);
+        ApplicationCredentials.Binding binding = null;
+        if (httpServletRequest.getAttribute(TenantIdentity.INGESTION) instanceof ApplicationCredentials.Binding verified) {
+            binding = verified;
+        } else if (organizationId != null) {
+            if (request.getApplicationId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A registered application ID is required");
+            }
+            binding = applicationCredentials.activeApplication(organizationId, request.getApplicationId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
+        }
+        if (binding != null) {
+            if (request.getApplicationId() != null && request.getApplicationId() != binding.applicationId()
+                    || request.getApplicationName() != null && !request.getApplicationName().equals(binding.applicationName())
+                    || request.getEnvironment() != null && request.getEnvironment() != binding.environment()) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ingestion application does not match the credential");
+            }
+            request.setApplicationName(binding.applicationName());
+            request.setEnvironment(binding.environment());
         }
 
-        return logMapper.toLogResponse(savedLog);
+        Log log = parsedLogMapper.toEntity(parseLog(request));
+        log.setUserEmail(CurrentUser.getEmail(httpServletRequest));
+        return logMapper.toLogResponse(persist(log, request, binding));
     }
 
+    @Override
+    public long ingestExternal(ExternalLogEvent event, ApplicationCredentials.Binding owner, byte[] digest) {
+        tenantScope.enter(owner.organizationId());
+        return saveAnalyzed(buildAndAnalyzeExternal(event, owner, digest)).getId();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public Log prepareExternal(ExternalLogEvent event, ApplicationCredentials.Binding owner, byte[] digest) {
+        return buildAndAnalyzeExternal(event, owner, digest);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public long storePreparedExternal(Log log) {
+        tenantScope.enter(log.getOrganizationId());
+        return saveAnalyzed(log).getId();
+    }
+
+    private Log buildAndAnalyzeExternal(ExternalLogEvent event, ApplicationCredentials.Binding owner, byte[] digest) {
+        var metadata = new HashMap<>(event.metadata());
+        if (event.exception() != null) {
+            metadata.put(Log.EXTERNAL_EXCEPTION_KEY, event.exception());
+        }
+        Log log = Log.builder()
+                .userEmail(CurrentUser.SERVICE_EMAIL)
+                .timestamp(LocalDateTime.ofInstant(Instant.parse(event.timestamp()), ZoneOffset.UTC))
+                .level(event.level()).source(event.source()).message(event.message())
+                .serviceName(owner.applicationName()).loggerName(event.loggerName())
+                .threadName(event.threadName()).hostName(event.hostName())
+                .externalEventId(event.eventId()).externalEventDigest(digest)
+                .externalMetadata(metadata.isEmpty() ? null : metadata)
+                .traceparent(event.traceparent()).traceOrigin(event.traceOrigin())
+                .correlationId(event.correlationId() != null ? event.correlationId() : UUID.randomUUID())
+                .correlationOrigin(event.correlationId() != null ? Log.CorrelationOrigin.COLLECTOR_SUPPLIED
+                        : Log.CorrelationOrigin.SERVER_GENERATED)
+                .build();
+        log.setRawLog(event.timestamp() + " " + event.level() + " " + log.analysisMessage());
+        assignApplication(log, owner);
+        Metrics.counter("devinsight.log.parse", "outcome", "canonical").increment();
+        performMlAnalysis(log);
+        return log;
+    }
+
+    private Log persist(Log log, LogIngestRequest request, ApplicationCredentials.Binding binding) {
+        enrichLogEntity(log, request);
+        if (binding != null) {
+            tenantScope.enter(binding.organizationId());
+            assignApplication(log, binding);
+        }
+        performMlAnalysis(log);
+        return saveAnalyzed(log);
+    }
+
+    private static void assignApplication(Log log, ApplicationCredentials.Binding binding) {
+        log.setOrganizationId(binding.organizationId());
+        log.setApplicationId(binding.applicationId());
+        log.setApplicationName(binding.applicationName());
+        log.setEnvironment(binding.environment());
+    }
+
+    private Log saveAnalyzed(Log log) {
+        boolean eligible = shouldTriggerAutoDiagnosis(log);
+        Log saved = logRepository.save(log);
+        if (saved.getOrganizationId() == null) {
+            return saved;
+        }
+        var association = saved.getExternalEventId() == null
+                ? new IncidentCorrelation.Association(null, eligible)
+                : incidentCorrelation.associate(saved, eligible);
+        if (association.ownsDiagnosis()) {
+            saved.setLlmAnalysisStatus(AnalysisStatus.PENDING);
+            diagnosisQueue.enqueue(saved, association.incidentId());
+        }
+        return saved;
+    }
 
     /**
      * Parses the incoming log using the appropriate parser.
@@ -155,12 +238,27 @@ public class LogServiceImpl implements LogService {
     private ParsedLogData parseLog(
             LogIngestRequest request) {
 
-        LogParser parser =
-                parserFactory.getParser(
-                        request.getSource()
-                );
-
-        return parser.parse(request);
+        try {
+            LogParser parser = parserFactory.getParser(request.getSource());
+            ParsedLogData parsed = parser.parse(request);
+            if (parsed.getLoggerName() != null && parsed.getLoggerName().length() > 255) {
+                parsed.setLoggerName(null);
+                parsed.setFallback(true);
+            }
+            if (parsed.getThreadName() != null && parsed.getThreadName().length() > 100) {
+                parsed.setThreadName(null);
+                parsed.setFallback(true);
+            }
+            Metrics.counter("devinsight.log.parse", "outcome",
+                    parsed.isFallback() ? "fallback" : "parsed").increment();
+            return parsed;
+        } catch (InvalidLogFormatException ex) {
+            Metrics.counter("devinsight.log.parse", "outcome", "invalid_text").increment();
+            throw ex;
+        } catch (RuntimeException ex) {
+            Metrics.counter("devinsight.log.parse", "outcome", "internal_failure").increment();
+            throw ex;
+        }
     }
 
 
@@ -174,6 +272,8 @@ public class LogServiceImpl implements LogService {
         log.setCorrelationId(
                 generateCorrelationId(request)
         );
+        log.setCorrelationOrigin(request.getCorrelationId() != null ? Log.CorrelationOrigin.LEGACY_SUPPLIED
+                : Log.CorrelationOrigin.SERVER_GENERATED);
 
         if (log.getEnvironment() == null) {
             log.setEnvironment(request.getEnvironment() != null
@@ -201,6 +301,7 @@ public class LogServiceImpl implements LogService {
     private void performMlAnalysis(
             Log logEntity) {
 
+        long started = System.nanoTime();
         try {
 
             MlPredictionRequest request =
@@ -211,15 +312,12 @@ public class LogServiceImpl implements LogService {
             MlPredictionResponse response =
                     mlInferenceClient.predict(request);
 
-            if (response == null || response.prediction() == null
-                    || (response.prediction() != 1 && response.prediction() != -1)
-                    || response.anomaly() == null || response.anomaly() != (response.prediction() == -1)
-                    || response.decisionScore() == null || !Double.isFinite(response.decisionScore())
-                    || response.modelVersion() == null || response.modelVersion().isBlank()
-                    || response.predictionLabel() == null || response.predictionLabel().isBlank()) {
-                throw new MlServiceException("Incomplete or inconsistent ML prediction");
+            if (response == null) {
+                throw new MlServiceException("Missing ML prediction");
             }
+            response.requireConsistentResult();
             logEntity.setAnomaly(response.anomaly());
+            logEntity.setAnomalyScore(response.decisionScore());
 
             logEntity.setPrediction(
                     response.prediction()
@@ -247,6 +345,12 @@ public class LogServiceImpl implements LogService {
 
         } catch (MlServiceException ex) {
 
+            logEntity.setAnomaly(false);
+            logEntity.setAnomalyScore(null);
+            logEntity.setPrediction(null);
+            logEntity.setPredictionLabel(null);
+            logEntity.setDecisionScore(null);
+            logEntity.setModelVersion(null);
             logEntity.setAnalysisStatus(
                     AnalysisStatus.FAILED
             );
@@ -255,11 +359,14 @@ public class LogServiceImpl implements LogService {
                     LocalDateTime.now()
             );
 
-            log.error(
-                    "ML prediction failed for correlationId={}",
-                    logEntity.getCorrelationId(),
-                    ex
-            );
+            log.debug("ML prediction unavailable: {}", ex.getMessage());
+        } finally {
+            Metrics.timer("devinsight.log.inference", "outcome", logEntity.getAnalysisStatus().name())
+                    .record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
+            Metrics.counter("devinsight.log.triage",
+                    "statistical", String.valueOf(OperationalTriage.statisticalAnomaly(logEntity)),
+                    "operational", Boolean.toString(OperationalTriage.ruleId(logEntity) != null),
+                    "eligible", Boolean.toString(OperationalTriage.eligible(logEntity))).increment();
         }
     }
 
@@ -267,85 +374,8 @@ public class LogServiceImpl implements LogService {
         if (notificationProperties == null || !notificationProperties.isAutoDiagnoseAnomalies()) {
             return false;
         }
-        return Boolean.TRUE.equals(log.getAnomaly()) ||
-                LogLevel.ERROR.equals(log.getLevel()) ||
-                LogLevel.FATAL.equals(log.getLevel());
+        return OperationalTriage.eligible(log);
     }
-
-    private void triggerAsyncDiagnosisAndNotification(Long logId) {
-        Runnable asyncTask = () -> CompletableFuture.runAsync(() -> executeDiagnosisAndNotification(logId));
-
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    asyncTask.run();
-                }
-            });
-        } else {
-            asyncTask.run();
-        }
-    }
-
-    private void executeDiagnosisAndNotification(Long logId) {
-        try {
-            log.info("Starting automated incident diagnosis for logId={}", logId);
-            Log targetLog = logRepository.findById(logId).orElse(null);
-            if (targetLog == null) {
-                log.warn("Log record with id={} not found for diagnosis after commit", logId);
-                return;
-            }
-
-            targetLog.setLlmAnalysisStatus(AnalysisStatus.PROCESSING);
-            logRepository.save(targetLog);
-
-            LlmAnalysisRequest llmRequest = llmAnalysisMapper.toRequest(targetLog);
-            LlmAnalysisResponse llmResponse = llmInferenceClient.analyze(llmRequest);
-
-            recordDiagnosis(targetLog, llmResponse);
-            logRepository.save(targetLog);
-
-            IncidentDiagnosis diagnosis = IncidentDiagnosis.builder()
-                    .summary(llmResponse.summary())
-                    .probableRootCause(llmResponse.rootCause())
-                    .severity(llmResponse.severity() != null ? llmResponse.severity() : targetLog.getLevel().name())
-                    .suggestedFix(llmResponse.recommendation())
-                    .remediationCommands(extractRemediationCommands(llmResponse.recommendation()))
-                    .build();
-
-            log.info("Automated incident diagnosis completed for logId={}, dispatching alerts...", logId);
-            try {
-                notificationService.sendIncidentAlert(targetLog, diagnosis);
-            } catch (Exception ex) {
-                log.warn("Incident alert dispatch failed for logId={}", logId);
-            }
-
-        } catch (Exception ex) {
-            log.error("Automated diagnosis failed for logId={}: {}", logId, ex.getMessage());
-            try {
-                Log failedLog = logRepository.findById(logId).orElse(null);
-                if (failedLog != null) {
-                    failedLog.setLlmAnalysisStatus(AnalysisStatus.FAILED);
-                    logRepository.save(failedLog);
-                }
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
-
-    /**
-     * Not implemented in Version 1.
-     */
-    @Override
-    public BatchOperationResponse ingestBatch(
-            BatchLogRequest request) {
-
-        throw new UnsupportedOperationException(
-                "Batch ingestion is not implemented yet."
-        );
-    }
-
 
     /**
      * Retrieves a log by its identifier.
@@ -358,24 +388,18 @@ public class LogServiceImpl implements LogService {
      *                              or belongs to another user
      */
     private Log getLogOrThrow(Long id) {
+        return visibleLog(id).orElseThrow(() -> new LogNotFoundException("Log not found"));
+    }
 
-        String currentUser =
-                CurrentUser.getEmail(
-                        httpServletRequest
-                );
-
-        return logRepository
-                .findById(id)
-                .filter(log ->
-                        currentUser.equals(
-                                log.getUserEmail()
-                        )
-                )
-                .orElseThrow(() ->
-                        new LogNotFoundException(
-                                "Log not found with id : " + id
-                        )
-                );
+    private Optional<Log> visibleLog(Long id) {
+        UUID organization = TenantIdentity.organization(httpServletRequest);
+        if (organization != null) {
+            tenantScope.enter(organization);
+            return logRepository.findByIdAndOrganizationId(id, organization);
+        }
+        String email = CurrentUser.getEmail(httpServletRequest);
+        return logRepository.findById(id)
+                .filter(log -> log.getOrganizationId() == null && email.equals(log.getUserEmail()));
     }
 
 
@@ -407,33 +431,18 @@ public class LogServiceImpl implements LogService {
 
         validateSearchRequest(request);
 
-        String currentUser =
-                CurrentUser.getEmail(
-                        httpServletRequest
-                );
-
-        Pageable pageable =
-                createPageable(request);
-
-        Specification<Log> specification =
-                buildSpecification(request);
-
-        /*
-         * Ownership condition:
-         *
-         * user_email = currently authenticated user
-         */
-        Specification<Log> ownershipSpecification =
-                (root, query, criteriaBuilder) ->
-                        criteriaBuilder.equal(
-                                root.get("userEmail"),
-                                currentUser
-                        );
-
-        /*
-         * Combine ownership filtering
-         * with all existing search filters.
-         */
+        UUID organization = TenantIdentity.organization(httpServletRequest);
+        Pageable pageable = createPageable(request);
+        Specification<Log> specification = buildSpecification(request);
+        Specification<Log> ownershipSpecification;
+        if (organization != null) {
+            tenantScope.enter(organization);
+            ownershipSpecification = (root, query, builder) -> builder.equal(root.get("organizationId"), organization);
+        } else {
+            String email = CurrentUser.getEmail(httpServletRequest);
+            ownershipSpecification = (root, query, builder) -> builder.and(
+                    builder.isNull(root.get("organizationId")), builder.equal(root.get("userEmail"), email));
+        }
         Specification<Log> finalSpecification =
                 ownershipSpecification.and(
                         specification
@@ -472,20 +481,7 @@ public class LogServiceImpl implements LogService {
     @Override
     @Transactional(readOnly = true)
     public boolean exists(Long id) {
-
-        String currentUser =
-                CurrentUser.getEmail(
-                        httpServletRequest
-                );
-
-        return logRepository
-                .findById(id)
-                .map(log ->
-                        currentUser.equals(
-                                log.getUserEmail()
-                        )
-                )
-                .orElse(false);
+        return visibleLog(id).isPresent();
     }
 
 
@@ -502,6 +498,17 @@ public class LogServiceImpl implements LogService {
 
         Log logEntity =
                 getLogOrThrow(id);
+
+        String durableState = logEntity.getOrganizationId() == null ? null
+                : diagnosisQueue.stateForLog(logEntity.getOrganizationId(), id);
+        if ("SUCCEEDED".equals(durableState)) {
+            return LogAnalysisResponse.builder().log(logMapper.toLogResponse(logEntity))
+                    .summary(logEntity.getLlmSummary()).probableRootCause(logEntity.getLlmRootCause())
+                    .suggestedFix(logEntity.getLlmRecommendation()).build();
+        }
+        if (durableState != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Use the durable diagnosis status or retry action");
+        }
 
         try {
 
@@ -653,12 +660,13 @@ public class LogServiceImpl implements LogService {
                 .build();
 
         // 1. Resilient Parse
-        LogParser parser = parserFactory.getParser(source);
-        ParsedLogData parsedLogData = parser.parse(ingestRequest);
+        ParsedLogData parsedLogData = parseLog(ingestRequest);
 
         // 2. Convert to entity
         Log logEntity = parsedLogMapper.toEntity(parsedLogData);
         logEntity.setCorrelationId(correlationId);
+        logEntity.setCorrelationOrigin(request.getCorrelationId() != null ? Log.CorrelationOrigin.LEGACY_SUPPLIED
+                : Log.CorrelationOrigin.SERVER_GENERATED);
 
         String userEmail = "system@analyzer.local";
         try {
@@ -668,17 +676,20 @@ public class LogServiceImpl implements LogService {
             }
         } catch (Exception ignored) {}
         logEntity.setUserEmail(userEmail);
+        UUID organization = TenantIdentity.organization(httpServletRequest);
+        if (organization != null) {
+            tenantScope.enter(organization);
+        }
+        logEntity.setOrganizationId(organization);
 
         // 3. Perform ML Anomaly Analysis (Tier 2)
         performMlAnalysis(logEntity);
 
         // 4. Heuristic / Deterministic Rule Check (Tier 1)
         List<String> heuristicFlags = new ArrayList<>();
-        boolean isError = logEntity.getLevel() == LogLevel.ERROR ||
-                logEntity.getLevel() == LogLevel.WARN ||
-                logEntity.getLevel() == LogLevel.FATAL;
-        if (isError) {
-            heuristicFlags.add("HIGH_SEVERITY_LEVEL");
+        String ruleId = OperationalTriage.ruleId(logEntity);
+        if (ruleId != null) {
+            heuristicFlags.add(ruleId);
         }
         boolean hasStackTrace = parsedLogData.getMessage() != null &&
                 (parsedLogData.getMessage().contains("\tat ") ||
@@ -691,10 +702,9 @@ public class LogServiceImpl implements LogService {
             heuristicFlags.add("ML_ANOMALY_DETECTED");
         }
 
-        boolean hasAnomaly = Boolean.TRUE.equals(logEntity.getAnomaly()) || isError || hasStackTrace;
-
         // 5. Tier 3: LLM Root Cause Diagnosis (Selective)
-        boolean shouldRunLlm = "FORCE_DEEP".equals(analysisMode) || ("AUTO".equals(analysisMode) && hasAnomaly);
+        boolean eligible = OperationalTriage.eligible(logEntity);
+        boolean shouldRunLlm = "FORCE_DEEP".equals(analysisMode) || ("AUTO".equals(analysisMode) && eligible);
         IncidentDiagnosis diagnosis = null;
 
         if (shouldRunLlm && !"FAST".equals(analysisMode)) {
@@ -702,8 +712,7 @@ public class LogServiceImpl implements LogService {
                 LlmAnalysisRequest llmRequest = llmAnalysisMapper.toRequest(logEntity);
                 LlmAnalysisResponse llmResponse = llmInferenceClient.analyze(llmRequest);
 
-                logEntity.setLlmAnalysisStatus(AnalysisStatus.COMPLETED);
-                logEntity.setLlmAnalyzedAt(LocalDateTime.now());
+                recordDiagnosis(logEntity, llmResponse);
 
                 List<String> remediationCommands = extractRemediationCommands(llmResponse.recommendation());
 
@@ -717,7 +726,7 @@ public class LogServiceImpl implements LogService {
                         .build();
 
             } catch (Exception ex) {
-                log.warn("LLM analysis failed or service unreachable: {}", ex.getMessage());
+                log.warn("Inspector diagnosis failed");
                 logEntity.setLlmAnalysisStatus(AnalysisStatus.FAILED);
             }
         }
@@ -726,18 +735,13 @@ public class LogServiceImpl implements LogService {
         try {
             logRepository.save(logEntity);
         } catch (Exception ex) {
-            log.warn("Unable to save inspect log to DB: {}", ex.getMessage());
+            log.warn("Unable to save inspected log");
         }
 
         long executionTimeMs = System.currentTimeMillis() - startTime;
 
-        double confidenceScore = 0.50;
-        if (logEntity.getDecisionScore() != null) {
-            confidenceScore = Math.min(1.0, Math.max(0.0, 0.5 - (logEntity.getDecisionScore() * 0.5)));
-        }
-
         DetectionMetrics detectionMetrics = DetectionMetrics.builder()
-                .isMlAnomaly(logEntity.getAnomaly())
+                .isMlAnomaly(OperationalTriage.statisticalAnomaly(logEntity))
                 .mlPrediction(logEntity.getPrediction())
                 .mlPredictionLabel(logEntity.getPredictionLabel())
                 .decisionScore(logEntity.getDecisionScore())
@@ -755,8 +759,11 @@ public class LogServiceImpl implements LogService {
                 .message(parsedLogData.getMessage())
                 .hasStackTrace(hasStackTrace)
                 .stackTrace(hasStackTrace ? parsedLogData.getMessage() : null)
-                .hasAnomaly(hasAnomaly)
-                .confidenceScore(confidenceScore)
+                .hasAnomaly(Boolean.TRUE.equals(OperationalTriage.statisticalAnomaly(logEntity)))
+                .analysisStatus(logEntity.getAnalysisStatus())
+                .operationalRuleId(ruleId)
+                .diagnosisEligible(eligible)
+                .llmAnalysisStatus(logEntity.getLlmAnalysisStatus())
                 .detectionMetrics(detectionMetrics)
                 .incidentDiagnosis(diagnosis)
                 .executionTimeMs(executionTimeMs)

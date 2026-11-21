@@ -1,6 +1,5 @@
 package com.project.demouserservice.service;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 import javax.crypto.SecretKey;
@@ -9,10 +8,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.project.demouserservice.entity.UserEntity;
+import com.project.demouserservice.security.SignedIdentity;
+import io.jsonwebtoken.JwtException;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 
 @Service
 public class JwtService {
@@ -24,17 +24,22 @@ public class JwtService {
     private long expiration;
 
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        return SignedIdentity.signingKey(secret);
     }
 
     public String generateToken(UserEntity user) {
+        if (user.getId() == null || user.getId() <= 0) {
+            throw new IllegalStateException("Cannot issue an access token without a persisted user ID");
+        }
 
+        SecretKey key = getSigningKey();
         return Jwts.builder()
                 .subject(user.getEmail())
+                .claim("user_id", user.getId())
                 .claim("role", user.getRole().name())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSigningKey())
+                .signWith(key, SignedIdentity.signingAlgorithm(key))
                 .compact();
     }
 
@@ -55,16 +60,15 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token) {
-
-        return !extractExpiration(token).before(new Date());
+        try {
+            extractClaims(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     private Claims extractClaims(String token) {
-
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        return SignedIdentity.verify(token, getSigningKey());
     }
 }

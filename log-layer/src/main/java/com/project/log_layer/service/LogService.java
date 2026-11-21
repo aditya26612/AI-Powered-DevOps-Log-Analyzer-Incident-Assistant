@@ -1,13 +1,14 @@
 package com.project.log_layer.service;
 
 import com.project.log_layer.dto.request.analysis.LogAnalysisRequest;
-import com.project.log_layer.dto.request.ingest.BatchLogRequest;
+import com.project.log_layer.dto.request.ingest.ExternalLogEvent;
 import com.project.log_layer.dto.request.ingest.LogIngestRequest;
 import com.project.log_layer.dto.request.search.LogFilterRequest;
 import com.project.log_layer.dto.response.analysis.LogAnalysisResponse;
-import com.project.log_layer.dto.response.common.BatchOperationResponse;
 import com.project.log_layer.dto.response.common.PagedResponse;
 import com.project.log_layer.dto.response.log.LogResponse;
+import com.project.log_layer.tenant.ApplicationCredentials.Binding;
+import com.project.log_layer.entity.Log;
 
 /**
  * Business contract for log management.
@@ -22,10 +23,14 @@ public interface LogService {
      */
     LogResponse ingest(LogIngestRequest request);
 
-    /**
-     * Ingest multiple logs.
-     */
-    BatchOperationResponse ingestBatch(BatchLogRequest request);
+    /** Persists one authorized, new external event inside the enclosing batch transaction. */
+    long ingestExternal(ExternalLogEvent event, Binding binding, byte[] digest);
+
+    /** Parses and scores a candidate independently of a database transaction. */
+    Log prepareExternal(ExternalLogEvent event, Binding binding, byte[] digest);
+
+    /** Commits a prepared candidate only inside the caller's tenant-scoped transaction. */
+    long storePreparedExternal(Log log);
 
     /**
      * Find log by id.

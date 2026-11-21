@@ -14,11 +14,11 @@ spring:
 #      port: ${REDIS_PORT:6379}
 
 jwt:
-  secret: ${JWT_SECRET:devinsight_super_secret_jwt_key_2026_at_least_32_characters_long!}
+  secret: ${JWT_SECRET:}
   expiration: 86400000
 
 internal:
-  api-key: ${INTERNAL_API_KEY:devinsight_internal_ml_key_secret_12345}
+  api-key: ${INTERNAL_API_KEY:}
 
 gateway:
   user-service-url: ${USER_SERVICE_URL:http://localhost:8081}
@@ -34,4 +34,11 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+  health:
+    redis:
+      enabled: false

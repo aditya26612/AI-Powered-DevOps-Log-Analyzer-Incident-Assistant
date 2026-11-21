@@ -1,87 +1,28 @@
 package com.project.log_layer.appintegration.controller;
 
-import com.project.log_layer.appintegration.dto.request.CreateIntegrationRequest;
-import com.project.log_layer.appintegration.dto.request.TestIntegrationRequest;
 import com.project.log_layer.appintegration.dto.response.ApiKeyVerificationResponse;
-import com.project.log_layer.appintegration.dto.response.ApplicationIntegrationResponse;
-import com.project.log_layer.appintegration.dto.response.TestIntegrationResponse;
-import com.project.log_layer.appintegration.service.ApplicationIntegrationService;
-import com.project.log_layer.util.CurrentUser;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
+import com.project.log_layer.tenant.ApplicationCredentials;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
-@Slf4j
 @RestController
 @RequestMapping("/api/v1/integrations")
 @RequiredArgsConstructor
 public class ApplicationIntegrationController {
 
-    private final ApplicationIntegrationService integrationService;
-
-    @PostMapping
-    public ResponseEntity<ApplicationIntegrationResponse> createIntegration(
-            @Valid @RequestBody CreateIntegrationRequest request,
-            HttpServletRequest servletRequest) {
-
-        String userEmail = CurrentUser.getEmail(servletRequest);
-        ApplicationIntegrationResponse response = integrationService.createOrUpdateIntegration(request, userEmail);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @GetMapping
-    public ResponseEntity<List<ApplicationIntegrationResponse>> getAllIntegrations(
-            HttpServletRequest servletRequest) {
-
-        String userEmail = CurrentUser.getEmail(servletRequest);
-        return ResponseEntity.ok(integrationService.getAllIntegrations(userEmail));
-    }
-
-    @GetMapping("/{name}")
-    public ResponseEntity<ApplicationIntegrationResponse> getIntegration(
-            @PathVariable String name,
-            HttpServletRequest servletRequest) {
-
-        String userEmail = CurrentUser.getEmail(servletRequest);
-        return ResponseEntity.ok(integrationService.getIntegration(name, userEmail));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteIntegration(
-            @PathVariable Long id,
-            HttpServletRequest servletRequest) {
-
-        String userEmail = CurrentUser.getEmail(servletRequest);
-        integrationService.deleteIntegration(id, userEmail);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/test")
-    public ResponseEntity<TestIntegrationResponse> runTestSimulation(
-            @RequestBody TestIntegrationRequest request,
-            HttpServletRequest servletRequest) {
-
-        String userEmail = CurrentUser.getEmail(servletRequest);
-        TestIntegrationResponse response = integrationService.runTestSimulation(request, userEmail);
-        return ResponseEntity.ok(response);
-    }
+    private final ApplicationCredentials credentials;
 
     @GetMapping("/verify-key")
     public ResponseEntity<ApiKeyVerificationResponse> verifyApiKey(
-            @RequestHeader(value = "X-API-Key", required = false) String headerApiKey,
-            @RequestParam(value = "apiKey", required = false) String paramApiKey) {
-        String key = (headerApiKey != null && !headerApiKey.isBlank()) ? headerApiKey : paramApiKey;
-        if (key == null || key.isBlank()) {
+            @RequestHeader(value = "X-API-Key", required = false) String headerApiKey) {
+        if (headerApiKey == null || headerApiKey.isBlank()) {
             return ResponseEntity.badRequest().body(ApiKeyVerificationResponse.builder().valid(false).build());
         }
-        log.debug("Verifying integration API key");
-        return ResponseEntity.ok(integrationService.verifyApiKey(key));
+        return ResponseEntity.ok(ApiKeyVerificationResponse.builder()
+                .valid(credentials.authenticate(headerApiKey).isPresent()).build());
     }
 }
-

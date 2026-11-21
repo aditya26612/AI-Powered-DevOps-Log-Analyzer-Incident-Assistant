@@ -21,10 +21,13 @@ def load_bundle(path, version):
     curated = version == "v2"
     orchestrator = CuratedFeatureOrchestrator(include_severity=True) if curated else FeatureOrchestrator()
     names = list(orchestrator.feature_names)
-    if (metadata.feature_names != names or metadata.feature_count != len(names)
+    if (metadata.model_version != ("2.0.0-candidate" if curated else "1.0.0")
+            or metadata.feature_names != names or metadata.feature_count != len(names)
             or metadata.feature_version != ("2.0.0" if curated else "1.0.0")
             or metadata.requires_scaler == curated):
         raise ValueError("Model version or ordered feature schema mismatch")
+    if curated and (metadata.calibrated_decision_threshold != -0.02 or not metadata.sha256_model):
+        raise ValueError("Missing or invalid V2 release metadata")
     if metadata.sha256_model and hashlib.sha256(path.read_bytes()).hexdigest() != metadata.sha256_model:
         raise ValueError("Model artifact checksum mismatch")
     model = joblib.load(path)
@@ -42,6 +45,9 @@ class PredictionBootstrap:
         settings = get_settings()
         path = Path(settings.MODEL_PATH)
         model, builder, scaler, metadata = load_bundle(path, settings.ACTIVE_MODEL)
+        expected_threshold = metadata.calibrated_decision_threshold if settings.ACTIVE_MODEL == "v2" else 0.0
+        if settings.ANOMALY_THRESHOLD != expected_threshold:
+            raise ValueError("Configured threshold does not match the serving release")
         candidate = Path(settings.CANDIDATE_MODEL_PATH)
         shadow = {}
         if settings.SHADOW_MODE_ENABLED and candidate.resolve() != path.resolve():

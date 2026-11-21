@@ -5,6 +5,7 @@ import com.project.log_layer.entity.Log;
 import com.project.log_layer.notification.config.NotificationProperties;
 import com.project.log_layer.notification.dto.SlackPayload;
 import com.project.log_layer.notification.service.NotificationService;
+import com.project.log_layer.tenant.WebhookCipher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -12,15 +13,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.project.log_layer.appintegration.entity.ApplicationIntegration;
 import com.project.log_layer.appintegration.repository.ApplicationIntegrationRepository;
 import com.project.log_layer.enums.LogLevel;
 
-import java.util.Optional;
 
 /**
  * Dispatches rich incident alerts to Slack channels via Incoming Webhooks.
- * Supports per-application webhook override and global cluster default fallback.
+ * Routes only through the encrypted webhook for the authenticated application.
  */
 @Slf4j
 @Service
@@ -29,62 +28,44 @@ public class SlackNotificationService implements NotificationService {
     private final NotificationProperties properties;
     private final WebClient webClient;
     private final ApplicationIntegrationRepository integrationRepository;
+    private final WebhookCipher cipher;
 
     public SlackNotificationService(
             NotificationProperties properties,
             WebClient.Builder webClientBuilder,
-            ApplicationIntegrationRepository integrationRepository) {
+            ApplicationIntegrationRepository integrationRepository,
+            WebhookCipher cipher) {
         this.properties = properties;
         this.webClient = webClientBuilder.build();
         this.integrationRepository = integrationRepository;
+        this.cipher = cipher;
     }
 
     @Override
     public void sendIncidentAlert(Log logEntity, IncidentDiagnosis diagnosis) {
-        NotificationProperties.SlackProperties slackProps = properties.getSlack();
-
-        String targetWebhookUrl = (slackProps != null) ? slackProps.getWebhookUrl() : null;
-        String targetChannel = (slackProps != null) ? slackProps.getChannel() : "#devops-alerts";
-
-        // Check if application has a specific integration configured
-        if (integrationRepository != null && logEntity.getApplicationName() != null) {
-            Optional<ApplicationIntegration> integrationOpt =
-                    integrationRepository.findByApplicationName(logEntity.getApplicationName());
-
-            if (integrationOpt.isPresent()) {
-                ApplicationIntegration integration = integrationOpt.get();
-
-                // Check alert filters
-                boolean isAnomaly = Boolean.TRUE.equals(logEntity.getAnomaly());
-                boolean isError = logEntity.getLevel() == LogLevel.ERROR || logEntity.getLevel() == LogLevel.FATAL;
-
-                if (isAnomaly && !Boolean.TRUE.equals(integration.getAlertOnAnomaly())) {
-                    log.info("Skipping Slack alert for app={} because alertOnAnomaly is disabled in integration", logEntity.getApplicationName());
-                    return;
-                }
-                if (!isAnomaly && isError && !Boolean.TRUE.equals(integration.getAlertOnError())) {
-                    log.info("Skipping Slack alert for app={} because alertOnError is disabled in integration", logEntity.getApplicationName());
-                    return;
-                }
-
-                if (integration.getSlackWebhookUrl() != null && !integration.getSlackWebhookUrl().isBlank()) {
-                    targetWebhookUrl = integration.getSlackWebhookUrl();
-                }
-                if (integration.getSlackChannelName() != null && !integration.getSlackChannelName().isBlank()) {
-                    targetChannel = integration.getSlackChannelName();
-                }
-            }
+        var configured = properties.getSlack();
+        if (configured == null || !configured.isEnabled()
+                || logEntity.getOrganizationId() == null || logEntity.getApplicationId() == null) {
+            return;
+        }
+        var route = integrationRepository.findSlackRoute(
+                logEntity.getApplicationId(), logEntity.getOrganizationId()).orElse(null);
+        if (route == null || route.getCiphertext() == null) {
+            return;
         }
 
-        if (targetWebhookUrl == null || targetWebhookUrl.isBlank()) {
-            log.debug("No Slack webhook URL configured for application={}. Skipping Slack alert.", logEntity.getApplicationName());
+        boolean anomaly = Boolean.TRUE.equals(logEntity.getAnomaly());
+        boolean error = logEntity.getLevel() == LogLevel.ERROR || logEntity.getLevel() == LogLevel.FATAL;
+        if (anomaly && !Boolean.TRUE.equals(route.getAlertOnAnomaly())
+                || !anomaly && error && !Boolean.TRUE.equals(route.getAlertOnError())) {
             return;
         }
 
         try {
             NotificationProperties.SlackProperties activeProps = new NotificationProperties.SlackProperties();
             activeProps.setEnabled(true);
-            activeProps.setWebhookUrl(targetWebhookUrl);
+            String targetWebhookUrl = cipher.decrypt(logEntity.getOrganizationId(), logEntity.getApplicationId(), route.getCiphertext());
+            String targetChannel = route.getChannel();
             activeProps.setChannel(targetChannel);
 
             SlackPayload payload = buildSlackPayload(logEntity, diagnosis, activeProps);
@@ -95,13 +76,12 @@ public class SlackNotificationService implements NotificationService {
                     .uri(targetWebhookUrl)
                     .bodyValue(payload)
                     .retrieve()
-                    .bodyToMono(String.class)
-                    .doOnSuccess(resp -> log.info("Slack alert successfully delivered for logId={}", logEntity.getId()))
-                    .doOnError(err -> log.error("Failed to send alert to Slack for logId={}: {}", logEntity.getId(), err.getMessage()))
-                    .subscribe();
+                    .toBodilessEntity()
+                    .subscribe(resp -> log.info("Slack accepted alert for logId={}", logEntity.getId()),
+                            err -> log.warn("Slack delivery failed for logId={}", logEntity.getId()));
 
         } catch (Exception ex) {
-            log.error("Unexpected error constructing or sending Slack alert for logId={}: {}", logEntity.getId(), ex.getMessage());
+            log.warn("Slack preparation failed for logId={}", logEntity.getId());
         }
     }
 

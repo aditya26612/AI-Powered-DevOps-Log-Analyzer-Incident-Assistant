@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder><pattern>%level %logger - %msg%n</pattern></encoder>
+    </appender>
+    <appender name="DEVINSIGHT" class="com.project.client.DevInsightLogbackAppender"/>
+    <logger name="devinsight.example.events" level="INFO">
+        <appender-ref ref="DEVINSIGHT"/>
+    </logger>
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

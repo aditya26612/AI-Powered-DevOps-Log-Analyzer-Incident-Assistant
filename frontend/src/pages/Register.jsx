@@ -12,7 +12,6 @@ const Register = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    role: "DEVELOPER",
   });
 
   const [loading, setLoading] = useState(false);
@@ -141,29 +140,6 @@ const Register = () => {
                 placeholder="Create a password"
                 required
               />
-            </div>
-
-            {/* Role */}
-
-            <div className="auth-field">
-              <label htmlFor="role">
-                Role
-              </label>
-
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-              >
-                <option value="DEVELOPER">
-                  Developer
-                </option>
-
-                <option value="DEVOPS">
-                  DevOps
-                </option>
-              </select>
             </div>
 
             {/* Submit */}

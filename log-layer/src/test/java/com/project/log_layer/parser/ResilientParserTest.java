@@ -7,11 +7,17 @@ import com.project.log_layer.enums.LogSource;
 import com.project.log_layer.parser.impl.DockerParser;
 import com.project.log_layer.parser.impl.GenericLogParser;
 import com.project.log_layer.parser.impl.KubernetesParser;
+import com.project.log_layer.parser.impl.NodeJsParser;
+import com.project.log_layer.parser.impl.PythonParser;
 import com.project.log_layer.parser.impl.SpringBootParser;
 import com.project.log_layer.parser.model.ParsedLogData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -156,7 +162,7 @@ class ResilientParserTest {
     }
 
     @Test
-    void genericParser_shouldStillDetectFailureWithoutExplicitSeverity() {
+    void genericParser_doesNotPromoteFailureWordsToSeverity() {
         LogIngestRequest request = LogIngestRequest.builder()
                 .rawLog("Database connection failed without a severity label")
                 .source(LogSource.CUSTOM)
@@ -164,7 +170,76 @@ class ResilientParserTest {
                 .build();
 
         ParsedLogData parsed = genericLogParser.parse(request);
-        assertEquals(LogLevel.ERROR, parsed.getLogLevel());
+        assertEquals(LogLevel.INFO, parsed.getLogLevel());
+        assertTrue(parsed.isFallback());
+        assertEquals(request.getRawLog(), parsed.getRawLog());
+    }
+
+    @Test
+    void pythonAndNodeRecognizeTimestampSeverityAndMultilineContent() {
+        String python = "2026-11-19 15:30:01,123+0530 WARNING [worker] app.module: failure handled\nnext line: café";
+        var parsed = new PythonParser().parse(LogIngestRequest.builder().rawLog(python)
+                .applicationName("payment-service").source(LogSource.PYTHON).build());
+        assertEquals(LocalDateTime.parse("2026-11-19T10:00:01.123"), parsed.getTimestamp());
+        assertEquals(LogLevel.WARN, parsed.getLogLevel());
+        assertEquals("worker", parsed.getThreadName());
+        assertEquals("app.module", parsed.getLoggerName());
+        assertTrue(parsed.getMessage().contains("\nnext line: café"));
+        assertEquals(python, parsed.getRawLog());
+
+        String node = "2026-11-19T10:00:00Z [INFO] node: ERROR counter reset";
+        parsed = new NodeJsParser().parse(LogIngestRequest.builder().rawLog(node)
+                .applicationName("payment-service").source(LogSource.NODEJS).build());
+        assertEquals(LogLevel.INFO, parsed.getLogLevel());
+        assertEquals("ERROR counter reset", parsed.getMessage());
+
+        var structured = new NodeJsParser().parse(LogIngestRequest.builder().source(LogSource.NODEJS)
+                .applicationName("payment-service")
+                .rawLog("{\"level\":\"error\",\"message\":\"Redis connection refused\"}").build());
+        assertEquals(LogLevel.ERROR, structured.getLogLevel());
+        assertEquals("Redis connection refused", structured.getMessage());
+    }
+
+    @Test
+    void boundedJsonUsesOnlyRecognizedFieldsAndKeepsRaw() {
+        String raw = "  {\"timestamp\":\"2026-11-19T15:30:00.125+05:30\",\"level\":\"info\","
+                + "\"message\":\"ERROR counter \\\"零\\\"\",\"applicationName\":\"other\",\"nested\":{\"level\":\"FATAL\"}}  ";
+        var parsed = genericLogParser.parse(LogIngestRequest.builder().rawLog(raw)
+                .source(LogSource.CUSTOM).applicationName("verified").build());
+        assertEquals(LogLevel.INFO, parsed.getLogLevel());
+        assertEquals("ERROR counter \"零\"", parsed.getMessage());
+        assertEquals("verified", parsed.getApplicationName());
+        assertEquals(LocalDateTime.parse("2026-11-19T10:00:00.125"), parsed.getTimestamp());
+        assertEquals(raw, parsed.getRawLog());
+        assertFalse(parsed.isFallback());
+
+        String deep = "{\"message\":\"ordinary\",\"nested\":" + "[".repeat(24) + "0" + "]".repeat(24) + "}";
+        var fallback = genericLogParser.parse(LogIngestRequest.builder().rawLog(deep).build());
+        assertTrue(fallback.isFallback());
+        assertEquals(deep, fallback.getRawLog());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"  {\"message\":\"truncated", "{\"level\":\"FATAL\",\"message\":\"a\",\"message\":\"b\"}"})
+    void invalidJsonFallsBackWithoutClaimingCriticalSeverity(String raw) {
+        var parsed = genericLogParser.parse(LogIngestRequest.builder().rawLog(raw).build());
+        assertEquals(LogLevel.INFO, parsed.getLogLevel());
+        assertEquals(raw, parsed.getRawLog());
+        assertTrue(parsed.isFallback());
+    }
+
+    @Test
+    void rawLogLimitRejectsInsteadOfTruncating() {
+        var request = LogIngestRequest.builder().rawLog("界".repeat(16_384)).build();
+        assertEquals(request.getRawLog(), genericLogParser.parse(request).getRawLog());
+        request.setRawLog(request.getRawLog() + "x");
+        assertThrows(com.project.log_layer.exception.InvalidLogFormatException.class, () -> genericLogParser.parse(request));
+
+        String unfinishedHeader = "2026-11-19T10:00:00Z INFO 1 --- [main]" + " ".repeat(16_000) + "incomplete";
+        var malformed = LogIngestRequest.builder().rawLog(unfinishedHeader).source(LogSource.SPRING_BOOT).build();
+        var parsed = assertTimeout(Duration.ofSeconds(2), () -> springBootParser.parse(malformed));
+        assertEquals(unfinishedHeader, parsed.getRawLog());
+        assertEquals(LogLevel.INFO, parsed.getLogLevel());
     }
 
     @Test

@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends
+from contextlib import asynccontextmanager
+from threading import BoundedSemaphore
+
+from fastapi import APIRouter, Depends, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from app.api.v1.dependencies import get_prediction_service, verify_internal_api_key
 from app.api.v1.schemas.requests.prediction_request import PredictionRequest
@@ -18,12 +22,24 @@ router = APIRouter(
     dependencies=[Depends(verify_internal_api_key)],
 )
 
+_slots = BoundedSemaphore(2)
+
+
+@asynccontextmanager
+async def inference_slot():
+    if not _slots.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="Inference at capacity")
+    try:
+        yield
+    finally:
+        _slots.release()
+
 
 @router.post(
     "/predict",
     response_model=PredictionResponse,
 )
-def predict(
+async def predict(
     request: PredictionRequest,
     service: PredictionService = Depends(get_prediction_service),
 ) -> PredictionResponse:
@@ -35,7 +51,8 @@ def predict(
         message=request.message,
     )
 
-    result = service.predict(log)
+    async with inference_slot():
+        result = await run_in_threadpool(service.predict, log)
 
     return PredictionResponse(
         prediction=result.prediction,
@@ -50,7 +67,7 @@ def predict(
     "/predict/batch",
     response_model=BatchPredictionResponse,
 )
-def predict_batch(
+async def predict_batch(
     request: BatchPredictionRequest,
     service: PredictionService = Depends(get_prediction_service),
 ) -> BatchPredictionResponse:
@@ -65,7 +82,8 @@ def predict_batch(
         for log in request.logs
     ]
 
-    results = service.predict_batch(logs)
+    async with inference_slot():
+        results = await run_in_threadpool(service.predict_batch, logs)
 
     predictions = [
         PredictionResponse(

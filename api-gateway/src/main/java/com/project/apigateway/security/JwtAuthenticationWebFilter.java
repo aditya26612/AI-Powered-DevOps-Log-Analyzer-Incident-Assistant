@@ -5,7 +5,6 @@ import com.project.apigateway.util.JwtUtil;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,33 +17,29 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-@Slf4j
 @Component
 public class JwtAuthenticationWebFilter implements WebFilter {
 
     private static final String USER_EMAIL_HEADER = "X-User-Email";
     private static final String APP_NAME_HEADER = "X-Application-Name";
-    private static final long CACHE_TTL_MS = 300_000L; // 5 minutes cache for valid keys
-    private static final long NEGATIVE_CACHE_TTL_MS = 30_000L; // 30 seconds cache for invalid keys
+    private static final int MIN_INTERNAL_KEY_LENGTH = 16;
 
     private final JwtUtil jwtUtil;
     private final String internalApiKey;
     private final WebClient webClient;
 
-    // High-performance thread-safe cache to avoid hitting log-service on every ingestion packet
-    private final Map<String, CachedApiKey> apiKeyCache = new ConcurrentHashMap<>();
 
     public JwtAuthenticationWebFilter(
             JwtUtil jwtUtil,
-            @Value("${internal.api-key:devinsight_internal_ml_key_secret_12345}") String internalApiKey,
+            @Value("${internal.api-key:}") String internalApiKey,
             @Value("${gateway.log-service-url:http://localhost:8082}") String logServiceUrl) {
         this.jwtUtil = jwtUtil;
-        this.internalApiKey = internalApiKey;
+        this.internalApiKey = (internalApiKey != null) ? internalApiKey.trim() : "";
         this.webClient = WebClient.builder()
                 .baseUrl(logServiceUrl)
                 .build();
@@ -52,75 +47,90 @@ public class JwtAuthenticationWebFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String apiKey = exchange.getRequest().getHeaders().getFirst("X-API-Key");
+        // Strip caller-supplied identity headers at the gateway boundary to eliminate header impersonation
+        ServerWebExchange sanitizedExchange = exchange.mutate()
+                .request(exchange.getRequest().mutate()
+                        .headers(headers -> {
+                            headers.remove(USER_EMAIL_HEADER);
+                            headers.remove(APP_NAME_HEADER);
+                            headers.remove("X-User-Id");
+                            headers.remove("X-Organization-Id");
+                            headers.remove("X-Application-Id");
+                            headers.remove("X-Internal-Api-Key");
+                        })
+                        .build())
+                .build();
 
-        if (apiKey != null && !apiKey.isBlank()) {
-            return handleApiKeyAuthentication(apiKey, exchange, chain);
+        var headers = sanitizedExchange.getRequest().getHeaders();
+        List<String> appKeys = headers.get("X-API-Key");
+        if (appKeys != null) {
+            String route = sanitizedExchange.getRequest().getPath().value();
+            if (appKeys.size() != 1 || headers.containsKey(HttpHeaders.AUTHORIZATION)
+                    || !"POST".equals(sanitizedExchange.getRequest().getMethod().name())
+                    || !(route.equals("/api/v1/logs") || route.equals("/api/v1/logs/batch")
+                    || route.equals("/api/v2/logs/batch"))) {
+                return chain.filter(sanitizedExchange);
+            }
+            return handleApiKeyAuthentication(appKeys.getFirst(), sanitizedExchange, chain);
         }
 
-        return handleJwtAuthentication(exchange, chain);
+        return handleJwtAuthentication(sanitizedExchange, chain);
+    }
+
+    private boolean isInternalApiKeyValid(String candidateKey) {
+        if (internalApiKey.isEmpty() || internalApiKey.length() < MIN_INTERNAL_KEY_LENGTH) {
+            // Fail closed: internal master key authentication is unconfigured or insufficiently secure
+            return false;
+        }
+        if (candidateKey == null || candidateKey.isBlank()) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                candidateKey.getBytes(StandardCharsets.UTF_8),
+                internalApiKey.getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     private Mono<Void> handleApiKeyAuthentication(String apiKey, ServerWebExchange exchange, WebFilterChain chain) {
-        // Fast-path 1: Internal Master / Service Key
-        if (apiKey.equals(internalApiKey)) {
-            String clientEmail = exchange.getRequest().getHeaders().getFirst(USER_EMAIL_HEADER);
-            String email = (clientEmail != null && !clientEmail.isBlank()) ? clientEmail : "system@devinsight.io";
-            return authenticateAndContinue(exchange, chain, email, "internal-service");
+        if (internalApiKey.length() < MIN_INTERNAL_KEY_LENGTH || isInternalApiKeyValid(apiKey)
+                || apiKey.length() < 16 || apiKey.length() > 160) {
+            return chain.filter(exchange);
         }
-
-        // Fast-path 2: In-Memory TTL Cache for per-app dynamic API keys (e.g. dvi_...)
-        long now = System.currentTimeMillis();
-        CachedApiKey cached = apiKeyCache.get(apiKey);
-        if (cached != null && cached.getExpiresAt() > now) {
-            if (cached.isValid()) {
-                return authenticateAndContinue(exchange, chain, cached.getUserEmail(), cached.getApplicationName());
-            } else {
-                // Key was recently verified as invalid; proceed unauthenticated so Security will reject
-                return chain.filter(exchange);
-            }
-        }
-
-        // Slow-path: Query log-service to verify dynamic integration key via secure header
-        return webClient.get()
-                .uri("/api/v1/integrations/verify-key")
+        return webClient.get().uri("/api/v1/integrations/verify-key")
+                .header("X-Internal-Api-Key", internalApiKey)
                 .header("X-API-Key", apiKey)
                 .retrieve()
                 .bodyToMono(ApiKeyVerificationDto.class)
                 .timeout(Duration.ofSeconds(3))
-                .flatMap(response -> {
-                    if (response != null && response.isValid()) {
-                        String email = (response.getUserEmail() != null && !response.getUserEmail().isBlank())
-                                ? response.getUserEmail()
-                                : "integration@devinsight.io";
-                        apiKeyCache.put(apiKey, new CachedApiKey(true, email, response.getApplicationName(), now + CACHE_TTL_MS));
-                        return authenticateAndContinue(exchange, chain, email, response.getApplicationName());
-                    } else {
-                        apiKeyCache.put(apiKey, new CachedApiKey(false, null, null, now + NEGATIVE_CACHE_TTL_MS));
-                        return chain.filter(exchange);
-                    }
-                })
-                .onErrorResume(ex -> {
-                    log.warn("Failed to verify API key with log-service: {}", ex.getMessage());
-                    return chain.filter(exchange);
-                });
+                .map(ApiKeyVerificationDto::isValid)
+                .defaultIfEmpty(false)
+                .onErrorReturn(false)
+                .flatMap(valid -> valid
+                        ? authenticateAndContinue(exchange, chain, "integration@devinsight.io", null, "ROLE_APPLICATION")
+                        : chain.filter(exchange));
     }
 
-    private Mono<Void> authenticateAndContinue(ServerWebExchange exchange, WebFilterChain chain, String email, String appName) {
+    private Mono<Void> authenticateAndContinue(
+            ServerWebExchange exchange,
+            WebFilterChain chain,
+            String email,
+            String appName,
+            String role) {
+
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 email,
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_SERVICE"))
+                List.of(new SimpleGrantedAuthority(role))
         );
 
         ServerWebExchange mutatedExchange = exchange.mutate()
                 .request(exchange.getRequest().mutate()
                         .headers(headers -> {
-                            headers.remove(USER_EMAIL_HEADER);
-                            headers.add(USER_EMAIL_HEADER, email);
+                            headers.set(USER_EMAIL_HEADER, email);
                             if (appName != null && !appName.isBlank()) {
+                                headers.set(APP_NAME_HEADER, appName);
+                            } else {
                                 headers.remove(APP_NAME_HEADER);
-                                headers.add(APP_NAME_HEADER, appName);
                             }
                         })
                         .build())
@@ -131,7 +141,8 @@ public class JwtAuthenticationWebFilter implements WebFilter {
     }
 
     private Mono<Void> handleJwtAuthentication(ServerWebExchange exchange, WebFilterChain chain) {
-        String header = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        List<String> headers = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
+        String header = headers != null && headers.size() == 1 ? headers.getFirst() : null;
 
         if (header == null || !header.startsWith("Bearer ")) {
             return chain.filter(exchange);
@@ -145,24 +156,13 @@ public class JwtAuthenticationWebFilter implements WebFilter {
 
         String email = jwtUtil.extractEmail(token);
         String role = jwtUtil.extractRole(token);
+        if (role == null || role.isBlank()) {
+            role = "ROLE_DEVELOPER";
+        } else if (!role.startsWith("ROLE_")) {
+            role = "ROLE_" + role;
+        }
 
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                email,
-                null,
-                List.of(new SimpleGrantedAuthority(role))
-        );
-
-        ServerWebExchange mutatedExchange = exchange.mutate()
-                .request(exchange.getRequest().mutate()
-                        .headers(headers -> {
-                            headers.remove(USER_EMAIL_HEADER);
-                            headers.add(USER_EMAIL_HEADER, email);
-                        })
-                        .build())
-                .build();
-
-        return chain.filter(mutatedExchange)
-                .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+        return authenticateAndContinue(exchange, chain, email, null, role);
     }
 
     @Data
@@ -175,12 +175,4 @@ public class JwtAuthenticationWebFilter implements WebFilter {
         private String userEmail;
     }
 
-    @Data
-    @AllArgsConstructor
-    private static class CachedApiKey {
-        private final boolean valid;
-        private final String userEmail;
-        private final String applicationName;
-        private final long expiresAt;
-    }
 }

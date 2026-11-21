@@ -28,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import BoundedSemaphore
 from datetime import datetime, timezone
 from typing import Any
+import numpy as np
 from sklearn.base import BaseEstimator
 
 from app.domain.log_entry import LogEntry
@@ -168,9 +169,13 @@ class PredictionService:
         # Model Prediction
         # ---------------------------------------------------------
 
-        decision_scores = self._model.decision_function(
+        decision_scores = np.asarray(self._model.decision_function(
             transformed
-        )
+        ))
+        if (decision_scores.shape != (len(logs),)
+                or not np.isfinite(decision_scores).all()
+                or (np.abs(decision_scores) > 1.0).any()):
+            raise ValueError("Invalid model decision scores")
 
         predictions = [
             -1 if float(sc) < self._threshold else 1

@@ -33,6 +33,6 @@ data:
         Port          8080
         URI           /api/v1/logs
         Header        Content-Type application/json
-        Header        X-API-Key devinsight_internal_ml_key_secret_12345
+        Header        X-API-Key ${DEVINSIGHT_INGESTION_KEY}
         Format        json
 

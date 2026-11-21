@@ -1,6 +1,7 @@
 package com.project.log_layer.entity;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 import com.project.log_layer.constant.AppConstants;
@@ -19,6 +20,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -47,6 +50,31 @@ import lombok.Setter;
 @AllArgsConstructor
 public class Log {
 
+    // Collector metadata keys cannot contain '@'. Historical rows do not use this key.
+    public static final String EXTERNAL_EXCEPTION_KEY = "@exception";
+
+    public enum CorrelationOrigin { COLLECTOR_SUPPLIED, LEGACY_SUPPLIED, SERVER_GENERATED }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "correlation_origin", length = 24)
+    private CorrelationOrigin correlationOrigin;
+
+    @Column(name = "trace_parent", length = 55)
+    private String traceparent;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trace_origin", length = 24)
+    private com.project.log_layer.dto.request.ingest.TraceContext.Origin traceOrigin;
+
+    public String externalException() {
+        return externalMetadata == null ? null : externalMetadata.get(EXTERNAL_EXCEPTION_KEY);
+    }
+
+    public String analysisMessage() {
+        String exception = externalException();
+        return exception == null ? message : message + "\n" + exception;
+    }
+
     /**
      * Unique database identifier.
      */
@@ -62,6 +90,22 @@ public class Log {
             nullable = false,
             length = 255)
     private String userEmail;
+
+    @Column(name = "organization_id")
+    private UUID organizationId;
+
+    @Column(name = "application_id")
+    private Long applicationId;
+
+    @Column(name = "external_event_id")
+    private UUID externalEventId;
+
+    @Column(name = "external_event_digest", columnDefinition = "bytea")
+    private byte[] externalEventDigest;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "external_metadata", columnDefinition = "jsonb")
+    private Map<String, String> externalMetadata;
 
 
     /**
@@ -170,8 +214,8 @@ public class Log {
     /**
      * Predicted class returned by the ML model.
      *
-     * 0 -> Normal
-     * 1 -> Anomaly
+     * 1 -> Normal
+     * -1 -> Anomaly
      */
     @Builder.Default
     @Column(name = "prediction")
@@ -234,10 +278,9 @@ public class Log {
      * AnalysisStatus tracks ML processing.
      * llmAnalysisStatus tracks LLM processing.
      */
-    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "llm_analysis_status", length = 30)
-    private AnalysisStatus llmAnalysisStatus = AnalysisStatus.PENDING;
+    private AnalysisStatus llmAnalysisStatus;
 
     /**
      * Timestamp when LLM analysis completed.
