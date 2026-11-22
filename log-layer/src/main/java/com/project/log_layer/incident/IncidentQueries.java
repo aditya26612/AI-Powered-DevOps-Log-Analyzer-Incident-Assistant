@@ -36,7 +36,8 @@ public class IncidentQueries {
             select i.id, i.status, i.severity, i.environment, i.correlation_rule, i.rule_version,
                    i.window_start, i.window_end, i.first_event_at, i.last_event_at, i.event_count, i.version,
                    i.representative_log_id, r.application_name, i.diagnosis_log_id, d.llm_analysis_status,
-                   i.acknowledged_by, i.acknowledged_at, i.resolved_by, i.resolved_at
+                   i.acknowledged_by, i.acknowledged_at, i.resolved_by, i.resolved_at,
+                   i.created_at, i.updated_at
             """;
     private final NamedParameterJdbcTemplate jdbc;
     private final TenantSqlScope scope;
@@ -49,8 +50,11 @@ public class IncidentQueries {
                           Instant firstEventAt, Instant lastEventAt, long eventCount, int version,
                           String representativeLogId, String representativeApplication,
                           String diagnosisLogId, AnalysisStatus diagnosisStatus,
-                          String acknowledgedBy, Instant acknowledgedAt, String resolvedBy, Instant resolvedAt) {}
-    public record Member(String logId, Instant timestamp, String application, LogLevel level, String reason, boolean seed) {}
+                          String acknowledgedBy, Instant acknowledgedAt, String resolvedBy, Instant resolvedAt,
+                          Instant createdAt, Instant updatedAt) {}
+    public record Member(String logId, Instant timestamp, String application, LogLevel level, String reason, boolean seed,
+                         String traceparent, String traceOrigin, Instant linkedAt) {}
+    public record Application(String name, String environment, long events) {}
     public record Page<T>(List<T> content, int page, int size, boolean hasNext) {}
 
     @Transactional(readOnly = true)
@@ -102,14 +106,31 @@ public class IncidentQueries {
         find(organization, incident);
         var parameters = pagination(organization, page, size).addValue("incident", incident);
         return readPage("""
-                select m.log_id, l.timestamp, l.application_name, l.level, m.reason, m.seed
+                select m.log_id, l.timestamp, l.application_name, l.level, m.reason, m.seed,
+                       l.trace_parent, l.trace_origin, m.linked_at
                 from public.incident_memberships m join public.logs l
                     on l.organization_id=m.organization_id and l.id=m.log_id
                 where m.organization_id=:organization and m.incident_id=:incident
-                order by m.log_id limit :limit offset :offset
+                order by l.timestamp, m.log_id limit :limit offset :offset
                 """, parameters, (rs, row) -> new Member(rs.getString("log_id"), time(rs, "timestamp"),
                 rs.getString("application_name"), LogLevel.valueOf(rs.getString("level")), rs.getString("reason"),
-                rs.getBoolean("seed")), page, size);
+                rs.getBoolean("seed"),rs.getString("trace_parent"),rs.getString("trace_origin"),
+                auditTime(rs,"linked_at")), page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Application> applications(UUID organization, long actor, UUID incident, int page, int size) {
+        enter(organization,actor,false);
+        find(organization,incident);
+        var params = pagination(organization,page,size).addValue("incident",incident);
+        return readPage("""
+                select l.application_name,l.environment,count(*)
+                from public.incident_memberships m join public.logs l
+                     on l.organization_id=m.organization_id and l.id=m.log_id
+                where m.organization_id=:organization and m.incident_id=:incident
+                group by l.application_name,l.environment order by count(*) desc,l.application_name,l.environment
+                limit :limit offset :offset
+                """,params,(rs,row) -> new Application(rs.getString(1),rs.getString(2),rs.getLong(3)),page,size);
     }
 
     @Transactional
@@ -177,7 +198,8 @@ public class IncidentQueries {
                 row.getString("application_name"), row.getString("diagnosis_log_id"),
                 diagnosisStatus == null ? null : AnalysisStatus.valueOf(diagnosisStatus),
                 row.getString("acknowledged_by"), auditTime(row, "acknowledged_at"),
-                row.getString("resolved_by"), auditTime(row, "resolved_at"));
+                row.getString("resolved_by"), auditTime(row, "resolved_at"),
+                auditTime(row,"created_at"),auditTime(row,"updated_at"));
     }
 
     private static Instant time(ResultSet row, String column) throws SQLException {

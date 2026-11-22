@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.URI;
@@ -72,7 +73,7 @@ public class WebhookCipher {
         }
     }
 
-    static boolean allowed(String url) {
+    public static boolean allowed(String url) {
         if (url == null || url.length() > 500) {
             return false;
         }
@@ -84,6 +85,18 @@ public class WebhookCipher {
                     && uri.getRawPath().matches("/services/[A-Za-z0-9_-]+/[A-Za-z0-9_-]+/[A-Za-z0-9_-]+");
         } catch (IllegalArgumentException ex) {
             return false;
+        }
+    }
+
+    public byte[] destinationDigest(String verifiedUrl) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key.getEncoded(), "HmacSHA256"));
+            mac.update("devinsight/slack/rate-gate/v1/".getBytes(StandardCharsets.UTF_8));
+            // The strict URL validator accepts only this scheme and host. Preserve path case.
+            return mac.doFinal(URI.create(verifiedUrl).getRawPath().getBytes(StandardCharsets.US_ASCII));
+        } catch (GeneralSecurityException ex) {
+            throw new IllegalStateException("Unable to identify Slack delivery destination");
         }
     }
 

@@ -6,6 +6,8 @@ import com.project.log_layer.security.TenantIdentity;
 import com.project.log_layer.util.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -31,6 +33,7 @@ public class TenantApplicationController {
     record Update(@NotNull Environment environment, @Size(max = 255) String description) {}
     record KeyRequest(@NotBlank @Size(max = 80) String name, OffsetDateTime expiresAt) {}
     record Webhook(@Size(max = 500) String url) {}
+    record SlackPolicy(@NotNull Boolean enabled, @NotNull @Min(1) @Max(3) Integer minimumSeverity) {}
 
     @GetMapping
     public List<TenantApplications.Application> list(@PathVariable UUID organization, HttpServletRequest request) {
@@ -68,6 +71,14 @@ public class TenantApplicationController {
     public void slack(@PathVariable UUID organization, @PathVariable long id, @Valid @RequestBody Webhook input,
                       HttpServletRequest request) {
         applications.setWebhook(organization, TenantIdentity.requireUserId(request), id, input.url());
+    }
+
+    @PutMapping("/{id}/slack/policy")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void slackPolicy(@PathVariable UUID organization, @PathVariable long id,
+                            @Valid @RequestBody SlackPolicy input, HttpServletRequest request) {
+        applications.setSlackPolicy(organization, TenantIdentity.requireUserId(request),id,
+                input.enabled(),input.minimumSeverity());
     }
 
     @GetMapping("/{id}/credentials")

@@ -1,246 +1,242 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { changeIncidentStatus, incidentDetail, incidentDiagnosis, listIncidentLogs, listIncidents,
-  retryIncidentDiagnosis } from "../api/incidentApi";
-import { listApplications, listOrganizations, selectionKey } from "../api/integrationApi";
-import "./Incidents.css";
+import { useCallback, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { changeIncidentStatus, incidentDetail, incidentDiagnosis, listIncidentApplications, listIncidentLogs,
+  listIncidents, retryIncidentDiagnosis } from "../api/incidentApi";
+import { ApplicationSelect, RangeSelect, Refresh, ResourceError, Status } from "../components/WorkspaceControls";
+import { useWorkspace } from "../context/workspace";
+import useResource, { readError } from "../hooks/useResource";
+import { boundedPage, dateTime, label, rangeKey, ranges } from "../observability";
+import IncidentNotifications from "./IncidentNotifications";
 
-const time = (value) => new Date(value).toLocaleString();
-const labels = {
-  OPEN: "Open", ACKNOWLEDGED: "Acknowledged", RESOLVED: "Resolved",
-  MEDIUM: "Medium", HIGH: "High", CRITICAL: "Critical",
+const reasons = {
   SUPPLIED_TRACE: "Supplied trace", APPLICATION_SIGNATURE: "Application failure signature",
   INITIAL_SEED: "First qualifying event", SAME_SUPPLIED_TRACE: "Same supplied trace",
   SAME_APPLICATION_SIGNATURE: "Same application failure signature", TRACE_CONTEXT: "Trace context",
-  PENDING: "Pending", PROCESSING: "Processing", COMPLETED: "Completed", FAILED: "Failed",
-  RUNNING: "Processing", RETRY_WAIT: "Retry scheduled", SUCCEEDED: "Completed", FAILED_TERMINAL: "Terminal failure",
 };
+const canPollDiagnosis = (job) => job === null || ["PENDING","RUNNING","RETRY_WAIT"].includes(job.status);
 
-function Pagination({ data, setPage }) {
-  if (!data) return null;
-  return <div className="incident-pagination">
-    <button type="button" disabled={data.page === 0} onClick={() => setPage(data.page - 1)}>Previous</button>
-    <span>Page {data.page + 1}</span>
-    <button type="button" disabled={!data.hasNext} onClick={() => setPage(data.page + 1)}>Next</button>
-  </div>;
+function Pagination({ page, hasNext, change, name }) {
+  return <nav className="work-paging compact" aria-label={name}>
+    <button className="work-button" disabled={page === 0} onClick={() => change(page - 1)}>Previous</button>
+    <span>Page {page + 1}</span>
+    <button className="work-button" disabled={!hasNext} onClick={() => change(page + 1)}>Next</button>
+  </nav>;
+}
+
+function Diagnosis({ org, incident, canWrite }) {
+  const [page, setPage] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const load = useCallback(async (signal) => {
+    try {
+      return await incidentDiagnosis(org, incident, signal, page);
+    } catch (failure) {
+      if (failure.response?.status === 404) return null;
+      throw failure;
+    }
+  }, [org, incident, page]);
+  const job = useResource(`${org}/${incident}/diagnosis/${page}`, load, page === 0 ? 5000 : 0, canPollDiagnosis);
+  const data = job.data;
+  async function retry() {
+    setBusy(true);
+    setError("");
+    try {
+      await retryIncidentDiagnosis(org, incident);
+      setPage(0);
+    } catch (failure) {
+      setError(readError(failure));
+    } finally {
+      job.refresh();
+      setBusy(false);
+    }
+  }
+  return <section className="work-panel incident-section" aria-label="AI diagnosis">
+    <h3>AI diagnosis</h3>
+    <ResourceError resource={job} />
+    {data === undefined && !job.error && <p role="status">Loading diagnosis…</p>}
+    {data === null && <p className="work-muted">No automatic diagnosis scheduled.</p>}
+    {data && <>
+      <p><Status value={data.status}>{data.leaseExpired ? "Awaiting worker recovery" : label(data.status)}</Status>
+        {" · "}Attempts {data.attemptCount} of {data.maxAttempts}</p>
+      {data.status === "RETRY_WAIT" && <p>Next retry {dateTime(data.nextAttemptAt)}</p>}
+      {data.failureCategory && <p>Last failure · {label(data.failureCategory)}</p>}
+      {data.status === "SUCCEEDED" && <dl className="work-properties">
+        {data.summary && <div><dt>Summary</dt><dd className="work-prose">{data.summary}</dd></div>}
+        {data.rootCause && <div><dt>Probable cause</dt><dd className="work-prose">{data.rootCause}</dd></div>}
+        {data.recommendation && <div><dt>Suggested remediation</dt><dd className="work-prose">{data.recommendation}</dd></div>}
+        {data.completedAt && <div><dt>Result accepted</dt><dd>{dateTime(data.completedAt)}</dd></div>}
+      </dl>}
+      {data.logId && <Link className="work-link" to={`/logs/${data.logId}/analyze`}>View diagnosis source</Link>}
+      {canWrite && data.status === "FAILED_TERMINAL" && data.manualRetries < 3 &&
+        <button className="work-button" disabled={busy} onClick={retry}>Retry diagnosis</button>}
+      {data.attempts.length > 0 && <details className="work-details">
+        <summary>Diagnosis attempts</summary>
+        <ul>{data.attempts.map((attempt) => <li key={attempt.number}>
+          Attempt {attempt.number} · {label(attempt.outcome || "RUNNING")} · started {dateTime(attempt.startedAt)}
+          {attempt.finishedAt && ` · finished ${dateTime(attempt.finishedAt)}`}
+          {attempt.failureCategory && ` · ${label(attempt.failureCategory)}`}
+        </li>)}</ul>
+        {(page > 0 || data.hasMore) && <Pagination page={page} hasNext={data.hasMore} change={setPage} name="Diagnosis attempt pages" />}
+      </details>}
+    </>}
+    {error && <p role="alert" className="work-alert">{error}</p>}
+  </section>;
+}
+
+function Evidence({ org, incident }) {
+  const [page, setPage] = useState(0);
+  const [appsPage, setAppsPage] = useState(0);
+  const load = useCallback((signal) => listIncidentLogs(org, incident, page, signal), [org, incident, page]);
+  const loadApps = useCallback((signal) => listIncidentApplications(org, incident, appsPage, signal), [org, incident, appsPage]);
+  const logs = useResource(`${org}/${incident}/logs/${page}`, load, 20000);
+  const apps = useResource(`${org}/${incident}/applications/${appsPage}`, loadApps, 20000);
+  return <section className="work-panel incident-section">
+    <h3>Correlation evidence</h3>
+    <p className="work-muted">Membership groups observed logs. Reported trace context shows only spans present in those logs.</p>
+    <ResourceError resource={apps} /><ResourceError resource={logs} />
+    {apps.data && <div><h4>Affected applications</h4>
+      <ul className="affected-apps">{apps.data.content.map((item) => <li key={JSON.stringify([item.name,item.environment])}>
+        {item.name} · {label(item.environment)} · {item.events} events
+      </li>)}</ul>
+      {(appsPage > 0 || apps.data.hasNext) && <Pagination page={appsPage} hasNext={apps.data.hasNext} change={setAppsPage} name="Affected application pages" />}
+    </div>}
+    <header className="work-panel-header"><h4>Source log timeline</h4>
+      <Link className="work-link" to={`/logs?incident=${incident}&range=MONTH`}>Open in log explorer</Link></header>
+    {!logs.data && !logs.error && <p role="status">Loading source events…</p>}
+    {logs.data && <>
+      <div className="work-table-scroll" tabIndex={0} role="region" aria-label="Correlation timeline">
+        <table className="work-table"><thead><tr>{["Occurrence","Log","Level","Association","Reported trace","Membership recorded"].map((item) =>
+          <th scope="col" key={item}>{item}</th>)}</tr></thead>
+          <tbody>{logs.data.content.map((log) => <tr key={log.logId}>
+            <td>{dateTime(log.timestamp)}</td>
+            <td><Link className="work-link" to={`/logs/${log.logId}/analyze`}>Log {log.logId}</Link><small>{log.application}</small></td>
+            <td><Status value={log.level} /></td><td>{reasons[log.reason] ?? label(log.reason)}</td>
+            <td>{log.traceparent ? <>
+              <Link className="work-link" to={`/logs?trace=${log.traceparent.slice(3,35)}&range=MONTH`}>
+                <code>{log.traceparent.slice(3,15)}…</code></Link>
+              <small>Span {log.traceparent.slice(36,52)} · {label(log.traceOrigin)}</small>
+            </> : "—"}</td><td>{dateTime(log.linkedAt)}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <Pagination page={page} hasNext={logs.data.hasNext} change={setPage} name="Timeline pages" />
+    </>}
+  </section>;
+}
+
+function IncidentDetail({ org, incident, canWrite, onClose, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const load = useCallback((signal) => incidentDetail(org, incident, signal), [org, incident]);
+  const resource = useResource(`${org}/${incident}`, load, 15000);
+  const detail = resource.data;
+  async function transition(action) {
+    setError("");
+    setBusy(true);
+    try {
+      await changeIncidentStatus(org, incident, action, detail.version);
+    } catch (failure) {
+      setError(readError(failure));
+    } finally {
+      setBusy(false);
+      resource.refresh();
+      onChange();
+    }
+  }
+  return <section className="incident-workspace" aria-label="Incident details">
+    <header className="work-panel work-panel-header">
+      <div><h2>{detail ? `${detail.representativeApplication} incident` : "Incident details"}</h2>
+        <p className="work-muted"><code>{incident}</code></p></div>
+      <button className="work-button" onClick={onClose}>Close details</button>
+    </header>
+    <ResourceError resource={resource} />
+    {!detail && !resource.error && <p role="status">Loading incident…</p>}
+    {detail && <>
+      <section className="work-panel incident-section">
+        <div className="work-panel-header"><h3>Incident overview</h3>
+          <div><Status value={detail.severity} /> <Status value={detail.status} /></div></div>
+        <dl className="work-properties">
+          <div><dt>First occurrence</dt><dd>{dateTime(detail.firstEventAt)}</dd></div>
+          <div><dt>Last occurrence</dt><dd>{dateTime(detail.lastEventAt)}</dd></div>
+          <div><dt>Incident created</dt><dd>{dateTime(detail.createdAt)}</dd></div>
+          <div><dt>Last update</dt><dd>{dateTime(detail.updatedAt)}</dd></div>
+          <div><dt>Associated events</dt><dd>{detail.eventCount}</dd></div>
+          <div><dt>Correlation rule</dt><dd>{reasons[detail.correlationRule] ?? label(detail.correlationRule)} · v{detail.ruleVersion}</dd></div>
+          {detail.acknowledgedAt && <div><dt>Acknowledged</dt><dd>{dateTime(detail.acknowledgedAt)}</dd></div>}
+          {detail.resolvedAt && <div><dt>Resolved</dt><dd>{dateTime(detail.resolvedAt)}</dd></div>}
+        </dl>
+        {canWrite && detail.status !== "RESOLVED" && <div className="incident-work-actions">
+          {detail.status === "OPEN" && <button className="work-button" disabled={busy} onClick={() => transition("acknowledge")}>Acknowledge</button>}
+          <button className="work-button" disabled={busy} onClick={() => transition("resolve")}>Resolve</button>
+        </div>}
+        {error && <p role="alert" className="work-alert">{error}</p>}
+      </section>
+      <div className="incident-work-panels">
+        <Diagnosis org={org} incident={incident} canWrite={canWrite} />
+        <IncidentNotifications organization={org} incident={incident} canRetry={canWrite} />
+      </div>
+      <Evidence org={org} incident={incident} />
+    </>}
+  </section>;
 }
 
 export default function Incidents() {
-  const [organizations, setOrganizations] = useState([]);
-  const [organization, setOrganization] = useState(localStorage.getItem(selectionKey) || "");
-  const [applications, setApplications] = useState([]);
-  const [status, setStatus] = useState("");
-  const [severity, setSeverity] = useState("");
-  const [application, setApplication] = useState("");
-  const [page, setPage] = useState(0);
-  const [list, setList] = useState(null);
-  const [selected, setSelected] = useState("");
-  const [detail, setDetail] = useState(null);
-  const [diagnosis, setDiagnosis] = useState(null);
-  const [logs, setLogs] = useState(null);
-  const [logsPage, setLogsPage] = useState(0);
-  const [revision, setRevision] = useState(0);
-  const [error, setError] = useState("");
-  const [updating, setUpdating] = useState(false);
-  const role = organizations.find(({ id }) => id === organization)?.role;
-
-  useEffect(() => {
-    let active = true;
-    listOrganizations().then((data) => {
-      if (active) setOrganizations(data);
-    }).catch(() => { if (active) setError("Could not load organizations."); });
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!organization) return;
-    let active = true;
-    listApplications(organization).then((data) => {
-      if (active) setApplications(data);
-    }).catch(() => { if (active) setError("Could not load applications."); });
-    return () => { active = false; };
-  }, [organization]);
-
-  useEffect(() => {
-    if (!organization) return;
-    const controller = new AbortController();
-    const params = { page, status: status || undefined, severity: severity || undefined, applicationId: application || undefined };
-    listIncidents(organization, params, controller.signal).then((data) => {
-      if (!controller.signal.aborted) setList(data);
-    }).catch(() => { if (!controller.signal.aborted) setError("Could not load incidents."); });
-    return () => controller.abort();
-  }, [organization, page, status, severity, application, revision]);
-
-  useEffect(() => {
-    if (!organization || !selected) return;
-    const controller = new AbortController();
-    Promise.all([incidentDetail(organization, selected, controller.signal),
-      listIncidentLogs(organization, selected, logsPage, controller.signal)]).then(([incident, members]) => {
-      if (!controller.signal.aborted) {
-        setDetail(incident);
-        setLogs(members);
-      }
-    }).catch(() => { if (!controller.signal.aborted) setError("Could not load this incident."); });
-    return () => controller.abort();
-  }, [organization, selected, logsPage, revision]);
-
-  useEffect(() => {
-    if (!organization || !selected) return;
-    const controller = new AbortController();
-    let next;
-    async function refreshDiagnosis() {
-      try {
-        const data = await incidentDiagnosis(organization, selected, controller.signal);
-        if (controller.signal.aborted) return;
-        setDiagnosis(data);
-        if (["PENDING", "RUNNING", "RETRY_WAIT"].includes(data.status)) {
-          next = setTimeout(refreshDiagnosis, 1500);
-        }
-      } catch (failure) {
-        if (!controller.signal.aborted && failure.response?.status !== 404) setError("Could not load diagnosis status.");
-      }
-    }
-    refreshDiagnosis();
-    return () => {
-      controller.abort();
-      clearTimeout(next);
-    };
-  }, [organization, selected, revision]);
-
-  function selectOrganization(next) {
-    if (next) localStorage.setItem(selectionKey, next);
-    setOrganization(next);
-    setApplication("");
-    setApplications([]);
-    setList(null);
-    setPage(0);
-    show("");
+  const { organization, applications } = useWorkspace();
+  const [filters, setFilters] = useSearchParams();
+  const org = organization.id;
+  const status = filters.get("status") || "";
+  const severity = filters.get("severity") || "";
+  const application = filters.get("application") || "";
+  const range = rangeKey(filters.get("range"));
+  const selected = filters.get("incident");
+  const page = boundedPage(filters.get("page"));
+  const load = useCallback((signal) => {
+    const now = Date.now();
+    const duration = ranges.find(([key]) => key === range)[2];
+    return listIncidents(org, { page, status: status || undefined, severity: severity || undefined,
+      applicationId: application || undefined, from: new Date(now - duration).toISOString(),
+      to: new Date(now).toISOString() }, signal);
+  }, [org, page, status, severity, application, range]);
+  const list = useResource(JSON.stringify([org,page,status,severity,application,range]), load, 15000);
+  function update(key, value, reset = true) {
+    setFilters((current) => {
+      const next = new URLSearchParams(current);
+      if (reset) next.delete("page");
+      if (value) next.set(key, value);
+      else next.delete(key);
+      return next;
+    });
   }
-
-  function show(id) {
-    setError("");
-    setSelected(id);
-    setDetail(null);
-    setDiagnosis(null);
-    setLogs(null);
-    setLogsPage(0);
-  }
-
-  function filter(setValue, value) {
-    setError("");
-    setList(null);
-    setPage(0);
-    setValue(value);
-  }
-
-  async function transition(action) {
-    setUpdating(true);
-    setError("");
-    try {
-      await changeIncidentStatus(organization, detail.id, action, detail.version);
-    } catch (failure) {
-      setError(failure.response?.status === 409 ? "Incident changed. Review the latest state and try again." : "Could not change the incident status.");
-    } finally {
-      setUpdating(false);
-      setRevision((value) => value + 1);
-    }
-  }
-
-  async function retryDiagnosis() {
-    setUpdating(true);
-    setError("");
-    try {
-      setDiagnosis(await retryIncidentDiagnosis(organization, detail.id));
-    } catch {
-      setError("Could not schedule another diagnosis attempt.");
-    } finally {
-      setUpdating(false);
-      setRevision((value) => value + 1);
-    }
-  }
-
-  return <section className="incidents-page">
-    <h1>Incidents</h1>
-    {error && <p role="alert">{error}</p>}
-    <div className="incident-filters">
-      <label>Organization
-        <select value={organization} onChange={(event) => selectOrganization(event.target.value)} disabled={updating}>
-          <option value="" disabled>Select an organization</option>
-          {organizations.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
-        </select>
-      </label>
-      <label>Status
-        <select value={status} onChange={(event) => filter(setStatus, event.target.value)}>
-          <option value="">All statuses</option>
-          {["OPEN", "ACKNOWLEDGED", "RESOLVED"].map((value) => <option key={value} value={value}>{labels[value]}</option>)}
-        </select>
-      </label>
-      <label>Severity
-        <select value={severity} onChange={(event) => filter(setSeverity, event.target.value)}>
-          <option value="">All severities</option>
-          {["MEDIUM", "HIGH", "CRITICAL"].map((value) => <option key={value} value={value}>{labels[value]}</option>)}
-        </select>
-      </label>
-      <label>Application
-        <select value={application} onChange={(event) => filter(setApplication, event.target.value)}>
-          <option value="">All applications</option>
-          {applications.map((item) => <option value={item.id} key={item.id}>{item.applicationName} · {item.environment}</option>)}
-        </select>
-      </label>
-    </div>
-
-    {organization && <>
-      <div className="incident-table">
-        <table>
-          <thead><tr><th>Incident</th><th>Severity</th><th>Status</th><th>Events</th><th>Last occurrence</th></tr></thead>
-          <tbody>{list?.content.map((item) => <tr key={item.id}>
-            <td><button type="button" disabled={updating} onClick={() => show(item.id)}>{item.representativeApplication}</button></td>
-            <td>{labels[item.severity]}</td><td>{labels[item.status]}</td><td>{item.eventCount}</td><td>{time(item.lastEventAt)}</td>
-          </tr>)}</tbody>
-        </table>
+  return <div className="incident-workspace">
+    <section className="work-panel" aria-label="Incident list">
+      <div className="work-toolbar">
+        <RangeSelect value={range} onChange={(value) => update("range", value)} />
+        <ApplicationSelect applications={applications} value={application} onChange={(value) => update("application", value)} />
+        {[["Status","status",status,["OPEN","ACKNOWLEDGED","RESOLVED"]],["Severity","severity",severity,["MEDIUM","HIGH","CRITICAL"]]]
+          .map(([title,key,value,options]) => <label key={key} className="work-field">{title}
+            <select value={value} onChange={(event) => update(key,event.target.value)}>
+              <option value="">Any</option>
+              {options.map((option) => <option key={option} value={option}>{label(option)}</option>)}
+            </select></label>)}
+        <Refresh resource={list} />
       </div>
-      {!list && !error && <p role="status">Loading incidents…</p>}
-      {list?.content.length === 0 && <p>No incidents match the selected filters.</p>}
-      <Pagination data={list} setPage={setPage} />
-    </>}
-
-    {detail && <section className="incident-details" aria-label="Incident details">
-      <h2>{detail.representativeApplication} incident</h2>
-      <dl>
-        <div><dt>Status</dt><dd>{labels[detail.status]}</dd></div>
-        <div><dt>Severity</dt><dd>{labels[detail.severity]}</dd></div>
-        <div><dt>First occurrence</dt><dd>{time(detail.firstEventAt)}</dd></div>
-        <div><dt>Last occurrence</dt><dd>{time(detail.lastEventAt)}</dd></div>
-        <div><dt>Associated events</dt><dd>{detail.eventCount}</dd></div>
-        <div><dt>Rule</dt><dd>{labels[detail.correlationRule]}</dd></div>
-        <div><dt>Diagnosis</dt><dd>{diagnosis?.leaseExpired ? "Awaiting worker recovery" :
-          labels[diagnosis?.status || detail.diagnosisStatus] || "No automatic diagnosis scheduled"}
-          {detail.diagnosisLogId && <> · <Link to={`/logs/${detail.diagnosisLogId}/analyze`}>Diagnosis log</Link></>}
-        </dd></div>
-      </dl>
-      {diagnosis && <div>
-        <p>Attempts {diagnosis.attemptCount} of {diagnosis.maxAttempts}</p>
-        {diagnosis.nextAttemptAt && diagnosis.status === "RETRY_WAIT" && <p>Next retry {time(diagnosis.nextAttemptAt)}</p>}
-        {diagnosis.failureCategory && <p>Last failure {diagnosis.failureCategory.toLowerCase().replaceAll("_", " ")}</p>}
-        {diagnosis.summary && <p>{diagnosis.summary}</p>}
-        {role && role !== "VIEWER" && diagnosis.status === "FAILED_TERMINAL" && diagnosis.manualRetries < 3 &&
-          <button type="button" disabled={updating} onClick={retryDiagnosis}>Retry diagnosis</button>}
+      <p className="work-muted">Newest last occurrence first</p>
+      <ResourceError resource={list} />
+      {!list.data && !list.error && <p className="work-loading" role="status">Loading incidents…</p>}
+      {list.data?.content.length > 0 && <div className="work-table-scroll" tabIndex={0} role="region" aria-label="Incidents">
+        <table className="work-table"><thead><tr>{["Incident","Severity","Status","Events","First occurrence","Last occurrence","Diagnosis","Updated"].map((item) =>
+          <th key={item} scope="col">{item}</th>)}</tr></thead><tbody>{list.data.content.map((item) => <tr key={item.id}>
+          <td><button className="work-text-button" onClick={() => update("incident",item.id,false)}>{item.representativeApplication}</button>
+            <small>{item.id.slice(0,8)}</small></td>
+          <td><Status value={item.severity} /></td><td><Status value={item.status} /></td><td>{item.eventCount}</td>
+          <td>{dateTime(item.firstEventAt)}</td><td>{dateTime(item.lastEventAt)}</td>
+          <td>{item.diagnosisStatus ? <Status value={item.diagnosisStatus} /> : "Unscheduled"}</td><td>{dateTime(item.updatedAt)}</td>
+        </tr>)}</tbody></table>
       </div>}
-      {role && role !== "VIEWER" && detail.status !== "RESOLVED" && <div className="incident-actions">
-        {detail.status === "OPEN" && <button type="button" disabled={updating} onClick={() => transition("acknowledge")}>Acknowledge</button>}
-        <button type="button" disabled={updating} onClick={() => transition("resolve")}>Resolve</button>
-      </div>}
-      <h3>Source logs</h3>
-      <div className="incident-table">
-        <table>
-          <thead><tr><th>Log</th><th>Application</th><th>Occurrence</th><th>Level</th><th>Association</th></tr></thead>
-          <tbody>{logs?.content.map((log) => <tr key={log.logId}>
-            <td><Link to={`/logs/${log.logId}/analyze`}>Log {log.logId}</Link></td><td>{log.application}</td>
-            <td>{time(log.timestamp)}</td><td>{log.level}</td><td>{labels[log.reason]}</td>
-          </tr>)}</tbody>
-        </table>
-      </div>
-      <Pagination data={logs} setPage={setLogsPage} />
-    </section>}
-  </section>;
+      {list.data && (list.data.content.length === 0 ? <p className="work-empty">No incidents match these filters.</p> : null)}
+      {list.data && <Pagination page={page} hasNext={page < 200 && list.data.hasNext} change={(value) => update("page",value,false)} name="Incident pages" />}
+    </section>
+    {selected && <IncidentDetail key={selected} org={org} incident={selected} canWrite={organization.role !== "VIEWER"}
+      onClose={() => update("incident","",false)} onChange={list.refresh} />}
+  </div>;
 }

@@ -12,11 +12,14 @@ export const incidentDetail = (org, id, signal) =>
 export const listIncidentLogs = (org, id, page, signal) =>
   api.get(`${incidentPath(org, id)}/logs`, { params: { page }, signal }).then((response) => response.data);
 
+export const listIncidentApplications = (org, id, page, signal) =>
+  api.get(`${incidentPath(org, id)}/applications`, { params: { page }, signal }).then(({ data }) => data);
+
 export const changeIncidentStatus = (org, id, action, version) =>
   api.post(`${incidentPath(org, id)}/${action}`, { version }).then((response) => response.data);
 
-export const incidentDiagnosis = (org, id, signal) =>
-  api.get(`${incidentPath(org, id)}/diagnosis`, { signal }).then((response) => response.data);
+export const incidentDiagnosis = (org, id, signal, page = 0) =>
+  api.get(`${incidentPath(org, id)}/diagnosis`, { signal, params: { page } }).then((response) => response.data);
 
 export const retryIncidentDiagnosis = (org, id) =>
   api.post(`${incidentPath(org, id)}/diagnosis/retry`).then((response) => response.data);

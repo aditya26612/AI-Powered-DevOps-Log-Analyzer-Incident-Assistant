@@ -1,7 +1,6 @@
-import { createContext, useContext, useState } from "react";
+import { useState } from "react";
 import { login as loginApi, register as registerApi } from "../api/authApi";
-
-const AuthContext = createContext(null);
+import { AuthContext } from "./auth";
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => {
@@ -10,7 +9,11 @@ export const AuthProvider = ({ children }) => {
 
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
+    try {
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch {
+      return null;
+    }
   });
 
   const login = async (credentials) => {
@@ -60,8 +63,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  return useContext(AuthContext);
 };

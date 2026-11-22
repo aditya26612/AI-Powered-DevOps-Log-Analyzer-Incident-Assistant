@@ -52,7 +52,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
-    "spring.datasource.url=jdbc:postgresql://127.0.0.1:55438/log_layer_db",
+    "spring.datasource.url=jdbc:postgresql://127.0.0.1:${DEVINSIGHT_FIXTURE_DB_PORT:55438}/log_layer_db",
     "spring.datasource.username=devinsight_log_app",
     "spring.datasource.password=${DEVINSIGHT_STAGE04_DB_ROLE_PASSWORD}",
     "spring.datasource.hikari.connection-timeout=2000",
@@ -70,6 +70,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @EnabledIfEnvironmentVariable(named = "DEVINSIGHT_STAGE04_FIXTURE", matches = "true")
 class KafkaBrokerIntegrationTest {
+    private static final int fixturePort = Integer.parseInt(System.getenv().getOrDefault("DEVINSIGHT_FIXTURE_DB_PORT","55438"));
     @Autowired MockMvc http;
     @Autowired ObjectMapper json;
     @Autowired KafkaMode mode;
@@ -233,14 +234,15 @@ class KafkaBrokerIntegrationTest {
         UUID id = UUID.randomUUID();
         UUID receipt = send(a, id);
         var pgdata = Path.of(System.getenv("DEVINSIGHT_STAGE04_PGDATA")).toAbsolutePath().normalize();
-        try (var connection = DriverManager.getConnection("jdbc:postgresql://127.0.0.1:55438/log_layer_db",
+        assertTrue(fixturePort == 55438 || fixturePort == 15438);
+        try (var connection = DriverManager.getConnection("jdbc:postgresql://127.0.0.1:" + fixturePort + "/log_layer_db",
                 "postgres", System.getenv("DB_PASSWORD"));
              var statement = connection.createStatement();
              var result = statement.executeQuery("select current_setting('data_directory')")) {
             assertTrue(result.next());
             assertEquals(pgdata, Path.of(result.getString(1)).toAbsolutePath().normalize());
         }
-        assertEquals(55438, jdbc.queryForObject("select inet_server_port()", Integer.class));
+        assertEquals(fixturePort, jdbc.queryForObject("select inet_server_port()", Integer.class));
         assertEquals("pgdata-verified", pgdata.getFileName().toString());
         var meters = new SimpleMeterRegistry();
         try (var admin = admin(); var probe = consumer()) {
@@ -328,7 +330,7 @@ class KafkaBrokerIntegrationTest {
         var command = new ArrayList<>(List.of("C:/Program Files/PostgreSQL/16/bin/pg_ctl.exe", "-D", data.toString(),
                 "-w", "-t", "20"));
         command.addAll(start ? List.of("-l", data.resolveSibling("stage04-pg-outage.log").toString(),
-                "-o", "-h 127.0.0.1 -p 55438", "start") : List.of("-m", "fast", "stop"));
+                "-o", "-h 127.0.0.1 -p " + fixturePort, "start") : List.of("-m", "fast", "stop"));
         var action = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
         assertTrue(action.waitFor(25, TimeUnit.SECONDS));
         assertEquals(0, action.exitValue());

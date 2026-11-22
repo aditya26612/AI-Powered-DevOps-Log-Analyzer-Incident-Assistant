@@ -50,9 +50,11 @@ public class DiagnosisApi {
                           String failureCategory, OffsetDateTime nextAttemptAt, String requestedBy) {}
     public record JobView(UUID id, String logId, String status, int attemptCount, int maxAttempts,
                           int manualRetries, OffsetDateTime nextAttemptAt, String failureCategory, String summary,
-                          boolean leaseExpired, List<Attempt> attempts, boolean hasMore) {}
+                          boolean leaseExpired, List<Attempt> attempts, boolean hasMore, String rootCause,
+                          String recommendation, OffsetDateTime completedAt) {}
     private record Job(UUID id, long log, String status, int attemptCount, int maxAttempts, int manualRetries,
-                       OffsetDateTime nextAttempt, String failureCategory, String summary, boolean leaseExpired) {}
+                       OffsetDateTime nextAttempt, String failureCategory, String summary, boolean leaseExpired,
+                       String rootCause, String recommendation, OffsetDateTime completedAt) {}
 
     @Service
     @RequiredArgsConstructor
@@ -108,13 +110,17 @@ public class DiagnosisApi {
                     select j.id,j.log_id,j.status,j.attempt_count,j.max_attempts,j.manual_retries,
                       j.next_attempt_at,j.failure_category,
                       case when j.status='SUCCEEDED' then l.llm_summary end,
-                      j.status='RUNNING' and j.lease_until<=clock_timestamp()
+                      j.status='RUNNING' and j.lease_until<=clock_timestamp(),
+                      case when j.status='SUCCEEDED' then l.llm_root_cause end,
+                      case when j.status='SUCCEEDED' then l.llm_recommendation end,
+                      j.completed_at
                     from public.diagnosis_jobs j join public.logs l on l.organization_id=j.organization_id and l.id=j.log_id
                     where j.organization_id=? and
                     """ + (incident != null ? "j.incident_id=?" : "j.log_id=?"),
                     (row,index) -> new Job(row.getObject(1,UUID.class),row.getLong(2),row.getString(3),
                         row.getInt(4),row.getInt(5),row.getInt(6),row.getObject(7,OffsetDateTime.class),
-                        row.getString(8),row.getString(9),row.getBoolean(10)), org, incident != null ? incident : log)
+                        row.getString(8),row.getString(9),row.getBoolean(10),row.getString(11),
+                        row.getString(12),row.getObject(13,OffsetDateTime.class)), org, incident != null ? incident : log)
                     .stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diagnosis not found"));
         }
 
@@ -130,7 +136,7 @@ public class DiagnosisApi {
             return new JobView(job.id, Long.toString(job.log), job.status, job.attemptCount, job.maxAttempts, job.manualRetries,
                     due, job.failureCategory, job.summary, job.leaseExpired,
                     List.copyOf(attempts.subList(0, Math.min(SIZE, attempts.size()))),
-                    attempts.size() > SIZE);
+                    attempts.size() > SIZE, job.rootCause, job.recommendation, job.completedAt);
         }
     }
 }

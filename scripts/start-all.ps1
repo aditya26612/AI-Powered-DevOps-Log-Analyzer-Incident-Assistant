@@ -13,8 +13,8 @@ $ErrorActionPreference = 'Stop'
 if (($KafkaFixture -or $KafkaPublisherOnly) -and !$Kafka) {
     throw 'KafkaFixture and KafkaPublisherOnly require -Kafka.'
 }
-if ($KafkaFixture -and $DatabasePort -ne 55438) {
-    throw 'The Kafka fixture requires isolated PostgreSQL port 55438.'
+if ($KafkaFixture -and $DatabasePort -notin 55438,15438) {
+    throw 'The Kafka fixture requires an isolated PostgreSQL port (55438 or 15438).'
 }
 $kafkaSettings = @{}
 if ($Kafka) {
@@ -64,6 +64,7 @@ try {
         }
         foreach ($name in $protectedKafkaVariables) { $workerEnvironment[$name] = $null }
         if ($service.Id -eq 'log-layer') {
+            $workerEnvironment.NOTIFICATION_DELIVERY_TRANSPORT = 'OFF'
             foreach ($name in $kafkaSettings.Keys) { $workerEnvironment[$name] = $kafkaSettings[$name] }
         }
         if ($databaseNames.ContainsKey($service.Id)) {

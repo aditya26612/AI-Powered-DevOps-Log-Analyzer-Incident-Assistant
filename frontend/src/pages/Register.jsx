@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, Loader2 } from "lucide-react";
 
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/auth";
 import "./Auth.css";
 
 const Register = () => {
@@ -44,13 +44,10 @@ const Register = () => {
       setTimeout(() => {
         navigate("/login");
       }, 1000);
-    } catch (error) {
-      console.error(error);
-
-      setError(
-        error.response?.data?.message ||
-          "Registration failed. Please try again."
-      );
+    } catch (failure) {
+      setError(failure.response?.status === 409
+        ? "An account already exists with that email."
+        : "Registration failed. Check your details and try again.");
     } finally {
       setLoading(false);
     }

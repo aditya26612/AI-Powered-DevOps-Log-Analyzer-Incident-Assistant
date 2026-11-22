@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
@@ -14,11 +14,19 @@ import {
 } from "lucide-react";
 
 import { analyzeLog, getLogById } from "../api/logApi";
+import { getLogSource } from "../api/observabilityApi";
+import { useWorkspace } from "../context/workspace";
+import useResource, { readError } from "../hooks/useResource";
+import { label } from "../observability";
 import "./LogAnalysis.css";
 
-const LogAnalysis = () => {
-  const { id } = useParams();
+function LogAnalysisDetail({ id }) {
   const navigate = useNavigate();
+  const { organization } = useWorkspace();
+  const org = organization.id;
+  const [showSource, setShowSource] = useState(false);
+  const loadSource = useCallback((signal) => getLogSource(org, id, signal), [org, id]);
+  const source = useResource(showSource && `${org}/source/${id}`, loadSource);
 
   const [log, setLog] = useState(null);
   const [model, setModel] = useState("phi3:mini");
@@ -35,26 +43,23 @@ const LogAnalysis = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const controller = new AbortController();
     const loadLog = async () => {
       try {
         setError("");
 
-        const response = await getLogById(id);
-        setLog(response);
+        const response = await getLogById(id, org, controller.signal);
+        if (!controller.signal.aborted) setLog(response);
       } catch (error) {
-        console.error(error);
-
-        setError(
-          error.response?.data?.message ||
-            "Failed to load log."
-        );
+        if (!controller.signal.aborted) setError(readError(error));
       } finally {
-        setLoadingLog(false);
+        if (!controller.signal.aborted) setLoadingLog(false);
       }
     };
 
     loadLog();
-  }, [id]);
+    return () => controller.abort();
+  }, [id, org]);
 
   const handleAnalysisTypeChange = (type) => {
     setAnalysisTypes((previous) =>
@@ -80,16 +85,9 @@ const LogAnalysis = () => {
         analysisTypes,
       });
 
-      console.log("Analysis result:", response);
-
       setResult(response);
     } catch (error) {
-      console.error(error);
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to analyze log. Please try again."
-      );
+      setError(readError(error));
     } finally {
       setLoadingAnalysis(false);
     }
@@ -118,7 +116,7 @@ const LogAnalysis = () => {
   };
 
   const prediction =
-    log?.predictionLabel || "UNKNOWN";
+    (log?.analysisStatus === "COMPLETED" && log?.predictionLabel) || "Unavailable";
 
   const predictionClass =
     prediction.toLowerCase() === "anomaly"
@@ -147,10 +145,10 @@ const LogAnalysis = () => {
 
         <button
           className="primary-button"
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/logs")}
         >
           <ArrowLeft size={15} />
-          Back to Dashboard
+          Back to logs
         </button>
       </div>
     );
@@ -165,10 +163,10 @@ const LogAnalysis = () => {
 
       <button
         className="analysis-back"
-        onClick={() => navigate("/dashboard")}
+        onClick={() => navigate("/logs")}
       >
         <ArrowLeft size={15} />
-        Back to Dashboard
+        Back to logs
       </button>
 
       {/* =========================================
@@ -278,9 +276,25 @@ const LogAnalysis = () => {
               LOG MESSAGE
             </span>
 
-            <pre>
-              {log.message || "No message available"}
-            </pre>
+            <details className="work-details" onToggle={(event) => { if (event.currentTarget.open) setShowSource(true); }}>
+              <summary>Original event</summary>
+              {source.error && <p role="alert">{source.error}</p>}
+              {source.data ? <pre>{source.data.raw || "No original message available"}</pre>
+                : !source.error && <p role="status">Loading source event…</p>}
+              {source.data?.incidentId && <Link className="work-link" to={`/incidents?incident=${source.data.incidentId}`}>View associated incident</Link>}
+            </details>
+            <dl className="work-properties">
+              <div><dt>Environment</dt><dd>{label(log.environment)}</dd></div>
+              <div><dt>Stored persistence time</dt><dd>{log.createdAt?.replace("T", " ") || "—"}</dd></div>
+              <div><dt>Logger</dt><dd>{log.loggerName || "—"}</dd></div>
+              <div><dt>Host</dt><dd>{log.hostName || "—"}</dd></div>
+              <div><dt>Correlation ID</dt><dd>{log.correlationId ? <Link className="work-link" to={`/logs?correlation=${log.correlationId}&range=MONTH`}>{log.correlationId}</Link> : "—"}</dd></div>
+              <div><dt>Reported trace context</dt><dd>{log.traceparent ? <Link className="work-link" to={`/logs?trace=${log.traceparent.slice(3,35)}&range=MONTH`}>{log.traceparent}</Link> : "—"}</dd></div>
+              <div><dt>Trace provenance</dt><dd>{log.traceOrigin ? label(log.traceOrigin) : "—"}</dd></div>
+              <div><dt>Diagnosis status</dt><dd>{label(log.llmAnalysisStatus)}</dd></div>
+            </dl>
+            {log.llmAnalysisStatus === "COMPLETED" && log.summary && <p className="work-prose">{log.summary}</p>}
+            {log.llmAnalysisStatus === "COMPLETED" && log.suggestedFix && <pre>{log.suggestedFix}</pre>}
 
           </div>
 
@@ -296,7 +310,7 @@ const LogAnalysis = () => {
 
         {/* AI CONFIGURATION */}
 
-        <div className="analysis-config">
+        {organization.role !== "VIEWER" && <div className="analysis-config">
 
           <div
             style={{
@@ -436,7 +450,7 @@ const LogAnalysis = () => {
             )}
           </button>
 
-        </div>
+        </div>}
 
         {/* ML DETECTION */}
 
@@ -713,4 +727,7 @@ const LogAnalysis = () => {
   );
 };
 
-export default LogAnalysis;
+export default function LogAnalysis() {
+  const { id } = useParams();
+  return <LogAnalysisDetail key={id} id={id} />;
+}

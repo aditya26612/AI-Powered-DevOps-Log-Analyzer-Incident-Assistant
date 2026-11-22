@@ -1,25 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   createApplication,
   createCredential,
   createOrganization,
   deactivateApplication,
-  listApplications,
   listCredentials,
-  listOrganizations,
   revokeCredential,
   rotateCredential,
-  selectionKey,
   setSlack,
+  setSlackPolicy,
   updateApplication,
 } from "../api/integrationApi";
 import "./Integrations.css";
+import { useWorkspace } from "../context/workspace";
+import { readError } from "../hooks/useResource";
 
 const stacks = ["SPRING_BOOT", "PYTHON", "NODEJS", "GO", "KUBERNETES", "POSTGRESQL", "NGINX", "CUSTOM"];
 const environments = ["DEVELOPMENT", "TESTING", "QA", "STAGING", "PRODUCTION"];
 
 function errorMessage(error) {
-  return error.response?.data?.message || "The request could not be completed. Check your organization and permissions.";
+  return readError(error);
 }
 
 function ApplicationSettings({ organization, app, refresh }) {
@@ -30,6 +30,8 @@ function ApplicationSettings({ organization, app, refresh }) {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [webhook, setWebhook] = useState("");
+  const [slackEnabled, setSlackEnabled] = useState(app.slackDeliveryEnabled ?? true);
+  const [slackSeverity, setSlackSeverity] = useState(app.slackMinimumSeverity ?? 1);
   const [environment, setEnvironment] = useState(app.environment);
   const [description, setDescription] = useState(app.description || "");
 
@@ -161,6 +163,22 @@ function ApplicationSettings({ organization, app, refresh }) {
               await refresh();
             })}>Clear webhook</button>}
           </form>
+          <p>{app.slackConfigured ? "A webhook is configured." : "No webhook configured."}
+            {" Replacing a webhook invalidates work queued for the previous destination."}</p>
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            perform(async () => {
+              await setSlackPolicy(organization.id, app.id, slackEnabled, slackSeverity);
+              await refresh();
+            });
+          }}>
+            <label>Slack notifications <input type="checkbox" checked={slackEnabled}
+              onChange={(event) => setSlackEnabled(event.target.checked)} /></label>
+            <label>Minimum severity <select value={slackSeverity} onChange={(event) => setSlackSeverity(Number(event.target.value))}>
+              <option value={1}>Medium</option><option value={2}>High</option><option value={3}>Critical</option>
+            </select></label>
+            <button type="submit">Save notification policy</button>
+          </form>
           <button type="button" onClick={() => {
             if (window.confirm("Deactivate this application? Its historical logs will be preserved.")) {
               perform(async () => {
@@ -176,10 +194,8 @@ function ApplicationSettings({ organization, app, refresh }) {
 }
 
 export default function Integrations() {
-  const [organizations, setOrganizations] = useState([]);
-  const [active, setActive] = useState(() => localStorage.getItem(selectionKey) || "");
-  const activeOrganization = useRef(active);
-  const [applicationList, setApplicationList] = useState(null);
+  const { organization: org, applications, applicationError, addOrganization, refreshApplications } = useWorkspace();
+  const active = org?.id;
   const [selectedApp, setSelectedApp] = useState("");
   const [orgName, setOrgName] = useState("");
   const [slug, setSlug] = useState("");
@@ -188,49 +204,14 @@ export default function Integrations() {
   const [environment, setEnvironment] = useState(environments[0]);
   const [error, setError] = useState("");
 
-  const org = organizations.find((item) => item.id === active);
-  const applications = applicationList?.organizationId === active ? applicationList.items : [];
   const app = applications.find((item) => item.id === selectedApp);
-  const refresh = async () => {
-    const items = await listApplications(active);
-    if (activeOrganization.current === active) setApplicationList({ organizationId: active, items });
-  };
-
-  useEffect(() => {
-    let current = true;
-    listOrganizations().then(
-      (data) => { if (current) setOrganizations(data); },
-      (failure) => { if (current) setError(errorMessage(failure)); }
-    );
-    return () => { current = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!org) return;
-    let current = true;
-    listApplications(org.id).then(
-      (items) => { if (current) setApplicationList({ organizationId: org.id, items }); },
-      (failure) => { if (current) setError(errorMessage(failure)); }
-    );
-    return () => { current = false; };
-  }, [org]);
-
-  const selectOrg = (id) => {
-    activeOrganization.current = id;
-    if (id) localStorage.setItem(selectionKey, id);
-    else localStorage.removeItem(selectionKey);
-    setSelectedApp("");
-    setApplicationList(null);
-    setActive(id);
-  };
 
   const handleOrganization = async (event) => {
     event.preventDefault();
     setError("");
     try {
       const created = await createOrganization({ name: orgName, slug });
-      setOrganizations((prior) => [...prior, created]);
-      selectOrg(created.id);
+      addOrganization(created);
       setOrgName("");
       setSlug("");
     } catch (failure) {
@@ -244,7 +225,7 @@ export default function Integrations() {
     try {
       const created = await createApplication(active, { applicationName: appName, techStack: stack, environment });
       setAppName("");
-      await refresh();
+      refreshApplications();
       setSelectedApp(created.id);
     } catch (failure) {
       setError(errorMessage(failure));
@@ -252,14 +233,11 @@ export default function Integrations() {
   };
 
   return (
-    <main className="integrations-page tenant-onboarding">
-      <h1>Organizations and applications</h1>
+    <div className="integrations-page tenant-onboarding">
       {error && <p role="alert">{error}</p>}
+      {applicationError && <p role="alert" className="work-alert">{applicationError}</p>}
       <section className="tenant-panel">
-        <label>Active organization <select value={active} onChange={(event) => selectOrg(event.target.value)}>
-          <option value="">Select an organization</option>
-          {organizations.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.role}</option>)}
-        </select></label>
+        <h2>Create an organization</h2>
         <form onSubmit={handleOrganization}>
           <label>Name <input required maxLength={120} value={orgName} onChange={(event) => setOrgName(event.target.value)} /></label>
           <label>Slug <input required maxLength={80} pattern="[a-z0-9]+[a-z0-9\-]*" value={slug}
@@ -283,9 +261,12 @@ export default function Integrations() {
           <option value="">Select an application</option>
           {applications.map((item) => <option key={item.id} value={item.id}>{item.applicationName}</option>)}
         </select></label>
-        <p>Send log requests to <code>POST /api/v1/logs</code> with the application credential in <code>X-API-Key</code>.</p>
+        <details className="work-details"><summary>Collector onboarding</summary>
+          <p>Set the application name and environment in the collector. Provide its credential via <code>DEVINSIGHT_API_KEY</code>.</p>
+          <p>Use <code>POST /api/v1/logs/batch</code> for synchronous persistence or <code>POST /api/v2/logs/batch</code> for Kafka acknowledgement when enabled.</p>
+        </details>
       </section>}
-      {org && app && <ApplicationSettings key={org.id + "/" + app.id} organization={org} app={app} refresh={refresh} />}
-    </main>
+      {org && app && <ApplicationSettings key={org.id + "/" + app.id} organization={org} app={app} refresh={refreshApplications} />}
+    </div>
   );
 }

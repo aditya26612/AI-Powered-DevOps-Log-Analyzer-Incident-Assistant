@@ -1,92 +1,31 @@
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Upload,
-  Activity,
-  CircleCheck,
-  Terminal,
-  Layers,
-  Siren,
-} from "lucide-react";
+import { Activity, Files, Layers, LayoutDashboard, Siren, Terminal, Upload } from "lucide-react";
+import { useWorkspace } from "../../context/workspace";
 
-const Sidebar = () => {
-  return (
-    <aside className="app-sidebar">
-      {/* Brand */}
-      <div className="sidebar-brand">
-        <div className="brand-icon">
-          <Activity size={20} />
-        </div>
+const links = [
+  ["/dashboard", "Overview", LayoutDashboard],
+  ["/logs", "Logs", Files],
+  ["/incidents", "Incidents", Siren],
+  ["/analyzer", "AI analysis", Terminal],
+  ["/integrations", "Applications", Layers],
+  ["/logs/ingest", "Ingest log", Upload],
+];
 
-        <div>
-          <div className="brand-name">DevInsight</div>
-          <div className="brand-subtitle">DevOps Analyzer</div>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="sidebar-nav">
-        <div className="nav-section-title">WORKSPACE</div>
-
-        <NavLink
-          to="/dashboard"
-          end
-          className={({ isActive }) =>
-            `sidebar-link ${isActive ? "active" : ""}`
-          }
-        >
-          <LayoutDashboard size={18} />
-          <span>Overview</span>
-        </NavLink>
-
-        <NavLink
-          to="/incidents"
-          className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
-        >
-          <Siren size={18} />
-          <span>Incidents</span>
-        </NavLink>
-
-        <NavLink
-          to="/integrations"
-          className={({ isActive }) =>
-            `sidebar-link ${isActive ? "active" : ""}`
-          }
-        >
-          <Layers size={18} />
-          <span>Integrations Hub</span>
-        </NavLink>
-
-        <NavLink
-          to="/analyzer"
-          className={({ isActive }) =>
-            `sidebar-link ${isActive ? "active" : ""}`
-          }
-        >
-          <Terminal size={18} />
-          <span>Live Inspector</span>
-        </NavLink>
-
-        <NavLink
-          to="/logs/ingest"
-          className={({ isActive }) =>
-            `sidebar-link ${isActive ? "active" : ""}`
-          }
-        >
-          <Upload size={18} />
-          <span>Ingest Log</span>
-        </NavLink>
-      </nav>
-
-      {/* System Status */}
-      <div className="sidebar-footer">
-        <div className="sidebar-status">
-          <CircleCheck size={15} />
-          <span>System Operational</span>
-        </div>
-      </div>
-    </aside>
-  );
-};
-
-export default Sidebar;
+export default function Sidebar() {
+  const { organization } = useWorkspace();
+  const visible = organization?.role === "VIEWER"
+    ? links.filter(([path]) => !["/analyzer", "/logs/ingest"].includes(path)) : links;
+  return <aside className="app-sidebar">
+    <NavLink to="/dashboard" className="sidebar-brand">
+      <span className="brand-icon"><Activity size={21} aria-hidden="true" /></span>
+      <span className="brand-name">DevInsight</span>
+    </NavLink>
+    <nav className="sidebar-nav" aria-label="Workspace">
+      {visible.map(([path,label,Icon]) => <NavLink key={path} to={path} aria-label={label}
+        end={path === "/logs"}
+        className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}>
+        <Icon size={18} aria-hidden="true" /><span>{label}</span>
+      </NavLink>)}
+    </nav>
+  </aside>;
+}

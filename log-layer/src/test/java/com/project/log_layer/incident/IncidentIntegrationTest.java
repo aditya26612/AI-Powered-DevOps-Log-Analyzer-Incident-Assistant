@@ -7,6 +7,7 @@ import com.project.log_layer.enums.LogLevel;
 import com.project.log_layer.entity.Log;
 import com.project.log_layer.integration.client.MlInferenceClient;
 import com.project.log_layer.integration.dto.MlPredictionResponse;
+import com.project.log_layer.observability.ObservabilityQueries;
 import com.project.log_layer.security.SignedIdentity;
 import com.project.log_layer.tenant.ApplicationCredentials;
 import com.project.log_layer.tenant.OrganizationRole;
@@ -46,7 +47,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:postgresql://127.0.0.1:55438/log_layer_db",
+        "spring.datasource.url=jdbc:postgresql://127.0.0.1:${DEVINSIGHT_FIXTURE_DB_PORT:55438}/log_layer_db",
         "spring.datasource.username=devinsight_log_app",
         "spring.datasource.password=${DEVINSIGHT_STAGE04_DB_ROLE_PASSWORD}",
         "spring.jpa.hibernate.ddl-auto=validate",
@@ -64,6 +65,7 @@ class IncidentIntegrationTest {
     @Autowired TransactionTemplate transactions;
     @Autowired TenantSqlScope scope;
     @Autowired IncidentPolicy policy;
+    @Autowired ObservabilityQueries observability;
     @Autowired OrganizationService organizations;
     @Autowired TenantApplications applications;
     @Autowired ApplicationCredentials credentials;
@@ -74,6 +76,85 @@ class IncidentIntegrationTest {
     @BeforeEach
     void configureScorers() {
         when(ml.predict(any())).thenReturn(new MlPredictionResponse(1, "Normal", false, 0.02, "2.0.0-candidate"));
+    }
+
+    @Test
+    void dashboardCountsDistinctTenantEventsAndUsesHalfOpenUtcBuckets() throws Exception {
+        var owner=organization(6290);
+        var other=organization(6291);
+        var source=app(owner,"shared-name");
+        var foreign=app(other,"shared-name");
+        Instant to=Instant.now().truncatedTo(java.time.temporal.ChronoUnit.HOURS);
+        Instant from=to.minusSeconds(3600);
+        send(source,from.minusMillis(1),"INFO","Outside dashboard range",null);
+        send(source,from,"ERROR","Window boundary",null);
+        var event=payload(source,UUID.randomUUID(),from.plusSeconds(300),"INFO","Exact next bucket",null);
+        when(ml.predict(any())).thenReturn(new MlPredictionResponse(-1,"Anomaly",true,-0.05,"2.0.0-candidate"));
+        request(source,event,200);
+        request(source,event,200);
+        send(source,to,"INFO","Exclusive upper bound",null);
+        send(foreign,from.plusSeconds(300),"INFO","Same time and app name",null);
+        var summary=observability.summary(owner.id(),owner.actor(),ObservabilityQueries.Range.HOUR,null,to);
+        assertEquals(12,summary.buckets().size());
+        assertEquals(2,summary.buckets().stream().mapToLong(ObservabilityQueries.Bucket::logs).sum());
+        assertEquals(1,summary.buckets().get(0).errors());
+        assertEquals(1,summary.buckets().get(1).anomalies());
+        assertEquals(1,summary.severity().get("ERROR"));
+        assertEquals(1,summary.severity().get("INFO"));
+    }
+
+    @Test
+    void observabilityHttpChecksMembershipAndUsesBoundedStablePages() throws Exception {
+        var owner=organization(6292);
+        var other=organization(6293);
+        var source=app(owner,"shared-name");
+        var foreign=app(other,"shared-name");
+        Instant time=Instant.now().minusSeconds(30).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        String first=send(source,time,"INFO","Memory % owned",null);
+        String second=send(source,time,"INFO","Memory % present",null);
+        send(foreign,time,"ERROR","Memory % foreign",null);
+        String path="/api/v1/organizations/" + owner.id() + "/observability";
+        var result=json.readTree(http.perform(post(path+"/logs").header("Authorization",token(owner.actor()))
+                        .param("size","1").contentType("application/json").content("{\"text\":\"Memory %\"}")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasNext").value(true)).andExpect(jsonPath("$.content[0].id").value(second))
+                .andReturn().getResponse().getContentAsString());
+        http.perform(post(path+"/logs").header("Authorization",token(owner.actor())).param("size","1").param("page","1")
+                        .param("before",result.path("to").asText()).contentType("application/json").content("{\"text\":\"Memory %\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.hasNext").value(false))
+                .andExpect(jsonPath("$.content[0].id").value(first));
+        http.perform(get(path+"/summary").header("Authorization",token(other.actor()))).andExpect(status().isNotFound());
+        http.perform(get(path+"/summary").header("X-API-Key",source.key())).andExpect(status().isUnauthorized());
+        http.perform(get(path+"/summary").header("Authorization",token(owner.actor())).param("range","YEAR"))
+                .andExpect(status().isBadRequest());
+        http.perform(get(path+"/logs").header("Authorization",token(owner.actor())).param("size","51"))
+                .andExpect(status().isBadRequest());
+        http.perform(get(path+"/logs").header("Authorization",token(owner.actor())).param("trace","invalid"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void observabilitySeparatesScoringFailuresAndMasksSourceCredentials() throws Exception {
+        var owner=organization(6294);
+        var foreign=organization(6295);
+        var source=app(owner,"checkout");
+        when(ml.predict(any())).thenReturn(null);
+        String id=send(source,Instant.now().minusSeconds(10),"ERROR",
+                "checkout failed\nDB_PASSWORD=synthetic_password_marker",null);
+        String path="/api/v1/organizations/" + owner.id() + "/observability";
+        http.perform(get(path+"/logs").header("Authorization",token(owner.actor())).param("analysisStatus","FAILED"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(id))
+                .andExpect(jsonPath("$.content[0].classification").isEmpty())
+                .andExpect(jsonPath("$.content[0].preview",org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("synthetic_password_marker"))));
+        http.perform(get(path+"/logs").header("Authorization",token(owner.actor())).param("classification","V2_NORMAL"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
+        http.perform(get(path+"/logs/"+id+"/source").header("Authorization",token(owner.actor())))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.raw",org.hamcrest.Matchers.containsString("\n")))
+                .andExpect(jsonPath("$.raw",org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("synthetic_password_marker"))));
+        http.perform(get("/api/v1/organizations/"+foreign.id()+"/observability/logs/"+id+"/source")
+                        .header("Authorization",token(foreign.actor())))
+                .andExpect(status().isNotFound());
     }
 
     @Test

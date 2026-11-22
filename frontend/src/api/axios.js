@@ -27,7 +27,8 @@ api.interceptors.request.use(
     } else if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       const org = localStorage.getItem("devinsight.activeOrganization");
-      if (org && /^\/api\/v1\/(logs|analyzer)(\/|$)/.test(config.url || "")) {
+      if (org && !config.headers.has("X-DevInsight-Organization") &&
+          /^\/api\/v1\/(logs|analyzer)(\/|$)/.test(config.url || "")) {
         config.headers.set("X-DevInsight-Organization", org);
       }
     }
@@ -49,7 +50,8 @@ api.interceptors.response.use(
         error.config?.url?.endsWith(url)
       );
 
-      if (!isPublic) {
+      const current = localStorage.getItem("token");
+      if (!isPublic && current && error.config?.headers?.get("Authorization") === `Bearer ${current}`) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         localStorage.removeItem("devinsight.activeOrganization");

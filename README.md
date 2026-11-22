@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21" />
-  <img src="https://img.shields.io/badge/Spring_Boot-3.3-green?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot 3" />
+  <img src="https://img.shields.io/badge/Spring_Boot-3.5-green?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot 3.5" />
   <img src="https://img.shields.io/badge/Spring_Cloud-Gateway-brightgreen?style=for-the-badge&logo=spring&logoColor=white" alt="Spring Cloud Gateway" />
   <img src="https://img.shields.io/badge/Kubernetes-Native-blue?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes" />
   <img src="https://img.shields.io/badge/Docker-Multi--Stage-blue?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
@@ -10,8 +10,8 @@
   <img src="https://img.shields.io/badge/FastAPI-ML_Pipeline-teal?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/PostgreSQL-pgvector_pg16-blue?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Ollama-Local_LLM-purple?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
-  <img src="https://img.shields.io/badge/Slack-Block_Kit_Alerts-4A154B?style=for-the-badge&logo=slack&logoColor=white" alt="Slack" />
-  <img src="https://img.shields.io/badge/React-18_Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 18" />
+  <img src="https://img.shields.io/badge/Slack-Durable_Notifications-4A154B?style=for-the-badge&logo=slack&logoColor=white" alt="Slack" />
+  <img src="https://img.shields.io/badge/React-19_Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
 </p>
 
 > **Turn distributed application logs into structured telemetry, ML-based anomaly signals, runbook-grounded incident explanations, and actionable Slack notifications.**
@@ -45,7 +45,7 @@ DevInsight is a microservices-based log observability and incident-investigation
   - [4.6 Hybrid RAG Retrieval](#46-hybrid-rag-retrieval)
   - [4.7 Centralized Dashboard & Live Inspector](#47-centralized-dashboard-live-inspector)
   - [4.8 Low-Overhead Client Integration (Spring Boot Logback SDK)](#48-low-overhead-client-integration-client-integrationsspring-boot)
-  - [4.9 Automated Real-Time Alerting Engine (Slack Block Kit)](#49-automated-real-time-alerting-engine-slack-block-kit)
+  - [4.9 Automated Real-Time Alerting Engine](#49-automated-real-time-alerting-engine)
   - [4.10 Cloud-Native Kubernetes Orchestration](#410-cloud-native-kubernetes-orchestration-k8s)
   - [4.11 Multi-Tech-Stack Application Integrations Hub](#411-multi-tech-stack-application-integrations-hub-integrations)
   - [4.12 Dynamic Per-Service Slack Alert Routing Engine](#412-dynamic-per-service-slack-alert-routing-engine)
@@ -155,7 +155,7 @@ Summary + Root Cause + Suggested Fix
 
 # 2. System Architecture
 
-DevInsight separates user authentication, log ingestion, anomaly scoring, and LLM-assisted analysis into five backend services. **Spring Cloud Gateway is reactive (WebFlux/Netty)**; the User Service and Log Layer use Spring MVC/JPA, and the Log Layer waits synchronously for ML inference through `WebClient.block()`. Only selected LLM diagnosis and alerting work is started asynchronously **after the log transaction commits**. Docker Compose and Kubernetes manifests are provided, but the presence of a manifest does not, by itself, establish a successful production deployment.
+DevInsight separates user authentication, log ingestion, anomaly scoring, and LLM-assisted analysis into five backend services. **Spring Cloud Gateway is reactive (WebFlux/Netty)**. The User Service and Log Layer use Spring MVC/JPA, and the Log Layer waits synchronously for ML inference through `WebClient.block()`. Eligible ingestion writes a durable diagnosis job in the same database transaction as its source log. Workers claim committed jobs independently. Kafka is an optional intake path. The Docker Compose and Kubernetes manifests are deployment templates.
 
 The Gateway accepts **Bearer JWT** for user requests and **X-API-Key** for application log ingestion. It verifies application credentials against the Log Layer. Organization routes also verify membership.
 
@@ -166,7 +166,7 @@ flowchart TD
     subgraph Clients["1. Applications and Operator UI"]
       App["Spring Boot / Python / Node.js / Go apps"]
       Collectors["Logback / Python logging / Winston"]
-      UI["React + Vite dashboard :5173"]
+      UI["React + Vite observability workspace :5173"]
       App --> Collectors
     end
 
@@ -178,81 +178,108 @@ flowchart TD
 
     subgraph Services["3. Application services"]
       User["User Service :8081<br/>Spring Security / JWT"]
-      Log["Log Layer :8082<br/>Parsing + JPA orchestration"]
+      Log["Log Layer :8082<br/>Parsing, scoring, and incidents"]
+      Worker["Diagnosis worker<br/>Runs inside Log Layer"]
+      Delivery["Slack delivery worker<br/>Runs inside Log Layer"]
       ML["ML Pipeline :8000<br/>FastAPI / Isolation Forest"]
       LLM["LLM Service :8084<br/>Spring AI / Hybrid RAG"]
     end
 
     subgraph Persistence["4. Persistence and model runtime"]
       PG1["PostgreSQL: devinsight<br/>user data"]
-      PG2["PostgreSQL: log_layer_db<br/>logs / integrations"]
+      PG2["PostgreSQL: log_layer_db<br/>logs, incidents, jobs, and attempts"]
       PG3["PostgreSQL: llm_service_db<br/>pgvector / knowledge_chunks"]
       Docs["21 Markdown DevOps runbooks"]
       Ollama["Ollama :11434<br/>phi3:mini + nomic-embed-text"]
     end
 
-    Slack["Slack Webhook<br/>incident notification"]
-    Collectors -->|"POST /api/v1/logs/batch + app key"| GW
-    UI -->|"REST + Bearer JWT"| GW
+    Kafka["Optional Kafka KRaft broker"]
+    Slack["Optional Slack webhook"]
+    Collectors -->|"v1 or v2 batch + app key"| GW
+    UI -->|"Bearer JWT · overview, logs and incident reads"| GW
     Auth -->|"/api/v1/auth/**, /users/**"| User
-    Auth -->|"/logs/**, /analyzer/**, /organizations/**"| Log
+    Auth -->|"Logs, analyzer, and tenant observability APIs"| Log
     Auth -.->|"Verify app key"| Log
     User --> PG1
     Log --> PG2
+    Log <-->|"Publish and consume v2 batches"| Kafka
     Log -->|"Synchronous prediction request"| ML
-    Log -.->|"Post-commit background diagnosis"| LLM
+    PG2 -->|"Claim due job"| Worker
+    Worker -->|"Scoped incident context"| LLM
+    Worker -->|"Commit fenced result and notification intent"| PG2
+    PG2 -->|"Claim eligible notification"| Delivery
+    Delivery -->|"Record outcome and attempt"| PG2
     Docs --> LLM
     LLM --> PG3
     LLM --> Ollama
-    Log -.->|"After diagnosis"| Slack
+    Delivery -.->|"Scoped webhook when enabled"| Slack
 ```
 
-**Request boundary:** the Gateway uses reactive I/O, but the Log Layer performs a blocking ML HTTP call and JPA persistence. Do not interpret the Gateway architecture as evidence that the entire processing pipeline is non-blocking.
+The Gateway uses reactive I/O. The Log Layer performs a blocking ML HTTP call and JPA persistence on the processing path. Kafka lets the v2 intake acknowledge the broker submission before waiting for either operation.
 
 ### 2.2 Telemetry & Incident Lifecycle Sequence
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant App as Application / Log Client
-    participant GW as Gateway :8080
-    participant LL as Log Layer :8082
-    participant ML as FastAPI :8000
-    participant DB as PostgreSQL (log_layer_db)
-    participant RAG as LLM Service :8084
-    participant VS as PostgreSQL / pgvector
-    participant Ollama as Ollama :11434
-    participant Slack as Slack Webhook
+    participant C as Collector
+    participant G as Gateway
+    participant L as Log Layer
+    participant K as Kafka
+    participant P as PostgreSQL
 
-    App->>GW: POST /api/v1/logs + X-API-Key
-    GW->>GW: Authenticate against the active credential
-    GW->>LL: Forward authenticated request
-    LL->>LL: Parse and enrich log record
-    LL->>ML: POST /api/v1/predict + internal X-API-Key
-    ML-->>LL: prediction, decision score, model version
-    LL->>DB: Save log and ML metadata
-    LL-->>GW: HTTP 201 after ingestion processing
-    GW-->>App: HTTP 201 (diagnosis not yet finished)
-    Note over LL,DB: After transaction commit, schedule in-process background work
-    opt Anomaly or ERROR/FATAL with auto-diagnose enabled
-      LL->>RAG: POST /api/v1/llm/analyze
-      RAG->>VS: Dense search (nomic embeddings)
-      RAG->>RAG: BM25 + RRF source-document fusion
-      RAG->>Ollama: Context-grounded phi3:mini request
-      Ollama-->>RAG: Proposed root cause and recommendation
-      RAG-->>LL: Incident analysis response
-      LL->>DB: Update analysis state
-      LL->>Slack: Send incident card when configured
+    C->>G: Batch with app key
+    G->>L: Authorized request
+    alt Synchronous v1
+        L->>L: Parse and score
+        L->>P: Commit telemetry and jobs
+        L-->>G: HTTP 200
+        G-->>C: Persisted log IDs
+    else Kafka v2
+        L->>K: Publish batch
+        par Confirm submission
+            K-->>L: Broker acknowledgement
+            L-->>G: HTTP 202
+            G-->>C: Broker receipt
+        and Process records
+            K-->>L: Deliver events
+            L->>L: Parse and score
+            L->>P: Commit telemetry and jobs
+            L->>K: Commit processed offset
+        end
     end
 ```
 
-The sequence describes the intended successful path. ML errors are handled and recorded; LLM/Slack failures and process restarts can still affect background completion. An HTTP 201 response does **not** prove that Slack delivery, LLM diagnosis, or incident resolution has completed.
+The synchronous path returns HTTP 201 for a single log or HTTP 200 for a committed v1 batch. Kafka v2 returns HTTP 202 after broker acknowledgement. Broker processing can proceed independently of that response. Use the log or incident view to check database persistence and diagnosis progress.
+
+Once an eligible ingestion transaction commits, the worker and LLM Service follow this path:
+
+```mermaid
+sequenceDiagram
+    participant W as Diagnosis worker
+    participant P as PostgreSQL
+    participant L as LLM Service
+    participant O as Ollama
+    participant N as Notification worker
+    participant S as Slack webhook
+    W->>P: Claim due job with lease
+    W->>P: Read scoped incident context
+    W->>L: Request diagnosis
+    L->>L: Retrieve shared runbooks
+    L->>O: Run local inference
+    O-->>L: Return model output
+    L-->>W: Return result or failure
+    W->>P: Commit accepted result and eligible outbox intent
+    N->>P: Claim, verify destination revision and mark dispatch
+    N->>S: Send bounded incident notification
+    S-->>N: Provider response or timeout
+    N->>P: Persist confirmed, retryable, terminal, or unknown outcome
+```
 
 ### 2.3 Deep-Dive Architecture Guides
 
 For detailed class diagrams, package structures, and inter-service schemas, see the dedicated [system-architecture/](system-architecture/README.md) documentation:
 
-- **[Master System Flowcharts & State Machine](system-architecture/COMPLETE_PROJECT_FLOWCHART.md)** — Complete Mermaid flowcharts showing the client-to-alert lifecycle, synchronous vs. asynchronous boundaries, and log state machine.
+- **[Master System Flowcharts & State Machine](system-architecture/COMPLETE_PROJECT_FLOWCHART.md)** — Earlier detailed diagrams. Use the diagrams above for the current HTTP, Kafka, and durable diagnosis boundaries.
 - **[External Service Interactions & Protocols](system-architecture/EXTERNAL_INTERACTIONS.md)** — Network boundaries, header forwarding (`X-User-Email`), payload JSON schemas, and fault-tolerance fallbacks.
 - **[API Gateway Architecture](system-architecture/api-gateway/INTERNAL_ARCHITECTURE.md)** — Reactive Netty pipeline, dual-authentication web filter, and CORS configuration.
 - **[User Service Architecture](system-architecture/user-service/INTERNAL_ARCHITECTURE.md)** — Spring Security 6, BCrypt password hashing, and stateless JWT issuance.
@@ -264,15 +291,15 @@ For detailed class diagrams, package structures, and inter-service schemas, see 
 
 | Component | Technology | Responsibility |
 |---|---|---|
-| **Frontend** | React 18 + Vite + Tailwind CSS | Real-time log explorer, anomaly visualization, and interactive inspector sandbox |
+| **Frontend** | React 19 + Vite + CSS | Log explorer, anomaly visualization, incident management, and interactive inspector |
 | **API Gateway** | Spring Cloud Gateway + WebFlux | High-throughput non-blocking reverse proxy with dual JWT and API-Key authentication |
 | **User Service** | Spring Boot 3 + Spring Security 6 | RBAC user management, BCrypt hashing, and stateless JWT token issuance |
-| **Log Layer** | Spring Boot 3 + Hibernate + JPA | Low-latency log ingestion, resilient multiline parsing, async event orchestration, and Slack dispatcher |
+| **Log Layer** | Spring Boot 3 + Hibernate + JPA | Tenant-scoped ingestion, multiline parsing, incident correlation, and leased diagnosis workers |
 | **ML Pipeline** | Python 3.11 + FastAPI + Scikit-Learn | Statistical anomaly detection using an Isolation Forest model; latency depends on request and environment |
 | **LLM Service** | Spring Boot 3 + Spring AI | Hybrid RAG retrieval (BM25 + Dense Vectors + RRF) and prompt orchestration |
 | **PostgreSQL** | PostgreSQL 16 + pgvector | Multi-database architecture: `devinsight` (user/auth), `log_layer_db` (telemetry), and `llm_service_db` (`knowledge_chunks` vector store) |
 | **Ollama** | Local LLM Engine (llama.cpp) | Self-hosted local inference with `phi3:mini` (3.8B) and `nomic-embed-text` |
-| **Slack Notifier**| Reactive WebClient + Block Kit | Automated dispatch of rich incident cards to Slack channels |
+| **Slack Notifier** | PostgreSQL outbox + WebClient | Fenced incident notifications, bounded retries and attempt history. Disabled in the managed Windows launcher |
 
 ### Why microservices?
 
@@ -318,15 +345,14 @@ The User Service stores user information in its PostgreSQL database.
 
 ### Step 4 — Log ingestion and storage
 
-The user submits application logs through the frontend.
+Users can submit individual logs through the frontend. External collectors send authenticated batches over synchronous HTTP or optional Kafka ingestion.
 
 The Log Layer:
 
 - Receives the log request.
 - Parses and validates the incoming log.
 - Extracts structured information.
-- Stores the log in PostgreSQL.
-- Initiates the analysis workflow.
+- Stores the log, any incident membership, and any eligible diagnosis job in one PostgreSQL transaction.
 
 ### Step 5 — ML anomaly detection
 
@@ -342,7 +368,7 @@ The Log Layer stores the ML result with the log.
 
 ### Step 7 — LLM incident investigation
 
-For qualifying anomalies or `ERROR`/`FATAL` logs, the Log Layer schedules LLM investigation after database commit. A manual analysis endpoint is also available. Not every ingested log triggers LLM inference.
+Qualifying anomalies or `ERROR`/`FATAL` logs can create durable diagnosis work when automatic diagnosis is enabled. Workers claim committed jobs, load tenant-scoped incident context, and call the LLM Service outside the database transaction. A manual analysis endpoint is also available.
 
 The LLM Service:
 
@@ -361,7 +387,7 @@ The LLM Service returns structured analysis containing information such as:
 - Severity.
 - Recommended troubleshooting actions.
 
-For successful diagnosis, the Log Layer updates analysis status and sends the configured notification. It does not automatically execute the suggested commands or confirm an incident is resolved.
+The active worker commits the result, diagnosis status and eligible notification intent together. A separate worker delivers the notification and records each attempt. Suggested commands and incident resolution remain under operator control.
 
 ### Step 9 — Frontend presentation
 
@@ -371,54 +397,26 @@ The user can inspect the log, review the anomaly prediction, and understand the 
 
 ### Complete request flow
 
-The simplified diagram below represents the feature dependencies; **LLM diagnosis is conditional and asynchronous**, rather than part of the synchronous HTTP 201 response.
+The flow below separates intake, log persistence, and the asynchronous diagnosis. A successful intake response can arrive before diagnosis finishes.
 
 ```text
-React Frontend
-      |
-      | HTTP Request
-      v
-API Gateway (:8080)
-      |
-      |-----------------------------|
-      |                             |
-      v                             v
-User Service (:8081)          Log Layer (:8082)
-      |                             |
-      v                             |
-User PostgreSQL                    |
-                                    |
-                                    v
-                             Log PostgreSQL
-                                    |
-                                    v
-                             ML Pipeline (:8000)
-                                    |
-                                    v
-                             Anomaly Prediction
-                                    |
-                                    v
-                              Log Layer
-                                    |
-                                    v
-                              LLM Service (:8084)
-                                    |
-                         -----------------------
-                         |                     |
-                         v                     v
-                    Vector Store           Ollama
-                    (RAG Retrieval)       (:11434)
-                         |                     |
-                         -----------|----------
-                                    |
-                                    v
-                            AI Incident Analysis
-                                    |
-                                    v
-                                Log Layer
-                                    |
-                                    v
-                              React Frontend
+React frontend -> API Gateway -> User Service -> devinsight
+Collector -> API Gateway -> Log Layer
+                              |
+                              +-- v1: process inline
+                              +-- v2: Kafka -> Log Layer consumer
+                              |
+                              v
+                  canonical parsing and ML scoring
+                              |
+                              v
+                  PostgreSQL: log + incident membership + eligible job
+                              |
+                              v
+                  worker lease -> bounded context -> RAG and Ollama
+                              |
+                              v
+                  fenced result -> incident and diagnosis views
 ```
 
 ---
@@ -443,10 +441,9 @@ User PostgreSQL                    |
 
 ## 4.3 Log Explorer
 
-- Search and filter stored logs.
-- Inspect individual log details.
-- Filter by available log metadata.
-- View associated analysis results.
+- Search persisted messages with bounded server-side filtering, paging, and stable occurrence-time ordering.
+- Filter by application, severity, source, environment, ML status, candidate V2 classification, trace, correlation, or incident.
+- Open a source event in the log investigation view, inspect redacted multiline text, and follow its linked incident.
 
 ## 4.4 ML-Based Anomaly Detection
 
@@ -454,7 +451,7 @@ User PostgreSQL                    |
 - Detect anomalous log behavior.
 - Return anomaly/normal predictions.
 - Associate predictions with model metadata.
-- Support individual and batch **ML prediction** endpoints (separate from the Log Layer batch-ingestion route, which currently throws `UnsupportedOperationException`).
+- Support individual and batch **ML prediction** endpoints. Collectors use the separate synchronous or Kafka-backed Log Layer intake routes.
 
 ## 4.5 AI-Powered Incident Analysis
 
@@ -475,7 +472,8 @@ User PostgreSQL                    |
 
 ## 4.7 Centralized Dashboard & Live Inspector
 
-- Real-time log explorer with full-text search and faceted severity filters.
+- The organization-scoped Overview shows persisted event volume, normalized severities, V2 anomalies, incident attention, and separate diagnosis and Slack delivery states.
+- Logs, Incidents, and Applications share the active organization. Overview and active incident views refresh during use and display the last successful read.
 - Interactive Live Inspector (`/analyzer`) for manual multi-line stack trace triage.
 - Direct visualization of anomaly scores, token metrics, and extracted shell remediation commands.
 
@@ -485,11 +483,11 @@ User PostgreSQL                    |
 - **Bounded Background Dispatch**: The appender uses an `ArrayBlockingQueue` and a daemon worker thread to reduce synchronous logging overhead. A bounded queue limits memory growth, but can also drop telemetry under sustained overload.
 - **Headless Ingestion**: Authenticated via machine-to-machine `X-API-Key` headers without requiring interactive user credentials.
 
-## 4.9 Automated Real-Time Alerting Engine (Slack Block Kit)
+## 4.9 Automated Real-Time Alerting Engine
 
-- **Conditional Incident Trigger**: When a log is an anomaly or has `ERROR`/`FATAL` severity and auto-diagnosis is enabled, the Log Layer schedules RAG/LLM diagnosis **after the ingestion transaction commits**.
-- **Rich Block Kit Notification Cards**: Formatted Slack incident cards displaying error stack traces, anomaly decision scores, root-cause summaries, and click-to-copy terminal remediation commands.
-- **Multi-Channel Dispatcher**: Built with a Composite Notification Service supporting Slack incoming webhooks, structured audit logging, and extensible email channels.
+- **Conditional incident trigger.** With automatic diagnosis enabled, eligible logs persist a job in the ingestion transaction. Workers dispatch LLM analysis after commit.
+- **Sanitized Slack messages** include severity, the owning application, and a stable notification reference. Single-application incidents can also include a bounded diagnosis excerpt.
+- **Durable attempts** record delivery, scheduled retry, permanent rejection and unknown outcomes in PostgreSQL. The incident view exposes delivery status and attempt history.
 
 ## 4.10 Cloud-Native Kubernetes Orchestration (`k8s/`)
 
@@ -509,9 +507,9 @@ User PostgreSQL                    |
 
 ## 4.12 Dynamic Per-Service Slack Alert Routing Engine
 
-- **Targeted Notification Channels**: Supports per-integration webhook/channel preferences for directing incident notifications; effectiveness at reducing alert fatigue has not been independently measured.
-- **Slack Routing**: `SlackNotificationService` resolves the encrypted webhook using the verified organization and application IDs. Local development disables external delivery.
-- **Rich Block Kit Incident Cards**: Automated incident cards with severity indicators, microservice tags, statistical anomaly scores, root-cause explanations, and executable shell remediation commands.
+- **Application delivery policy** sets the minimum severity and can disable Slack independently for an integration.
+- **Slack routing** uses the diagnosis owner's verified application and its encrypted webhook. A multi-application incident sends one generic notice through the owning application.
+- **Revocation and rotation** change the destination revision. Pending work for an earlier revision is cancelled before dispatch. Managers can retry eligible deliveries and must confirm possible duplication after an unknown outcome.
 
 ## 4.13 Enterprise Observability Dark Mode (Datadog / Grafana APM Style)
 
@@ -604,7 +602,7 @@ AI-Powered-DevOps-Log-Analyzer-Incident-Assistant/
 │   │   └── main/resources/knowledge/   # 21 operational runbooks (253 chunks)
 │   └── pom.xml
 │
-├── frontend/                    # React 18 + Vite + Tailwind CSS dashboard (:5173)
+├── frontend/                    # React 19 + Vite + CSS dashboard (:5173)
 │   ├── src/
 │   └── package.json
 │
@@ -679,7 +677,7 @@ Responsibilities:
 /api/v1/organizations/** → Log Layer (:8082)
 ```
 
-The Gateway uses reactive security configuration through `SecurityWebFilterChain`. **Current limitation:** `anyExchange().authenticated()` does not enforce fine-grained endpoint roles for `ROLE_SERVICE` versus human users; see Section 21.
+The Gateway uses `SecurityWebFilterChain` and an authentication filter that restricts application keys to ingestion. The Log Layer verifies both credential scope and organization membership downstream.
 
 ## 7.2 User Service
 
@@ -714,7 +712,7 @@ Responsibilities:
 - Store analysis results.
 - Return structured responses to the frontend.
 
-The Log Layer acts as the orchestration layer between logs, ML inference, persistence, and LLM analysis. ML prediction remains synchronous (`.block()` with a timeout); eligible LLM jobs use `afterCommit()` plus `CompletableFuture.runAsync()`, which is **not a durable queue**.
+The Log Layer orchestrates ingestion, ML inference, persistence, and LLM analysis. Prediction remains synchronous on the processing path (`.block()` with a timeout). The PostgreSQL `diagnosis_jobs` and `diagnosis_attempts` tables track eligible diagnosis work, leases, and attempt outcomes.
 
 ### ML integration
 
@@ -733,14 +731,21 @@ analysisStatus
 analyzedAt
 ```
 
-The analysis lifecycle includes:
+Log scoring and the projected log diagnosis state use separate fields. The durable diagnosis API exposes the worker lifecycle below.
 
-```text
-PENDING
-PROCESSING
-COMPLETED
-FAILED
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> RUNNING: Worker lease
+    RUNNING --> RUNNING: Expired lease reclaimed
+    RUNNING --> RETRY_WAIT: Retryable failure
+    RETRY_WAIT --> RUNNING: Retry becomes due
+    RUNNING --> SUCCEEDED: Fenced result commit
+    RUNNING --> FAILED_TERMINAL: Permanent failure or exhausted attempts
+    FAILED_TERMINAL --> PENDING: Authorized retry
 ```
+
+The default automatic attempt budget is four. A replacement worker can repeat an Ollama call after an uncertain result. PostgreSQL accepts a result only from the current unexpired claim. Incident acknowledgement and resolution remain separate actions.
 
 ## 7.4 ML Pipeline
 
@@ -1349,7 +1354,7 @@ HTTP and Kafka share parsing and scoring. The V2 model is `2.0.0-candidate` with
 
 The Incidents view shows tenant-scoped event history, association reasons, lifecycle state, and diagnosis status.
 
-Incident matching uses rolling event-time windows and optional W3C trace context. Diagnosis jobs persist in PostgreSQL. A worker can recover an expired claim, and authorized organization members can retry a failed diagnosis. The verified local baseline is Flyway V7 and 461 passing tests.
+Incident matching uses rolling event-time windows and optional W3C trace context. Diagnosis and notification jobs persist in PostgreSQL. The incident view shows both workflows independently. Flyway V8 adds the outbox and V9 shares backoff between registrations of the same webhook.
 
 See the [Spring Boot](examples/collectors/spring-boot), [Python](examples/collectors/python), and [Node.js](examples/collectors/nodejs) collector examples.
 
@@ -1362,6 +1367,20 @@ The public API preserves historical logs. Tenant log reads and diagnosis require
 Create an organization, register an application under it, then issue a scoped ingestion key. Application credentials support expiration, rotation and revocation. Copy the value when it is issued, and supply it in the `X-API-Key` header to `POST /api/v1/logs`. Slack configuration is scoped to the application and returns a configuration flag.
 
 The former integration-management routes are retired. Gateway continues to verify ingestion credentials through an internal Log Layer endpoint.
+
+### Incident and diagnosis APIs
+
+Use a bearer JWT and the organization in the URL. `{orgPath}` means `/api/v1/organizations/{org}`.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `{orgPath}/incidents` | List incidents with pagination and filters |
+| GET | `{orgPath}/incidents/{incident}` and `{orgPath}/incidents/{incident}/logs` | Read incident details and source logs |
+| POST | `{orgPath}/incidents/{incident}/acknowledge` or `/resolve` under the same incident | Transition lifecycle state using the current `version` in the request body |
+| GET | `{orgPath}/incidents/{incident}/diagnosis` or `{orgPath}/logs/{log}/diagnosis` | Read status and attempt history |
+| POST | Add `/retry` to either diagnosis path | Retry terminal work as an owner, admin, or DevOps member |
+
+New incidents use a five-minute rolling gap and a 30-minute maximum span. Matching uses organization and environment scope. Optional W3C `traceparent` helps group cross-service events. A report of trace origin does not change access or application ownership.
 
 ## 13.4 ML Pipeline APIs
 
@@ -1449,8 +1468,8 @@ Documented variables include:
 DB_PASSWORD
 JWT_SECRET
 INTERNAL_API_KEY
-NOTIFICATION_SLACK_WEBHOOK_URL  # optional
-NOTIFICATION_SLACK_ENABLED      # optional
+SLACK_WEBHOOK_ENCRYPTION_KEY   # protects tenant application configuration
+NOTIFICATION_DELIVERY_TRANSPORT # OFF in the managed Windows launcher
 ```
 
 ## PowerShell Configuration
@@ -1508,6 +1527,18 @@ CREATE DATABASE llm_service_db;
 ```
 
 Then connect to `llm_service_db` and initialize the extension and `knowledge_chunks` schema. The authoritative table and index definitions, including the `vector(768)` column, are in `docker/init-db.sql`. **Do not blindly rerun the entire script on databases that already exist**, because its `CREATE DATABASE` statements are not idempotent.
+
+Apply [User Service Flyway V1](user-service/src/main/resources/db/migration) to `devinsight` and [Log Layer V1–V9](log-layer/src/main/resources/db/migration) to `log_layer_db` with a migration administrator. Run `flyway migrate` followed by `flyway validate` using the module’s migration directory. The application startup validates the schema. Automatic migration and automatic baselining are disabled. For an existing database, review its migration history and verify a restorable backup before applying an upgrade.
+
+The Log Layer needs a non-owner login that inherits `devinsight_log_tenant` without superuser or RLS bypass. After migrations on a fresh instance, create this login and set its password from an interactive `psql` session connected to `log_layer_db`.
+
+```sql
+CREATE ROLE devinsight_log_app LOGIN INHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+\password devinsight_log_app
+GRANT devinsight_log_tenant TO devinsight_log_app;
+```
+
+Set `LOG_LAYER_DB_USERNAME` and `LOG_LAYER_DB_PASSWORD` in the ignored `.env.local` file. Use the existing runtime credentials on an already migrated instance. To populate dense retrieval on a fresh, empty `llm_service_db`, set `RAG_SYNCHRONIZE_ON_START=true` for the first launch, then clear the override for ordinary starts.
 
 ### Docker Compose setup
 
@@ -1786,7 +1817,7 @@ For quick local development without manual multi-terminal management, automated 
 
 ### Windows (PowerShell)
 
-Run `setup-local-env.ps1` once if persistent local configuration is missing. The Windows launcher reuses the saved credentials through service-specific child environments. It binds all six services to loopback, disables local Slack and email delivery, and checks HTTP readiness before reporting success. Service logs are under `logs/local-services/`.
+Run `setup-local-env.ps1` once if persistent local configuration is missing. Use Java 21 and a Python environment with the ML requirements installed, and install frontend dependencies with `npm.cmd --prefix frontend ci`. Ensure the database is migrated and Ollama is running before launching. The Windows launcher reuses saved credentials through service-specific child environments. It binds all six services to loopback, disables local Slack and email delivery, and checks HTTP readiness before reporting success. Service logs are under `logs/local-services/`.
 
 ```powershell
 # Start the application services using the provided launcher:
@@ -1797,9 +1828,29 @@ Run `setup-local-env.ps1` once if persistent local configuration is missing. The
 
 # Stop the launched application services:
 .\scripts\stop-all.ps1
+```
 
-# For a local disposable stack, pass a registered application API key:
-.\scripts\test-live-springboot-ingest.ps1 -ApiKey '<local application API key>'
+### Optional local Kafka intake
+
+With the managed application stack stopped, set up and start the loopback Kafka broker, then enable Kafka intake when launching. Both synchronous routes stay available. Collectors select v2 with `DEVINSIGHT_DELIVERY_MODE=ASYNC_KAFKA`.
+
+```powershell
+.\scripts\setup-kafka-local.ps1
+.\scripts\start-kafka-local.ps1
+.\scripts\test-kafka-local.ps1
+.\scripts\start-all.ps1 -Kafka
+```
+
+Stop the application stack before calling `.\scripts\stop-kafka-local.ps1`. Local broker storage is retained.
+
+### Verify the application workflow
+
+Sign in, create an organization in **Integrations**, and register a development application. Issue a scoped ingestion key, then run one of the [collector examples](examples/collectors) with the key supplied through its environment. Inspect the log in the dashboard and open **Incidents** to review related events, diagnosis status, and attempts. To exercise the full write workflow automatically, use `.\scripts\test-local-endpoints.ps1 -RunWorkflow` on a disposable stack.
+
+The Spring Boot smoke script sends one synthetic multiline log through the single-log route. On a disposable stack, match the sample application name to the registered development application and supply its key through the shell environment.
+
+```powershell
+.\scripts\test-live-springboot-ingest.ps1 -ApiKey $env:DEVINSIGHT_API_KEY -ServiceName 'order-payment-service'
 ```
 
 ### Linux / macOS / WSL (Bash)
@@ -1972,7 +2023,7 @@ It communicates with the API Gateway rather than directly accessing individual b
 
 ### Dashboard
 
-The dashboard provides an overview of the application's log-analysis information.
+The Overview uses tenant-scoped PostgreSQL summaries for the selected application and time range. Source events use occurrence time. Incident attention uses last occurrence. Diagnosis and Slack status counts describe jobs created in the selected period.
 
 ### Log Ingestion
 
@@ -1986,14 +2037,12 @@ Users can submit logs through the web interface with available metadata such as:
 
 ### Log Explorer
 
-The Log Explorer provides log-searching and filtering functionality.
-
-Documented dashboard functionality includes:
+Open `/logs` to search persisted source events. Overview and investigation features include:
 
 - Total log count.
 - Error count.
 - Warning count.
-- AI analysis count.
+- Durable diagnosis state and separate Slack attempt history.
 - Severity filtering.
 - Source filtering.
 - Environment filtering.
@@ -2034,6 +2083,21 @@ The Live Inspector allows operators to submit sample raw logs or stack traces fr
 
 An earlier verification run recorded **98 Python non-HTTP**, **30 targeted Log Layer**, and **48 targeted LLM Service** tests passing, plus a successful frontend build. That session could not run a full-stack HTTP check because of Windows loopback restrictions. The project owner subsequently reported a successful local live smoke test. See the [ML Pipeline guide](ml-pipeline/README.md) for test commands.
 
+The verified observability run on Flyway V9 recorded **497 passing backend and collector tests** and **7 passing frontend tests**, with zero failures, errors, or skips. The earlier notification and durable diagnosis baselines recorded 494 and 461 passing tests respectively.
+
+| Suite | Passed |
+|---|---:|
+| API Gateway | 19 |
+| User Service | 9 |
+| Log Layer | 122 |
+| LLM Service | 195 |
+| ML Pipeline | 133 |
+| Spring Boot, Python, and Node.js collectors | 5, 7, and 7 |
+| **Backend and collectors** | **497** |
+| Frontend component and API client | 7 |
+
+The frontend build, lint, and Chrome workflows were verified separately. The disposable run used authenticated Kafka, real V2 inference, real Ollama and a loopback notification receiver. Twelve related collector errors produced one diagnosis, one outbox record and one acknowledged request. The dashboard counts were reconciled with the scoped database rows.
+
 # 21. Security Considerations
 
 The application uses a reactive Gateway filter, JWTs for operator identity, and application keys for log ingestion. Local organization isolation is enforced. Production deployment requires separate review of TLS, network isolation, secrets, and rate limits.
@@ -2061,7 +2125,7 @@ Applications ingest with a generated `dvi_...` key in `X-API-Key`. Gateway and L
 
 ### Tenant access and configuration
 
-The Log Layer verifies actual organization membership and scopes application operations. PostgreSQL forces row security on logs. Application onboarding and key management are available at `/integrations`. The launcher reads persistent credentials from `.env.local` and passes them through process environments. Supported Slack destinations are encrypted with an application-specific context. Local Slack and email delivery stay disabled.
+The Log Layer verifies organization membership and scopes application operations. PostgreSQL forces row security on logs, incidents, memberships, diagnosis jobs, notification jobs and their attempts. Application onboarding and key management are available at `/integrations`. The launcher reads persistent credentials from `.env.local` and passes them through process environments. Slack destinations are encrypted with an application-specific context. Local Slack and email delivery stay disabled.
 
 Use the Windows setup above to configure credentials and verify service readiness. Back up the development database before applying migrations.
 
@@ -2079,11 +2143,11 @@ The project includes parser strategies for multiple formats (including Spring Bo
 
 ## 22.3 Synchronous ML inference
 
-The Gateway is non-blocking, but the Log Layer waits synchronously for ML results using `WebClient.block()` and blocking JPA persistence. A five-second ML timeout bounds one failure mode. A future queue-based ingestion pipeline could decouple log acceptance from scoring, but it would require idempotency, monitoring, and lifecycle management.
+The Gateway uses non-blocking I/O. The Log Layer waits synchronously for ML and uses blocking JPA persistence on the processing path. Kafka v2 decouples broker acknowledgement from those operations. The v1 intake still waits for persistence.
 
 ## 22.4 Background diagnosis durability
 
-LLM diagnosis now uses `TransactionSynchronizationManager.registerSynchronization(afterCommit())`, which avoids starting the background lookup before the log transaction commits. It still uses in-process `CompletableFuture.runAsync()`, not a durable job queue. Restarts, saturation, or crashes may cause work or alerts to be lost.
+PostgreSQL-backed leases and attempt history let workers recover committed jobs after a restart. If a Slack request may have reached the provider before its outcome was saved, the delivery becomes `DELIVERY_UNKNOWN`. An authorized operator can explicitly retry and may send a duplicate. The acknowledgement records Slack's HTTP response.
 
 ## 22.5 Database and deployment parity
 
@@ -2091,7 +2155,7 @@ LLM diagnosis now uses `TransactionSynchronizationManager.registerSynchronizatio
 
 ## 22.6 Security and delivery verification
 
-Gateway authorization still requires finer user-versus-service role enforcement, internal-key identity hardening, and removal of default secrets. The integration simulation's Slack status is not proof of delivery. The application produces suggested remediation steps; it does not execute them or verify that incidents are resolved.
+User and application credentials have separate scopes. Production deployment still requires review of secret rotation, TLS, and network isolation. Slack notification delivery can fail independently of diagnosis. Operators review and execute suggested remediation and verify the outcome.
 
 ## 22.7 Testing and evaluation
 
@@ -2128,8 +2192,8 @@ Security hardening + tests + repeatable benchmarks (ongoing)
 |---|---|---|
 | Backend services | Five service modules, controllers, integration clients | Implemented in code; not fully reactive |
 | ML + RAG | Isolation Forest pipeline, runbooks, retrievers, Ollama integration | Implemented; end-to-end runtime and ranking quality need renewed measurement |
-| Security hardening | Dynamic key verification, tenant-scoped lookups, FastAPI internal auth | Improved; role and master-key boundaries remain |
-| Reliability | Post-commit background scheduling and HTTP timeouts | Implemented; in-process job durability remains a limitation |
+| Security hardening | Signed user identity, scoped ingestion credentials, organization membership, and PostgreSQL row security | Checked against cross-tenant reads and misuse of application keys |
+| Reliability | Kafka replay, PostgreSQL diagnosis leases, fencing, and retry history | Verified against disposable database and provider failures |
 | Containerization | Multi-stage Dockerfiles, Compose variants, pgvector initialization | Deployment configurations exist; verify a fresh startup |
 | Kubernetes | Kustomize/manifests, PVCs, probes, model-puller job | Included; vector schema and secrets need follow-up |
 | Verification | JUnit/Pytest sources, build scripts, saved benchmark artifacts | Historical results exist; latest revision needs fresh tests |
@@ -2140,27 +2204,27 @@ Security hardening + tests + repeatable benchmarks (ongoing)
 
 Planned engineering work focuses on correctness, reproducibility, reliability, and scalability:
 
-- **Security hardening:** Restrict service API keys to ingestion/appropriate machine routes, eliminate trusted client-supplied identity under the master key, close query-parameter key verification, and rotate/remove development secrets.
-- **Durable incident jobs:** Replace in-process diagnosis dispatch with a bounded, monitored queue (for example RabbitMQ or Kafka), with idempotency and retries after commit.
+- **Production security:** Review service identities, secret rotation, TLS, and network access before exposing the stack.
+- **Notification operations:** Expand delivery dashboards and measure queue age, retries and unknown outcomes under representative traffic.
 - **Clean infrastructure bootstrap:** Align Kubernetes vector schema creation with Docker, add schema migrations, and verify fresh-volume startup.
 - **Repeatable CI:** Run Java tests, Pytest, frontend build, security checks, and selected integration tests for every code revision.
 - **Per-stage observability:** Add OpenTelemetry traces and measure ingest, ML, DB, RAG retrieval, model generation, and Slack delivery separately.
 - **Retrieval-quality evaluation:** Build a labeled ground-truth query → relevant-document evaluation set and rerun MRR/Hit@k on the current 200-overlap configuration; compare dense and hybrid strategies fairly.
-- **Scale-out ingestion:** Evaluate a queue or log broker for bursty workloads, log retention, backpressure policies, and independent ML worker scaling.
+- **Scale-out ingestion:** Measure Kafka throughput and backlog under burst traffic. Evaluate retention, backpressure, and independent scoring capacity.
 - **Model quality:** Evaluate Phi-3 Mini recommendations on curated incidents, including evidence quality, hallucination rate, and operator usefulness before considering fine-tuning.
 
 # 25. Architectural Implementation Status
 
 | Component / Layer | Architectural Implementation | Verification & Testing |
 |---|---|---|
-| **Reactive Ingress (API Gateway)** | Spring Cloud Gateway + WebFlux, Netty non-blocking event loops, dual JWT & API-key authentication | Verified via 500-request concurrent load test and in-memory TTL caching |
+| **Reactive Ingress (API Gateway)** | Spring Cloud Gateway + WebFlux, signed user authentication, and live application key checks | Verified with role and key tests. The earlier load measurement remains historical |
 | **Authentication & RBAC (User Service)** | Spring Security 6, BCrypt password hashing, stateless HS256 JWT tokens | Verified unit and integration controller tests |
 | **Telemetry Ingestion (Log Layer)** | Polyglot parser factory (Strategy pattern), multi-line stack trace stitching, JPA persistence | Tested across 6 runtimes (Java, Python, Node.js, Go, K8s, MySQL) |
 | **Dynamic Key Auth & Tenant Isolation** | Per-application `dvi_...` keys, header-based internal verification, user-scoped queries | Hardened against tenant hijacking and key enumeration |
 | **ML Anomaly Detection (ML Pipeline)** | 40-feature V2 extraction, Isolation Forest scoring, and a configurable V1 rollback | Protected via `verify_internal_api_key` dependency |
 | **RAG Knowledge Base (LLM Service)** | Dense vector search (`nomic-embed-text`) + BM25 reciprocal rank fusion over 21 runbooks | Evaluated across 20 incident queries; sub-second retrieval |
 | **Multi-Database & Vector Store** | PostgreSQL 16 + pgvector: `devinsight`, `log_layer_db`, and `llm_service_db` (`knowledge_chunks`) | Initialized via `docker/init-db.sql` with HNSW vector index |
-| **Incident Automation & Alerting** | Post-commit transaction synchronization hook (`afterCommit()`), Slack Block Kit card dispatch | Asynchronous non-blocking incident dispatch |
+| **Incident Automation & Alerting** | Rolling correlation, durable diagnosis, and a tenant-scoped notification outbox | Restart recovery and delivery outcomes are checked with an isolated HTTP receiver |
 | **Container & Orchestration Mesh** | Multi-stage Docker builds, Docker Compose, Kubernetes manifests (`devinsight` namespace) | Configured with health probes, internal `expose` networking, and resource limits |
 
 # Summary

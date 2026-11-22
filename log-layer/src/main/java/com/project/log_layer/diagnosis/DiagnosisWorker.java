@@ -1,10 +1,8 @@
 package com.project.log_layer.diagnosis;
 
-import com.project.log_layer.dto.response.analyzer.IncidentDiagnosis;
 import com.project.log_layer.integration.client.LlmInferenceClient;
 import com.project.log_layer.integration.dto.LlmAnalysisResponse;
 import com.project.log_layer.integration.exception.LlmServiceException;
-import com.project.log_layer.notification.service.NotificationService;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +27,6 @@ public class DiagnosisWorker {
     private final DiagnosisQueue queue;
     private final DiagnosisContext context;
     private final LlmInferenceClient llm;
-    private final NotificationService notifications;
     private final DiagnosisSettings settings;
     private final UUID worker = UUID.randomUUID();
     private ThreadPoolExecutor calls;
@@ -117,8 +114,8 @@ public class DiagnosisWorker {
             LlmAnalysisResponse result = call.get(settings.timeout().toMillis(), TimeUnit.MILLISECONDS);
             if (!lost.get() && !valid(result)) {
                 queue.fail(claim, Failure.INVALID_RESPONSE, false);
-            } else if (!lost.get() && queue.succeed(claim, result)) {
-                notifyAfterCommit(input, result);
+            } else if (!lost.get()) {
+                queue.succeed(claim, result);
             }
         } catch (TimeoutException ex) {
             call.cancel(true);
@@ -161,16 +158,6 @@ public class DiagnosisWorker {
 
     private static boolean field(String value) {
         return value != null && !value.isBlank() && value.length() <= 16000 && value.indexOf('\0') < 0;
-    }
-
-    private void notifyAfterCommit(DiagnosisContext.Input input, LlmAnalysisResponse result) {
-        try {
-            notifications.sendIncidentAlert(input.owner(), IncidentDiagnosis.builder()
-                    .summary(result.summary()).probableRootCause(result.rootCause()).severity(result.severity())
-                    .suggestedFix(result.recommendation()).build());
-        } catch (RuntimeException ex) {
-            log.warn("Legacy notification dispatch failed after diagnosis commit");
-        }
     }
 
     @PreDestroy

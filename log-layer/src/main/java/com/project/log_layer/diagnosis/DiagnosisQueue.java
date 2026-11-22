@@ -2,6 +2,7 @@ package com.project.log_layer.diagnosis;
 
 import com.project.log_layer.entity.Log;
 import com.project.log_layer.integration.dto.LlmAnalysisResponse;
+import com.project.log_layer.notification.outbox.NotificationQueue;
 import com.project.log_layer.tenant.TenantSqlScope;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class DiagnosisQueue {
     private final EntityManager entities;
     private final TenantSqlScope scope;
     private final DiagnosisSettings settings;
+    private final NotificationQueue notifications;
 
     public enum Failure {
         TRANSPORT, OVERLOADED, UPSTREAM, DEADLINE, INVALID_RESPONSE, REJECTED, CONTEXT, LEASE_EXPIRED
@@ -115,6 +117,7 @@ public class DiagnosisQueue {
                 claim.organization, claim.log) != 1) {
             throw new IllegalStateException("Diagnosis owner cannot be updated");
         }
+        notifications.enqueue(claim.organization, claim.job, claim.incident, claim.log);
         return true;
     }
 

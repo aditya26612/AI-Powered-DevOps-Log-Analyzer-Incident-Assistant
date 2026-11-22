@@ -1,924 +1,161 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-
-import {
-  Brain,
-  ChevronLeft,
-  ChevronRight,
-  CircleAlert,
-  FileText,
-  Search,
-  Upload,
-} from "lucide-react";
-
-import { searchLogs } from "../api/logApi";
-import "./Dashboard.css";
-
-const Dashboard = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const [successMessage, setSuccessMessage] = useState(
-    location.state?.successMessage || ""
-  );
-
-  const [filters, setFilters] = useState({
-    level: "",
-    source: "",
-    environment: "",
-    anomaly: "",
-    applicationName: "",
-    message: "",
-  });
-
-  const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
-
-  // =========================================================
-  // SUCCESS MESSAGE FROM INGESTION
-  // =========================================================
-
-  useEffect(() => {
-    if (location.state?.successMessage) {
-      setSuccessMessage(location.state.successMessage);
-
-      navigate(location.pathname, {
-        replace: true,
-        state: null,
-      });
-    }
-  }, [location, navigate]);
-
-  // =========================================================
-  // LOAD LOGS
-  // =========================================================
-
-  const loadLogs = async (
-    currentPage = 0,
-    currentFilters = filters
-  ) => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const request = {
-        level: currentFilters.level || null,
-        source: currentFilters.source || null,
-        environment: currentFilters.environment || null,
-        status: null,
-
-        anomaly:
-          currentFilters.anomaly === ""
-            ? null
-            : currentFilters.anomaly === "true",
-
-        applicationName:
-          currentFilters.applicationName.trim() || null,
-
-        serviceName: null,
-        loggerName: null,
-        threadName: null,
-        hostName: null,
-
-        message:
-          currentFilters.message.trim() || null,
-
-        correlationId: null,
-        startTime: null,
-        endTime: null,
-
-        page: currentPage,
-        size: 20,
-
-        sortBy: "TIMESTAMP",
-        sortDirection: "DESC",
-      };
-
-      const response = await searchLogs(request);
-
-      setLogs(response.content || []);
-      setPage(response.page ?? currentPage);
-      setTotalPages(response.totalPages ?? 0);
-      setTotalElements(response.totalElements ?? 0);
-    } catch (error) {
-      console.error("Failed to load logs:", error);
-
-      setError(
-        error.response?.data?.message ||
-          "Failed to load logs."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // =========================================================
-  // INITIAL DASHBOARD LOAD
-  // =========================================================
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchInitialLogs = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const request = {
-          level: null,
-          source: null,
-          environment: null,
-          status: null,
-          anomaly: null,
-          applicationName: null,
-          serviceName: null,
-          loggerName: null,
-          threadName: null,
-          hostName: null,
-          message: null,
-          correlationId: null,
-          startTime: null,
-          endTime: null,
-          page: 0,
-          size: 20,
-          sortBy: "TIMESTAMP",
-          sortDirection: "DESC",
-        };
-
-        const response = await searchLogs(request);
-
-        if (cancelled) {
-          return;
-        }
-
-        setLogs(response.content || []);
-        setPage(response.page ?? 0);
-        setTotalPages(response.totalPages ?? 0);
-        setTotalElements(response.totalElements ?? 0);
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error("Failed to load logs:", error);
-
-        setError(
-          error.response?.data?.message ||
-            "Failed to load logs."
-        );
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchInitialLogs();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // =========================================================
-  // FILTERS
-  // =========================================================
-
-  const handleFilterChange = (event) => {
-    const { name, value } = event.target;
-
-    setFilters((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
-  };
-
-  const handleSearch = () => {
-    loadLogs(0, filters);
-  };
-
-  // =========================================================
-  // PAGINATION
-  // =========================================================
-
-  const handlePrevious = () => {
-    if (page > 0) {
-      loadLogs(page - 1, filters);
-    }
-  };
-
-  const handleNext = () => {
-    if (page < totalPages - 1) {
-      loadLogs(page + 1, filters);
-    }
-  };
-
-  // =========================================================
-  // DASHBOARD STATISTICS
-  // =========================================================
-
-  const errorCount = logs.filter(
-    (log) => log.level === "ERROR"
-  ).length;
-
-  const warningCount = logs.filter(
-    (log) => log.level === "WARN"
-  ).length;
-
-  const anomalyCount = logs.filter(
-    (log) => log.anomaly === true
-  ).length;
-
-  const analyzedCount = logs.filter(
-    (log) => log.llmAnalysisStatus === "COMPLETED"
-  ).length;
-
-  // =========================================================
-  // HELPERS
-  // =========================================================
-
-  const getLevelClass = (level) => {
-    switch (level) {
-      case "ERROR":
-        return "error";
-
-      case "WARN":
-        return "warn";
-
-      case "INFO":
-        return "info";
-
-      case "DEBUG":
-        return "debug";
-
-      case "TRACE":
-        return "trace";
-
-      default:
-        return "unknown";
-    }
-  };
-
-  const getAnalysisClass = (status) => {
-    if (!status) {
-      return "unknown";
-    }
-
-    switch (status) {
-      case "COMPLETED":
-        return "completed";
-
-      case "FAILED":
-        return "failed";
-
-      case "PENDING":
-      case "PROCESSING":
-        return "pending";
-
-      default:
-        return "unknown";
-    }
-  };
-
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) {
-      return "Unknown time";
-    }
-
-    return timestamp.replace("T", " ");
-  };
-
-  // =========================================================
-  // UI
-  // =========================================================
-
-  return (
-    <div className="dashboard-page">
-
-      {/* =====================================================
-          SUCCESS MESSAGE
-          ===================================================== */}
-
-      {successMessage && (
-        <div className="dashboard-success">
-          <span>✓</span>
-          <span>{successMessage}</span>
-        </div>
-      )}
-
-      {/* =====================================================
-          STATISTICS
-          ===================================================== */}
-
-      <section className="dashboard-stats">
-
-        <div className="stat-card">
-          <div className="stat-label">
-            Total Logs
-          </div>
-
-          <div className="stat-value">
-            {totalElements}
-          </div>
-
-          <div className="stat-description">
-            Logs available in the system
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">
-            Errors
-          </div>
-
-          <div className="stat-value">
-            {errorCount}
-          </div>
-
-          <div className="stat-description">
-            Errors on current page
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">
-            Warnings
-          </div>
-
-          <div className="stat-value">
-            {warningCount}
-          </div>
-
-          <div className="stat-description">
-            Warnings on current page
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">
-            AI Analyses
-          </div>
-
-          <div className="stat-value">
-            {analyzedCount}
-          </div>
-
-          <div className="stat-description">
-            Analyzed logs on current page
-          </div>
-        </div>
-
-      </section>
-
-      {/* =====================================================
-          ANALYSIS BANNER
-          ===================================================== */}
-
-      <section className="analysis-banner">
-
-        <div className="analysis-banner-content">
-          <h3>
-            Log Analysis
-          </h3>
-
-          <p>
-            Ingest application logs and investigate
-            anomalies using ML and AI.
-          </p>
-        </div>
-
-        <button
-          className="primary-button"
-          onClick={() => navigate("/logs/ingest")}
-        >
-          <Upload size={15} />
-          Ingest Log
-        </button>
-
-      </section>
-
-      {/* =====================================================
-          SEARCH
-          ===================================================== */}
-
-      <section className="search-panel">
-
-        <div className="search-panel-header">
-
-          <h2>
-            Search &amp; Filter Logs
-          </h2>
-
-          <p>
-            Narrow down logs by level, source,
-            environment, application, or message.
-          </p>
-
-        </div>
-
-        <div className="filter-grid">
-
-          {/* Level */}
-
-          <div className="filter-field">
-            <label htmlFor="level">
-              Level
-            </label>
-
-            <select
-              id="level"
-              name="level"
-              value={filters.level}
-              onChange={handleFilterChange}
-            >
-              <option value="">
-                All levels
-              </option>
-
-              <option value="TRACE">
-                TRACE
-              </option>
-
-              <option value="DEBUG">
-                DEBUG
-              </option>
-
-              <option value="INFO">
-                INFO
-              </option>
-
-              <option value="WARN">
-                WARN
-              </option>
-
-              <option value="ERROR">
-                ERROR
-              </option>
-            </select>
-          </div>
-
-          {/* Source */}
-
-          <div className="filter-field">
-            <label htmlFor="source">
-              Source
-            </label>
-
-            <select
-              id="source"
-              name="source"
-              value={filters.source}
-              onChange={handleFilterChange}
-            >
-              <option value="">
-                All sources
-              </option>
-
-              <option value="SPRING_BOOT">
-                SPRING_BOOT
-              </option>
-
-              <option value="DOCKER">
-                DOCKER
-              </option>
-
-              <option value="NGINX">
-                NGINX
-              </option>
-
-              <option value="KUBERNETES">
-                KUBERNETES
-              </option>
-
-              <option value="APACHE">
-                APACHE
-              </option>
-
-              <option value="JENKINS">
-                JENKINS
-              </option>
-
-              <option value="KAFKA">
-                KAFKA
-              </option>
-
-              <option value="REDIS">
-                REDIS
-              </option>
-
-              <option value="MYSQL">
-                MYSQL
-              </option>
-
-              <option value="SYSTEM">
-                SYSTEM
-              </option>
-
-              <option value="CUSTOM">
-                CUSTOM
-              </option>
-            </select>
-          </div>
-
-          {/* Environment */}
-
-          <div className="filter-field">
-            <label htmlFor="environment">
-              Environment
-            </label>
-
-            <select
-              id="environment"
-              name="environment"
-              value={filters.environment}
-              onChange={handleFilterChange}
-            >
-              <option value="">
-                All environments
-              </option>
-
-              <option value="DEVELOPMENT">
-                DEVELOPMENT
-              </option>
-
-              <option value="TESTING">
-                TESTING
-              </option>
-
-              <option value="QA">
-                QA
-              </option>
-
-              <option value="STAGING">
-                STAGING
-              </option>
-
-              <option value="PRODUCTION">
-                PRODUCTION
-              </option>
-            </select>
-          </div>
-
-          {/* Anomaly */}
-
-          <div className="filter-field">
-            <label htmlFor="anomaly">
-              Anomaly
-            </label>
-
-            <select
-              id="anomaly"
-              name="anomaly"
-              value={filters.anomaly}
-              onChange={handleFilterChange}
-            >
-              <option value="">
-                All logs
-              </option>
-
-              <option value="true">
-                Anomalies only
-              </option>
-
-              <option value="false">
-                Normal only
-              </option>
-            </select>
-          </div>
-
-          {/* Application */}
-
-          <div className="filter-field">
-            <label htmlFor="applicationName">
-              Application
-            </label>
-
-            <input
-              id="applicationName"
-              type="text"
-              name="applicationName"
-              value={filters.applicationName}
-              onChange={handleFilterChange}
-              placeholder="payment-service"
-            />
-          </div>
-
-          {/* Message */}
-
-          <div className="filter-field">
-            <label htmlFor="message">
-              Message
-            </label>
-
-            <input
-              id="message"
-              type="text"
-              name="message"
-              value={filters.message}
-              onChange={handleFilterChange}
-              placeholder="Search message"
-            />
-          </div>
-
-        </div>
-
-        <div className="search-actions">
-
-          <button
-            className="primary-button"
-            onClick={handleSearch}
-          >
-            <Search size={15} />
-            Search Logs
-          </button>
-
-        </div>
-
-      </section>
-
-      {/* =====================================================
-          ERROR
-          ===================================================== */}
-
-      {error && (
-        <div className="dashboard-error">
-          <CircleAlert size={15} />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* =====================================================
-    LOGS
-    ===================================================== */}
-
-      <section className="logs-section">
-
-        <div className="logs-header">
-
-          <div className="logs-title">
-
-            <div>
-              <h2>Log Explorer</h2>
-
-              <p>
-                Application events detected by DevInsight
-              </p>
-            </div>
-
-            <span className="logs-count">
-              {totalElements}{" "}
-              {totalElements === 1 ? "result" : "results"}
-            </span>
-
-          </div>
-
-        </div>
-
-        {/* Loading */}
-
-        {loading && (
-          <div className="dashboard-message">
-            Loading logs...
-          </div>
-        )}
-
-        {/* Empty */}
-
-        {!loading && logs.length === 0 && (
-          <div className="dashboard-message">
-
-            <FileText size={24} />
-
-            <div style={{ marginTop: "8px" }}>
-              No logs found.
-            </div>
-
-          </div>
-        )}
-
-        {/* Log cards */}
-
-        {!loading &&
-          logs.map((log) => {
-
-            const levelClass =
-              getLevelClass(log.level);
-
-            const analysisClass =
-              getAnalysisClass(
-                log.analysisStatus
-              );
-
-            return (
-              <article
-                className="log-card"
-                key={log.id}
-              >
-
-                <div className="log-card-main">
-
-                  {/* Header */}
-
-                  <div className="log-card-header">
-
-                    <div className="log-identity">
-
-                      <span
-                        className={`log-level ${levelClass}`}
-                      >
-                        {log.level || "UNKNOWN"}
-                      </span>
-
-                      <span className="log-id">
-                        #{log.id}
-                      </span>
-
-                      <span className="log-time">
-                        {formatTimestamp(
-                          log.timestamp
-                        )}
-                      </span>
-
-                    </div>
-
-                  </div>
-
-                  {/* Metadata */}
-
-                  <div className="log-meta">
-
-                    <div className="log-meta-item">
-
-                      <span className="log-meta-label">
-                        Application
-                      </span>
-
-                      <span className="log-meta-value">
-                        {log.applicationName ||
-                          "Unknown"}
-                      </span>
-
-                    </div>
-
-                    <div className="log-meta-item">
-
-                      <span className="log-meta-label">
-                        Source
-                      </span>
-
-                      <span className="log-meta-value">
-                        {log.source || "Unknown"}
-                      </span>
-
-                    </div>
-
-                    <div className="log-meta-item">
-
-                      <span className="log-meta-label">
-                        Environment
-                      </span>
-
-                      <span className="log-meta-value">
-                        {log.environment ||
-                          "Unknown"}
-                      </span>
-
-                    </div>
-
-                    <div className="log-meta-item">
-
-                      <span className="log-meta-label">
-                        Prediction
-                      </span>
-
-                      <span className="log-meta-value">
-                        {log.predictionLabel ||
-                          "Not analyzed"}
-                      </span>
-
-                    </div>
-
-                  </div>
-
-                  {/* Message */}
-
-                  <div className="log-message">
-
-                    <span className="log-message-label">
-                      MESSAGE
-                    </span>
-
-                    <span className="log-message-text">
-                      {log.message ||
-                        "No message available"}
-                    </span>
-
-                  </div>
-
-                  {/* Analysis */}
-
-                  <div className="log-analysis">
-
-                    <span className="analysis-label">
-                      ML
-                    </span>
-
-                    <span
-                      className={`analysis-badge ${
-                        log.predictionLabel ===
-                        "Anomaly"
-                          ? "anomaly"
-                          : log.predictionLabel
-                            ? "normal"
-                            : "unknown"
-                      }`}
-                    >
-                      {log.predictionLabel ||
-                        "UNKNOWN"}
-                    </span>
-
-                    <span className="analysis-label">
-                      Analysis
-                    </span>
-
-                    <span
-                      className={`analysis-badge ${analysisClass}`}
-                    >
-                      {log.analysisStatus ||
-                        "N/A"}
-                    </span>
-
-                  </div>
-
-                </div>
-
-                {/* Actions */}
-
-                <div className="log-card-actions">
-
-                  <button
-                    className="secondary-button"
-                    onClick={() =>
-                      navigate(
-                        `/logs/${log.id}/analyze`
-                      )
-                    }
-                  >
-                    <Brain size={13} />
-                    Analyze
-                  </button>
-
-
-
-                </div>
-
-              </article>
-            );
-          })}
-
-      </section>
-
-      {/* =====================================================
-          PAGINATION
-          ===================================================== */}
-
-      {!loading && totalPages > 0 && (
-        <section className="pagination">
-
-          <button
-            className="pagination-button"
-            onClick={handlePrevious}
-            disabled={page === 0}
-          >
-            <ChevronLeft size={14} />
-            Previous
-          </button>
-
-          <span className="pagination-info">
-            Page {page + 1} of {totalPages}
-          </span>
-
-          <button
-            className="pagination-button"
-            onClick={handleNext}
-            disabled={
-              page >= totalPages - 1
-            }
-          >
-            Next
-            <ChevronRight size={14} />
-          </button>
-
-        </section>
-      )}
-
+import { useCallback, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Activity, ArrowRight, Bell, CircleAlert, Database, Radio, Siren } from "lucide-react";
+import { getSummary } from "../api/observabilityApi";
+import { ApplicationSelect, RangeSelect, Refresh, ResourceError, Status } from "../components/WorkspaceControls";
+import { useWorkspace } from "../context/workspace";
+import useResource from "../hooks/useResource";
+import { dateTime, label, levels, number, rangeKey, signalTotals } from "../observability";
+
+function Metric({ icon: Icon, title, amount, hint, tone, href }) {
+  return <Link to={href} className={`work-panel metric-card ${tone}`}>
+    <span className="metric-icon"><Icon size={19} aria-hidden="true" /></span>
+    <span className="metric-title">{title}</span>
+    <strong>{number(amount)}</strong>
+    <small>{hint}</small>
+    <ArrowRight size={15} className="metric-arrow" aria-hidden="true" />
+  </Link>;
+}
+
+function StatusCounts({ title, counts, empty }) {
+  return <section className="work-panel state-panel">
+    <h2>{title}</h2>
+    {Object.keys(counts).length ? <dl className="state-list">
+      {Object.entries(counts).sort().map(([key,value]) => <div key={key}>
+        <dt><Status value={key} /></dt><dd>{number(value)}</dd>
+      </div>)}
+    </dl> : <p className="work-muted">{empty}</p>}
+  </section>;
+}
+
+function Volume({ data }) {
+  const [mode, setMode] = useState("logs");
+  const [showTable, setShowTable] = useState(false);
+  const name = mode === "logs" ? "Persisted logs" : "V2 anomalies";
+  const peak = Math.max(0, ...data.buckets.map((bucket) => bucket[mode]));
+  const max = Math.max(1, peak);
+  const marks = Array.from(new Set([max, Math.round(max * .75), Math.round(max * .5), Math.round(max * .25), 0]));
+  return <section className="work-panel volume-panel">
+    <header className="work-panel-header">
+      <div><h2>Event volume</h2><p className="work-muted">Source occurrence time · local display</p></div>
+      <div className="work-segment" aria-label="Event series">
+        <button type="button" aria-pressed={mode === "logs"} onClick={() => setMode("logs")}>Logs</button>
+        <button type="button" aria-pressed={mode === "anomalies"} onClick={() => setMode("anomalies")}>Anomalies</button>
+      </div>
+    </header>
+    {peak > 0 ? <div className="volume-plot" aria-hidden="true">
+      <div className="volume-scale">{marks.map((mark) => <span key={mark}>{number(mark)}</span>)}</div>
+      <div className="volume-bars">
+        {data.buckets.map((bucket) => <div key={bucket.start} className="volume-column"
+          title={`${dateTime(bucket.start)} · ${number(bucket[mode])} ${name.toLowerCase()}`}>
+          <span style={{ height: `${100 * bucket[mode] / max}%` }} />
+        </div>)}
+      </div>
+    </div> : <p className="work-chart-empty">{mode === "logs" ? "No logs in this time range." : "No V2 anomalies in this time range."}</p>}
+    <div className="volume-footer">
+      <span>{dateTime(data.from)}</span>
+      <button type="button" className="work-text-button" onClick={() => setShowTable((shown) => !shown)}
+        aria-expanded={showTable}>{showTable ? "Hide values" : "View values"}</button>
+      <span>{dateTime(data.to)}</span>
     </div>
-  );
-};
+    {showTable && <div className="work-table-scroll" tabIndex={0} role="region" aria-label="Event volume values">
+      <table className="work-table"><thead><tr><th scope="col">Bucket start</th><th scope="col">{name}</th></tr></thead>
+        <tbody>{data.buckets.map((item) => <tr key={item.start}><td>{dateTime(item.start)}</td><td>{number(item[mode])}</td></tr>)}</tbody>
+      </table>
+    </div>}
+  </section>;
+}
 
-export default Dashboard;
+function Severity({ counts }) {
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  return <section className="work-panel severity-panel">
+    <h2>Log severity</h2>
+    <p className="work-muted">Normalized source levels</p>
+    {total ? <ul className="severity-list">{levels.toReversed().map((level) => <li key={level}>
+      <span>{label(level)}</span><span className={`severity-track ${level.toLowerCase()}`}>
+        <span style={{ width: `${100 * (counts[level] ?? 0) / total}%` }} />
+      </span><strong>{number(counts[level] ?? 0)}</strong>
+    </li>)}</ul> : <p className="work-chart-empty">Severity data appears when logs arrive.</p>}
+  </section>;
+}
+
+export default function Dashboard() {
+  const { organization, applications, applicationError } = useWorkspace();
+  const [search, setSearch] = useSearchParams();
+  const range = rangeKey(search.get("range"));
+  const applicationId = search.get("application") || "";
+  const org = organization.id;
+  const load = useCallback((signal) => getSummary(org, { range, applicationId: applicationId || undefined }, signal),
+    [org, range, applicationId]);
+  const resource = useResource(`${org}/${range}/${applicationId}`, load, 20000);
+  const data = resource.data;
+  const scope = new URLSearchParams({ range, ...(applicationId && { application: applicationId }) });
+  const logLink = (extra) => `/logs?${new URLSearchParams([...scope, ...Object.entries(extra ?? {})])}`;
+  const incidentLink = `/incidents?${scope}`;
+  function filter(key, value) {
+    setSearch((previous) => {
+      const next = new URLSearchParams(previous);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      return next;
+    });
+  }
+  const totals = data && signalTotals(data.buckets);
+  return <div className="observability-overview">
+    <div className="work-toolbar">
+      <RangeSelect value={range} onChange={(value) => filter("range", value)} />
+      <ApplicationSelect applications={applications} value={applicationId} onChange={(value) => filter("application", value)} />
+      <Refresh resource={resource} />
+    </div>
+    {applicationError && <p role="alert" className="work-alert">The application filter could not load.</p>}
+    <ResourceError resource={resource} />
+    {!data && !resource.error && <div className="work-loading" role="status">Loading observability metrics…</div>}
+    {data && <>
+      <div className="metric-grid">
+        <Metric icon={Database} title="Persisted logs" amount={totals.logs} hint="Source events in range" tone="blue" href={logLink()} />
+        <Metric icon={Activity} title="V2 anomalies" amount={totals.anomalies} hint="Completed V2 classifications" tone="violet" href={logLink({ classification: "V2_ANOMALY" })} />
+        <Metric icon={CircleAlert} title="Operational errors" amount={totals.errors} hint="ERROR or FATAL severity" tone="amber" href={logLink({ operationalErrors: "true" })} />
+        <Metric icon={Siren} title="Open incidents" amount={data.incidents.OPEN ?? 0}
+          hint={`${number(data.incidents.ACKNOWLEDGED ?? 0)} acknowledged in range`} tone="red" href={`${incidentLink}&status=OPEN`} />
+        <Metric icon={Bell} title="Slack needs attention" amount={(data.deliveries.DELIVERY_UNKNOWN ?? 0) + (data.deliveries.FAILED_TERMINAL ?? 0)}
+          hint="Unknown or terminal delivery" tone="amber" href={`?${scope}#delivery-states`} />
+      </div>
+      <div className="overview-charts"><Volume data={data} /><Severity counts={data.severity} /></div>
+      <div className="overview-charts">
+        <section className="work-panel">
+          <header className="work-panel-header"><div><h2>Incident attention</h2>
+            <p className="work-muted">Unresolved incidents, ordered by severity and last occurrence</p></div>
+            <Link className="work-link" to={incidentLink}>All incidents <ArrowRight size={15} aria-hidden="true" /></Link>
+          </header>
+          {data.attention.length ? <div className="work-table-scroll" tabIndex={0} role="region" aria-label="Unresolved incidents">
+            <table className="work-table"><thead><tr>
+              <th scope="col">Primary application</th><th scope="col">Status</th><th scope="col">Diagnosis</th><th scope="col">Events</th>
+            </tr></thead><tbody>{data.attention.map((item) => <tr key={item.id}>
+              <td><Link className="work-link" to={`/incidents?incident=${item.id}`}>{item.application || "Incident"}</Link>
+                <small>{dateTime(item.first)} — {dateTime(item.last)}</small></td>
+              <td><Status value={item.severity} /> <Status value={item.status} /></td>
+              <td>{item.diagnosisStatus ? <Status value={item.diagnosisStatus} /> : "Unscheduled"}</td>
+              <td>{number(item.events)}</td>
+            </tr>)}</tbody></table>
+          </div> : <p className="work-empty">No unresolved incidents in this range.</p>}
+        </section>
+        <section className="work-panel">
+          <h2>Recent activity</h2><p className="work-muted">Recorded lifecycle and acknowledgement times</p>
+          {data.activity.length ? <ul className="activity-list">{data.activity.map((event, index) => <li key={event.type + event.time + index}>
+            <Radio size={16} aria-hidden="true" /><div>
+              {event.incidentId ? <Link className="work-link" to={`/incidents?incident=${event.incidentId}`}>{label(event.type)}</Link> : label(event.type)}
+              <time dateTime={event.time}>{dateTime(event.time)}</time>
+            </div></li>)}</ul> : <p className="work-empty">No recorded activity in this range.</p>}
+        </section>
+      </div>
+      <div id="delivery-states" className="overview-states">
+        <StatusCounts title="Diagnosis jobs" counts={data.diagnoses} empty="No diagnosis jobs created in this range." />
+        <StatusCounts title="Slack deliveries" counts={data.deliveries} empty="No Slack delivery records created in this range." />
+        <section className="work-panel state-panel"><h2>Scoring failures</h2>
+          <p className="metric-title">{number(totals.failures)} source logs</p>
+          <Link className="work-link" to={logLink({ analysisStatus: "FAILED" })}>Inspect failed scoring</Link>
+        </section>
+      </div>
+    </>}
+  </div>;
+}

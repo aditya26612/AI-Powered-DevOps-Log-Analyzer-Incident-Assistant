@@ -5,8 +5,10 @@ export const ingestLog = async (logData) => {
   return response.data;
 };
 
-export const getLogById = async (id) => {
-  const response = await api.get(`/api/v1/logs/${id}`);
+export const getLogById = async (id, organization, signal) => {
+  const response = await api.get(`/api/v1/logs/${encodeURIComponent(id)}`, {
+    headers: organization ? { "X-DevInsight-Organization": organization } : undefined, signal,
+  });
   return response.data;
 };
 

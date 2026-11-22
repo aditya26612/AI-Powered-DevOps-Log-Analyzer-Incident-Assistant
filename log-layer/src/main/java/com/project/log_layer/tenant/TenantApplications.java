@@ -25,11 +25,12 @@ public class TenantApplications {
     private final ApplicationCredentials keys;
 
     public record Application(String id, String applicationName, TechStack techStack, Environment environment,
-                              String description, boolean slackConfigured) {}
+                              String description, boolean slackConfigured, boolean slackDeliveryEnabled,
+                              int slackMinimumSeverity) {}
 
     private static final String VIEW = """
             select id,application_name,tech_stack,environment,description,
-                   slack_webhook_ciphertext is not null as slack_configured
+                   slack_webhook_ciphertext is not null as slack_configured,slack_delivery_enabled,slack_minimum_severity
             from public.application_integrations
             where organization_id=? and deactivated_at is null
             """;
@@ -73,9 +74,11 @@ public class TenantApplications {
             throw denied();
         }
         requireOne(jdbc.update("""
-                update public.application_integrations set description=?,environment=?,updated_at=now()
+                update public.application_integrations set description=?,
+                    slack_delivery_revision=slack_delivery_revision+(case when environment<>? then 1 else 0 end),
+                    environment=?,updated_at=now()
                 where organization_id=? and id=? and deactivated_at is null
-                """, description, environment.name(), org, id));
+                """, description, environment.name(),environment.name(),org,id));
         return find(org, id);
     }
 
@@ -83,7 +86,8 @@ public class TenantApplications {
     public void deactivate(UUID org, long actor, long id) {
         requireManager(org, actor);
         requireOne(jdbc.update("""
-                update public.application_integrations set deactivated_at=now(),updated_at=now()
+                update public.application_integrations set deactivated_at=now(),updated_at=now(),
+                    slack_delivery_revision=slack_delivery_revision+1
                 where organization_id=? and id=? and deactivated_at is null
                 """, org, id));
     }
@@ -94,9 +98,20 @@ public class TenantApplications {
         String encrypted = url == null || url.isBlank() ? null : webhooks.encrypt(org, id, url);
         requireOne(jdbc.update("""
                 update public.application_integrations
-                set slack_webhook_ciphertext=?,updated_at=now()
+                set slack_webhook_ciphertext=?,slack_delivery_revision=slack_delivery_revision+1,
+                    slack_not_before=null,updated_at=now()
                 where organization_id=? and id=? and deactivated_at is null
                 """, encrypted, org, id));
+    }
+
+    @Transactional
+    public void setSlackPolicy(UUID org, long actor, long id, boolean enabled, int minimumSeverity) {
+        manage(org, actor, id);
+        requireOne(jdbc.update("""
+                update public.application_integrations set slack_delivery_enabled=?,slack_minimum_severity=?,
+                    slack_delivery_revision=slack_delivery_revision+1,updated_at=now()
+                where organization_id=? and id=? and deactivated_at is null
+                """, enabled,minimumSeverity,org,id));
     }
 
     @Transactional(readOnly = true)
@@ -143,7 +158,8 @@ public class TenantApplications {
     private Application application(ResultSet row, int index) throws SQLException {
         return new Application(Long.toString(row.getLong("id")), row.getString("application_name"),
                 TechStack.valueOf(row.getString("tech_stack")), Environment.valueOf(row.getString("environment")),
-                row.getString("description"), row.getBoolean("slack_configured"));
+                row.getString("description"), row.getBoolean("slack_configured"),row.getBoolean("slack_delivery_enabled"),
+                row.getInt("slack_minimum_severity"));
     }
 
     private static void requireOne(int changed) {

@@ -1,81 +1,39 @@
-import { LogOut, User } from "lucide-react";
+import { Building2, LogOut } from "lucide-react";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/auth";
+import { useWorkspace } from "../../context/workspace";
 
-const Topbar = () => {
-  const { user, logout } = useAuth();
-  const location = useLocation();
-
-  const getPageInfo = () => {
-    if (location.pathname === "/dashboard") {
-      return {
-        title: "Overview",
-        subtitle: "Monitor and analyze your application logs",
-      };
-    }
-
-    if (location.pathname === "/logs/ingest") {
-      return {
-        title: "Ingest Log",
-        subtitle: "Send application logs for ML and AI analysis",
-      };
-    }
-
-    if (
-      location.pathname.startsWith("/logs/") &&
-      location.pathname.endsWith("/analyze")
-    ) {
-      return {
-        title: "Log Investigation",
-        subtitle: "Investigate ML detection and AI-powered insights",
-      };
-    }
-
-    return {
-      title: "DevInsight",
-      subtitle: "AI-Powered DevOps Analyzer",
-    };
-  };
-
-  const { title, subtitle } = getPageInfo();
-
-  return (
-    <header className="app-topbar">
-      <div className="topbar-left">
-        <div>
-          <h1 className="topbar-title">{title}</h1>
-          <p className="topbar-subtitle">{subtitle}</p>
-        </div>
-      </div>
-
-      <div className="topbar-right">
-        <div className="user-info">
-          <div className="user-avatar">
-            <User size={17} />
-          </div>
-
-          <div className="user-details">
-            <span className="user-email">
-              {user?.email || "User"}
-            </span>
-
-            <span className="user-role">
-              {user?.role || "USER"}
-            </span>
-          </div>
-        </div>
-
-        <button
-          className="logout-button"
-          onClick={logout}
-          title="Logout"
-        >
-          <LogOut size={17} />
-          <span>Logout</span>
-        </button>
-      </div>
-    </header>
-  );
+const pages = {
+  "/dashboard": ["Overview", "Persisted telemetry and incident activity"],
+  "/logs": ["Log explorer", "Search and investigate source events"],
+  "/incidents": ["Incidents", "Correlation, diagnosis and notification delivery"],
+  "/integrations": ["Applications", "Collector onboarding and integration settings"],
+  "/analyzer": ["AI analysis", "Inspect a log without adding it to telemetry"],
+  "/logs/ingest": ["Ingest log", "Submit a log to the selected organization"],
 };
 
-export default Topbar;
+export default function Topbar({ error }) {
+  const { user, logout } = useAuth();
+  const { pathname } = useLocation();
+  const { organization, organizations, select } = useWorkspace();
+  const [title, subtitle] = pages[pathname] ?? ["Log investigation", "Source metadata and diagnosis"];
+  return <header className="app-topbar">
+    <div>
+      <h1 className="topbar-title">{title}</h1>
+      <p className="topbar-subtitle">{subtitle}</p>
+    </div>
+    <div className="topbar-right">
+      <label className="workspace-org">
+        <Building2 size={16} aria-hidden="true" />
+        <select aria-label="Organization" value={organization?.id ?? ""} onChange={(event) => select(event.target.value)}>
+          <option value="">Select an organization</option>
+          {organizations.map(({ id, name, role }) => <option key={id} value={id}>{name} · {role}</option>)}
+        </select>
+      </label>
+      {error && organization && <span role="status" className="organization-warning">Organization list could not refresh.</span>}
+      <button type="button" className="logout-button" onClick={logout} title={user?.email} aria-label="Sign out">
+        <LogOut size={17} aria-hidden="true" /> <span>Sign out</span>
+      </button>
+    </div>
+  </header>;
+}

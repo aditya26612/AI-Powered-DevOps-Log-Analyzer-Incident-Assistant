@@ -7,7 +7,6 @@ import com.project.log_layer.notification.dto.SlackPayload;
 import com.project.log_layer.notification.service.NotificationService;
 import com.project.log_layer.tenant.WebhookCipher;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.ArrayList;
@@ -22,7 +21,7 @@ import com.project.log_layer.enums.LogLevel;
  * Routes only through the encrypted webhook for the authenticated application.
  */
 @Slf4j
-@Service
+@Deprecated(forRemoval = true)
 public class SlackNotificationService implements NotificationService {
 
     private final NotificationProperties properties;

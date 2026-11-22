@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, Loader2 } from "lucide-react";
 
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/auth";
 import "./Auth.css";
 
 const Login = () => {
@@ -36,13 +36,8 @@ const Login = () => {
       await login(formData);
 
       navigate("/dashboard");
-    } catch (error) {
-      console.error(error);
-
-      setError(
-        error.response?.data?.message ||
-          "Invalid email or password."
-      );
+    } catch {
+      setError("Sign-in failed. Check your credentials and try again.");
     } finally {
       setLoading(false);
     }

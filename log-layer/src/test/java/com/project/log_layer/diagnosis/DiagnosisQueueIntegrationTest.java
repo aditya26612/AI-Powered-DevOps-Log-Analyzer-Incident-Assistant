@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-@SpringBootTest(properties = {"spring.datasource.url=jdbc:postgresql://127.0.0.1:55438/log_layer_db",
+@SpringBootTest(properties = {"spring.datasource.url=jdbc:postgresql://127.0.0.1:${DEVINSIGHT_FIXTURE_DB_PORT:55438}/log_layer_db",
         "spring.datasource.username=devinsight_log_app", "spring.datasource.password=${DEVINSIGHT_STAGE04_DB_ROLE_PASSWORD}",
         "spring.jpa.hibernate.ddl-auto=validate", "diagnosis.enabled=false", "diagnosis.lease=2s",
         "diagnosis.heartbeat=300ms", "diagnosis.attempts=2", "diagnosis.initial-delay=100ms",
@@ -81,6 +81,9 @@ class DiagnosisQueueIntegrationTest {
             assertFalse(queue.succeed(replacement, RESULT));
             var status = access.read(app.organizationId(),7301,replacement.incident(),null,0);
             assertEquals("SUCCEEDED",status.status());
+            assertEquals("Fixture cause",status.rootCause());
+            assertEquals("Inspect service",status.recommendation());
+            assertNotNull(status.completedAt());
             assertEquals("LEASE_EXPIRED",status.attempts().get(1).outcome());
             assertEquals(0, jdbc.queryForObject("select count(*) from public.diagnosis_jobs", Integer.class));
             assertEquals(0, jdbc.queryForObject("select count(*) from public.diagnosis_attempts", Integer.class));

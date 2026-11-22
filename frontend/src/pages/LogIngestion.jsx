@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 import { ingestLog } from "../api/logApi";
-import { listApplications, selectionKey } from "../api/integrationApi";
+import { useWorkspace } from "../context/workspace";
 import "./LogIngestion.css";
 
 const LogIngestion = () => {
@@ -26,17 +26,7 @@ const LogIngestion = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [applications, setApplications] = useState([]);
-  const organization = localStorage.getItem(selectionKey);
-  useEffect(() => {
-    if (!organization) return;
-    let current = true;
-    listApplications(organization).then(
-      (rows) => { if (current) setApplications(rows); },
-      () => { if (current) setError("Could not load registered applications."); }
-    );
-    return () => { current = false; };
-  }, [organization]);
+  const { applications, applicationError } = useWorkspace();
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -249,7 +239,7 @@ const LogIngestion = () => {
                   <option key={item.id} value={item.id}>{item.applicationName} · {item.environment}</option>
                 ))}
               </select>
-              {!organization && <p>Select an organization on the Integrations page.</p>}
+              {applicationError && <p role="alert">{applicationError}</p>}
             </div>
 
             {/* =====================================

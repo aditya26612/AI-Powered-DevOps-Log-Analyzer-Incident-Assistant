@@ -6,8 +6,6 @@ import com.project.log_layer.notification.config.NotificationProperties;
 import com.project.log_layer.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 
@@ -15,8 +13,7 @@ import java.util.List;
  * Composite notification service that dispatches incident alerts across all enabled channels.
  */
 @Slf4j
-@Service
-@Primary
+@Deprecated(forRemoval = true)
 @RequiredArgsConstructor
 public class CompositeNotificationService implements NotificationService {
 

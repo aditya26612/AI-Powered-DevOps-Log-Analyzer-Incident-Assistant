@@ -1,0 +1,9 @@
+# Stage 09 browser evidence
+
+Chrome and Playwright used the disposable V9 PostgreSQL copy and authenticated Kafka. The browser signed in, switched organizations and application scopes, showed empty and delayed data, searched and paged logs, opened redacted original-event details, and filtered failed ML and anomalous cases. It showed stale data after a controlled 503 and redirected to sign-in after the Gateway rejected an invalid token. Gateway tests separately verified signature and expiry enforcement.
+
+The real Python collector sent 12 related errors through Gateway and Kafka. The incident produced one Ollama result, one outbox record, and one receiver acknowledgement. The browser then displayed a second application linked by reported trace context and exercised acknowledgement and resolution. A second incident passed pending, running, retry and terminal diagnosis states, followed by an authorized diagnosis retry and persisted recovery. A controlled worker kill produced `DELIVERY_UNKNOWN`. The owner saw the warning, cancelled once, and confirmed a second retry. The fixture loopback API accepted the signed retry, and the receiver recorded the possible duplicate. A viewer could read the states and had no write controls.
+
+The final summary reconciled with PostgreSQL at 42 source logs, 14 V2 anomalies, 13 operational errors, and one failed score. One anomaly and the failure were deliberately seeded for deterministic UI coverage. The separate scoring run used the actual ML pipeline to verify FATAL and ERROR examples that scored normal while still qualifying for operational diagnosis.
+
+The protected run retains `stage09-browser-final.json`, `tablet-live.json`, `overview-desktop.png`, `overview-mobile.png`, `incident.png`, and `tablet-overview.png`. Viewports were 1440, 768, and 390 pixels wide. The browser run recorded no page exception or React warning. The workspace keyboard focus check and the bounded table-region layouts passed.

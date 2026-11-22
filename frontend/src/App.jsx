@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
@@ -8,14 +9,17 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import LogIngestion from "./pages/LogIngestion";
 import LogAnalysis from "./pages/LogAnalysis";
-import LogInspector from "./pages/LogInspector";
 import Integrations from "./pages/Integrations";
 import Incidents from "./pages/Incidents";
+import LogExplorer from "./pages/LogExplorer";
+import "./workspace.css";
+
+const LogInspector = lazy(() => import("./pages/LogInspector"));
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense fallback={<p role="status">Loading page…</p>}><Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -24,6 +28,8 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/logs" element={<LogExplorer />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/incidents" element={<Incidents />} />
             <Route path="/analyzer" element={<LogInspector />} />
@@ -37,7 +43,7 @@ function App() {
 
         {/* Fallback */}
         <Route path="*" element={<div>Page Not Found</div>} />
-      </Routes>
+      </Routes></Suspense>
     </BrowserRouter>
   );
 }

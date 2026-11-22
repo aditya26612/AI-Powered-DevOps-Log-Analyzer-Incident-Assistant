@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   Activity,
   AlertCircle,
-  AlertTriangle,
   Brain,
   Check,
   CheckCircle2,
@@ -11,13 +10,13 @@ import {
   Cpu,
   Layers,
   Play,
-  RotateCcw,
   ShieldAlert,
   Terminal,
   Wrench,
 } from "lucide-react";
 
 import { inspectLog } from "../api/logApi";
+import { readError } from "../hooks/useResource";
 import "./LogInspector.css";
 
 const SAMPLE_PRESETS = [
@@ -106,12 +105,8 @@ const LogInspector = () => {
       });
 
       setResult(response);
-    } catch (err) {
-      console.error(err);
-      setError(
-        err.response?.data?.message ||
-          "Failed to inspect log. Check your Gateway and Log Layer connection."
-      );
+    } catch (failure) {
+      setError(readError(failure));
     } finally {
       setLoading(false);
     }

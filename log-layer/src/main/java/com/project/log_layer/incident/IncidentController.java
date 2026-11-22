@@ -44,6 +44,13 @@ public class IncidentController {
         return queries.members(organization, TenantIdentity.requireUserId(request), incident, page, size);
     }
 
+    @GetMapping("/{incident}/applications")
+    public IncidentQueries.Page<IncidentQueries.Application> applications(@PathVariable UUID organization,
+            @PathVariable UUID incident, @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size, HttpServletRequest request) {
+        return queries.applications(organization,TenantIdentity.requireUserId(request),incident,page,size);
+    }
+
     @PostMapping("/{incident}/acknowledge")
     public IncidentQueries.Summary acknowledge(@PathVariable UUID organization, @PathVariable UUID incident,
             @Valid @RequestBody Transition input, HttpServletRequest request) {

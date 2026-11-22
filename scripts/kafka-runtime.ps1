@@ -23,7 +23,10 @@ function Initialize-DevInsightKafkaRoot {
 
 function Get-DevInsightKafkaProfile {
     param([switch]$Fixture)
-    $directory = Join-Path $DevInsightKafkaRoot $(if ($Fixture) { 'fixture' } else { 'local' })
+    $name = if (!$Fixture) { 'local' } elseif (!$env:DEVINSIGHT_KAFKA_FIXTURE_NAME) { 'fixture' }
+            elseif ($env:DEVINSIGHT_KAFKA_FIXTURE_NAME -cmatch '^fixture-[a-z0-9-]{1,32}$') { $env:DEVINSIGHT_KAFKA_FIXTURE_NAME }
+            else { throw 'Invalid disposable Kafka profile name' }
+    $directory = Join-Path $DevInsightKafkaRoot $name
     $port = if ($Fixture) { 19094 } else { 19092 }
     $standard = Join-Path $DevInsightKafkaRoot 'kafka_2.13-4.2.2/libs'
     $maven = Join-Path $DevInsightKafkaRoot 'runtime-maven-4.2.2/libs'
