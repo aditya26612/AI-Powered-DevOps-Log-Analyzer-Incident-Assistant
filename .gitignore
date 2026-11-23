@@ -110,6 +110,11 @@ logs/
 !/docs/screenshots/
 /docs/screenshots/*
 !/docs/screenshots/overview-synthetic.png
+!/docs/clean-clone/
+/docs/clean-clone/*
+!/docs/clean-clone/compose-demo.png
+!/docs/clean-clone/compose-demo.webm
+!/docs/clean-clone/compose-replay-receipt.json
 !/docs/verification/
 /docs/verification/*
 !/docs/verification/rag_retrieval_experiments_and_final_decision.md

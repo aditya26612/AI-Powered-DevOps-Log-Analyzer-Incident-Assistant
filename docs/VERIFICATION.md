@@ -1,5 +1,23 @@
 # Local verification and benchmarks
 
+## Clean-copy Compose smoke and HTTP replay
+
+A temporary copy of the current candidate files, including the Log Layer bootstrap SQL, built all six application images. The run used Docker Desktop, a fresh PostgreSQL volume in a dedicated Compose project, and unused loopback ports. It used the existing host Ollama server through the [temporary override](../system-architecture/CONTAINER_DEPLOYMENT.md#use-ollama-already-running-on-the-docker-desktop-host). The bundled Ollama image download and full bundled startup remain unverified.
+
+User Service Flyway V1 and Log Layer V1–V9 applied successfully. PostgreSQL confirmed that the Log Layer runtime login inherits the tenant role, owns no application tables, and lacks superuser and RLS-bypass privileges. Seven tables enforce forced RLS. The role returned zero source logs without tenant scope after ingestion. The pgvector runbook schema initialized and the fixture indexed 253 chunks. All six application health checks passed.
+
+| Synthetic tenant | Source logs | Incidents | Diagnosis jobs |
+|---|---:|---:|---:|
+| Before ingestion | 0 | 0 | 0 |
+| After the original Node collector batch | 3 | 1 | 1 |
+| After replaying the same HTTP v1 request | 3 | 1 | 1 |
+
+Both requests returned HTTP 200. The replay returned three duplicate acknowledgements with the original log IDs. The local Ollama diagnosis succeeded on its first attempt and persisted a nonempty summary. Slack and email delivery were disabled. A short recording, screenshot, and sanitized replay receipt were saved locally.
+
+The Node example's stock clean install reproduced an npm lockfile sync error. The example now specifies npm's packaged local dependency mode, which matches the existing lockfile and lets the Winston peer dependency resolve. A second clean install succeeded, and all seven Node collector tests passed.
+
+## Prior Stage 10 fixture
+
 The Stage 10 run verified the Flyway V9 stack on one Windows workstation with an Intel i5-12450H and 16 GiB RAM. It used a protected database restore, authenticated loopback Kafka and a local Ollama model. A loopback receiver supplied notification acknowledgements. External Slack and email were disabled.
 
 ## Automated regression
@@ -39,7 +57,7 @@ Mixed dashboard reads had 31 ms p95 across 27 samples. The highest reported inge
 - A replacement diagnosis worker completed the same job following an expired lease.
 - An interrupted notification stayed in an uncertain state without automatic resend. A confirmed retry demonstrated the possibility of duplicate provider requests.
 
-Follow the [Windows setup guide](SETUP_GUIDE.md) and the [Kafka startup reference](../README.md#optional-local-kafka-intake). The benchmark and fault options are exposed by [the guarded fixture launcher](../scripts/test-stage08.ps1). They require a disposable V9 restore on port 15438, a matching data-directory identity, the independently named Kafka fixture and disabled external delivery.
+Follow the [Windows setup guide](SETUP_GUIDE.md) and the [loopback Kafka launcher](../scripts/setup-kafka-local.ps1). The benchmark and fault options are exposed by [the guarded fixture launcher](../scripts/test-stage08.ps1). They require a disposable V9 restore on port 15438, a matching data-directory identity, the independently named Kafka fixture and disabled external delivery.
 
 ## Production limits
 

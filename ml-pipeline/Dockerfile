@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY artifacts ./artifacts
+RUN groupadd --system devinsight && useradd --system --gid devinsight devinsight
+USER devinsight
 
 EXPOSE 8000
 

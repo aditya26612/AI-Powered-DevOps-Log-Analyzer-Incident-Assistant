@@ -1,11 +1,12 @@
 # Stage 1: Build React App
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci
 
 COPY . .
+ENV VITE_API_BASE_URL=/
 RUN npm run build
 
 # Stage 2: Serve via Nginx

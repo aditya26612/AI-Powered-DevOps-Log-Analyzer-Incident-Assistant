@@ -2,19 +2,21 @@
 
 ## Prepare the application
 
-Use JDK 21, Maven, Python 3.11, npm with a Node version accepted by the checked-in frontend lockfile, PostgreSQL with pgvector, and Ollama. The [repository README](../README.md#14-prerequisites) describes the default stack and separate terminal commands. The project ZIP includes both model bundles. A clean Git clone currently needs the trusted bundles from the ZIP placed under `ml-pipeline/artifacts/`.
+For native development, use JDK 21, Maven, Python 3.11, a Node version accepted by the frontend lockfile, PostgreSQL with pgvector, and Ollama. The repository already includes the V1 and V2 model artifacts under `ml-pipeline/artifacts/`. See the [ML pipeline guide](../ml-pipeline/README.md) for model selection and verification.
 
 The observability workspace uses the V9 schema. See [Local verification and benchmarks](VERIFICATION.md#reliability-and-reproduction) for the isolated fixture requirements and verification workflow.
 
-For a full Compose run, copy `.env.example` to `.env` and set local-only values for `DB_PASSWORD`, `JWT_SECRET`, and `INTERNAL_API_KEY`. Keep those values private. Use `docker compose config --quiet` to validate Compose configuration without printing interpolated values. Use the [local Compose or separate-terminal instructions](../README.md#18-running-the-project-locally).
+For Compose and Kubernetes, follow the [container runbook](../system-architecture/CONTAINER_DEPLOYMENT.md) for private configuration, database provisioning, image selection, and readiness checks. Use `docker compose config --quiet` to validate Compose configuration without printing interpolated values.
+
+The verified Compose path requires Ollama running on the Docker Desktop host with `phi3:mini` and `nomic-embed-text:latest` already downloaded. The [host Ollama override](../system-architecture/CONTAINER_DEPLOYMENT.md#use-ollama-already-running-on-the-docker-desktop-host) connects the LLM container to that server.
 
 | Service | Default local port | Readiness check |
 |---|---:|---|
-| Gateway | 8080 | Auth routes at `/api/v1/auth` |
-| User Service | 8081 | Spring startup and available auth route |
-| Log Layer | 8082 | Startup followed by an authenticated log request |
+| Gateway | 8080 | `GET /actuator/health` |
+| User Service | 8081 | `GET /actuator/health` |
+| Log Layer | 8082 | `GET /actuator/health` |
 | FastAPI | 8000 | `GET /api/v1/system/health` and `/api/v1/system/model` |
-| LLM Service | 8084 | `GET /api/v1/system/health` |
+| LLM Service | 8084 | `GET /actuator/health` |
 | Ollama | 11434 | `ollama list` and `GET /api/tags` |
 | PostgreSQL | 5432 | `pg_isready` and the expected logical databases |
 | Vite | 5173 | Open the UI and sign in through the Gateway |
