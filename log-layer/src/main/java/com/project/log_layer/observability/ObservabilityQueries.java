@@ -32,8 +32,11 @@ public class ObservabilityQueries {
     private static final String V2 = "l.analysis_status='COMPLETED' and l.model_version='2.0.0-candidate'";
     private static final Pattern SECRET = Pattern.compile(
             "(?i)https://hooks\\.slack\\.com/services/[^\\s\"'<>]+"
+            + "|(?:jdbc:)?(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\\+srv)?|rediss?)://[^\\s\"'<>]+"
+            + "|\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]*)?"
+            + "|-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\\s\\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|\\z)"
             + "|\\bdvi_[a-z0-9_-]+|\\bxox[a-z]-[a-z0-9-]+|\\bBearer[ \\t]+\\S+"
-            + "|\\b(?:password|passwd|token|secret|[a-z0-9_-]*(?:api[-_ ]?key|secret|password|token))"
+            + "|\\b(?:password|passwd|token|secret|[a-z0-9_-]*(?:api[-_ ]?key|secret|password|token))[\"']?"
             + "[ \\t]*[:=][ \\t]*(?:\"[^\"\\r\\n]*\"|'[^'\\r\\n]*'|\\S+)");
     private static final String LOG_RANGE = """
             l.organization_id=:org and l.timestamp>=:from and l.timestamp<:to
@@ -210,7 +213,7 @@ public class ObservabilityQueries {
                 .stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Log not found"));
     }
 
-    private static String redact(String value) {
+    static String redact(String value) {
         return value == null ? null : SECRET.matcher(value).replaceAll("[redacted]");
     }
 

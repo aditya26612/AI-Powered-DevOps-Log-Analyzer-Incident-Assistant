@@ -118,7 +118,7 @@ class Receiver:
 
 @contextmanager
 def worker(archive, receiver, *, diagnose, deliver, llm_url="http://127.0.0.1:8084", diagnosis_attempts=4,
-           diagnosis_delay="2s"):
+           diagnosis_delay="2s", diagnosis_lease="30s"):
     reports = sorted(Path("log-layer/target/surefire-reports").glob("TEST-*NotificationOutboxIntegrationTest-stage08*.xml"),
                      key=lambda path: path.stat().st_mtime, reverse=True)
     demo.check(reports, "Run the Stage 08 Java fixture tests before live verification")
@@ -139,6 +139,7 @@ def worker(archive, receiver, *, diagnose, deliver, llm_url="http://127.0.0.1:80
            "DIAGNOSIS_WORKERS": "1", "LLM_SERVICE_URL": llm_url,
            "DIAGNOSIS_ATTEMPTS": str(diagnosis_attempts),
            "DIAGNOSIS_INITIAL_DELAY": diagnosis_delay,
+           "DIAGNOSIS_LEASE": diagnosis_lease,
            "SPRING_PROFILES_ACTIVE": "stage08-fixture", "NOTIFICATION_DELIVERY_TRANSPORT": "FIXTURE",
            "MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE": "health,metrics",
            "NOTIFICATION_DELIVERY_EXTERNAL": "false", "NOTIFICATION_DELIVERY_WORKER": str(deliver).lower(),

@@ -1,9 +1,12 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$OutputPath,
       [Parameter(Mandatory)][string]$FixtureDataDirectory,
-      [switch]$Dashboard)
+      [switch]$Dashboard,
+      [switch]$Benchmark,
+      [switch]$Faults)
 
 $ErrorActionPreference = 'Stop'
+if (@($Dashboard, $Benchmark, $Faults).Where({ $_ }).Count -gt 1) { throw 'Select one fixture workload.' }
 . (Join-Path $PSScriptRoot 'local-runtime.ps1')
 . (Join-Path $PSScriptRoot 'kafka-runtime.ps1')
 $root = Split-Path -Parent $PSScriptRoot
@@ -45,7 +48,10 @@ try {
         $previous[$key] = [Environment]::GetEnvironmentVariable($key)
         [Environment]::SetEnvironmentVariable($key, $options[$key])
     }
-    $harness = if ($Dashboard) { 'stage09-dashboard-demo.py' } else { 'stage08-notification-demo.py' }
+    $harness = if ($Faults) { 'stage10-faults.py' }
+               elseif ($Benchmark) { 'stage10-benchmark.py' }
+               elseif ($Dashboard) { 'stage09-dashboard-demo.py' }
+               else { 'stage08-notification-demo.py' }
     python (Join-Path $PSScriptRoot $harness) $OutputPath
     if ($LASTEXITCODE -ne 0) { throw 'Disposable workflow verification failed.' }
 } finally {

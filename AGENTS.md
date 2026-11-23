@@ -14,13 +14,13 @@ DevInsight is an AI-powered DevOps monitoring platform using Java 21, Spring Boo
 - Stage 07: Rolling incident correlation, reported W3C trace context and durable incident-aware Ollama diagnosis. Verified local V7 cutover and 461 passing tests.
 - Stage 08: Tenant-scoped transactional Slack outbox, shared destination cooldowns, durable attempts, and explicit handling of uncertain delivery. Verified local V8 and V9 cutover and 494 passing tests.
 - Stage 09: Tenant-scoped overview, log explorer, and incident workspace with diagnosis and delivery visibility. Verified on V9 with 497 passing backend and collector tests, seven frontend tests, and Chrome.
+- Stage 10: Local end-to-end, recovery, security and benchmark verification, with focused source-preview masking. The fresh V9 regression passed 504 backend and collector tests and seven frontend tests.
 - Verify reported completion against source and actual test results.
 
 ## Current task
-Stage 09 is closed for local development. Use docs/stage-09 for verification evidence and the Stage 10 handoff. Stage 10 requires explicit authorization.
+Use docs/stage-10 for local verification evidence, unverified cases and the Stage 11 handoff. Stage 10 changes remain uncommitted. Stage 11 requires explicit authorization.
 
 ## Remaining roadmap
-Stage 10: End-to-end testing and benchmarking.
 Stage 11: Documentation and interview preparation.
 
 ## Important rules
@@ -60,6 +60,7 @@ Read docs/stage-06 for the incident API, correlation policy, migration evidence 
 Read docs/stage-07 for rolling correlation, tracing, durable diagnosis, local V7 evidence and the Stage 08 handoff.
 Read docs/stage-08 for the notification outbox, V8 and V9 migration evidence, real loopback delivery and recovery results, and the Stage 09 handoff.
 Read docs/stage-09 for the observability workspace, tenant read contracts, browser evidence, and the Stage 10 handoff.
+Read docs/stage-10 for the regression results, local performance envelope, fault scenarios, security review and Stage 11 handoff.
 
 Documentation is not automatically authoritative; verify against source code and test evidence.
 
