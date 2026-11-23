@@ -1,39 +1,91 @@
-# DevInsight — AI-Powered DevOps Observability & Incident Analysis Platform
+# DevInsight
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21" />
-  <img src="https://img.shields.io/badge/Spring_Boot-3.5-green?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot 3.5" />
-  <img src="https://img.shields.io/badge/Spring_Cloud-Gateway-brightgreen?style=for-the-badge&logo=spring&logoColor=white" alt="Spring Cloud Gateway" />
-  <img src="https://img.shields.io/badge/Kubernetes-Native-blue?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes" />
-  <img src="https://img.shields.io/badge/Docker-Multi--Stage-blue?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
-  <img src="https://img.shields.io/badge/Python-3.11-yellow?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11" />
-  <img src="https://img.shields.io/badge/FastAPI-ML_Pipeline-teal?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/PostgreSQL-pgvector_pg16-blue?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Ollama-Local_LLM-purple?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
-  <img src="https://img.shields.io/badge/Slack-Durable_Notifications-4A154B?style=for-the-badge&logo=slack&logoColor=white" alt="Slack" />
-  <img src="https://img.shields.io/badge/React-19_Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
-</p>
+DevInsight turns application logs into searchable, tenant-scoped telemetry and incident timelines. It combines V2 anomaly scoring with explicit operational error rules, groups related failures, and runs durable local Ollama diagnosis grounded in runbooks. Operators can follow each investigation and Slack delivery attempt from a React dashboard.
 
-> **Turn distributed application logs into structured telemetry, ML-based anomaly signals, runbook-grounded incident explanations, and actionable Slack notifications.**
+**Stack** · Java 21 and Spring Boot · Spring Cloud Gateway · Python and FastAPI · PostgreSQL and pgvector · optional Kafka KRaft · Ollama · React and Vite
 
-DevInsight is a microservices-based log observability and incident-investigation project. It combines a **reactive API Gateway**, Java/Spring Boot services, a Python/FastAPI **Isolation Forest** inference service, **hybrid retrieval over DevOps runbooks**, and locally hosted `phi3:mini` inference through Ollama. The platform helps operators move from searching raw logs to inspecting structured log records, anomaly signals, possible causes, and suggested troubleshooting steps.
+[Run locally](#quick-start-on-windows) · [Try the workflow](#try-the-workflow) · [Architecture](#current-system-flow) · [API reference](#13-api-reference) · [Verification](docs/VERIFICATION.md)
 
-**Scope:** DevInsight analyzes and recommends; it **does not execute remediation commands or independently verify that an incident is resolved**. Performance figures in this README refer to specific saved historical benchmark runs, not guaranteed production service-level objectives.
+## What the project demonstrates
 
----
+| Capability | Engineering decision |
+|---|---|
+| Multi-tenant observability | Organization membership and application credentials control access. Scoped queries and PostgreSQL row-level security constrain tenant data. |
+| Two ingestion paths | Synchronous intake confirms persistence. Kafka intake acknowledges broker acceptance and uses stable external event IDs for replay. |
+| Detection and correlation | A 40-feature Isolation Forest provides statistical V2 scores. Operational errors can still open investigations. Within a tenant, reported trace context or application signatures help group related events. |
+| Durable diagnosis and delivery | Fenced workers claim database jobs. Local Ollama returns advisory, runbook-grounded findings. The Slack outbox records attempts, retries and uncertain outcomes. |
+| Investigation workspace | Overview, log search and incident views show scoped source logs, related services, diagnosis state and delivery history. |
 
-## Developer guides
+## Try the workflow
 
-- [System architecture](system-architecture/README.md)
-- [Model serving, rollback, and training](ml-pipeline/README.md)
-- [RAG retrieval experiments](docs/verification/rag_retrieval_experiments_and_final_decision.md)
+Sign in, create an organization and register a development application in **Integrations**. Issue an ingestion credential and run one of the Java, Python or Node collector examples below. Use **Overview** to check event counts, **Logs** to inspect an event, and **Incidents** to follow correlation, diagnosis and delivery state. Diagnosis is advisory and the application does not execute proposed commands.
+
+![DevInsight Overview showing V2 scores, incident activity and delivery status for a synthetic checkout application](docs/screenshots/overview-synthetic.png)
+
+The screenshot uses a synthetic checkout tenant and a loopback notification receiver.
+
+## Current system flow
+
+```mermaid
+flowchart LR
+    C["Java, Python or Node collector"] --> G["Gateway authenticates the application"]
+    G -->|"v1 synchronous"| P["Parse, score and persist"]
+    G -->|"v2 broker acceptance"| K["Kafka raw topic"]
+    K --> W["Consumer retries and replay protection"]
+    W --> P
+    P --> V["FastAPI V2 scoring"]
+    P --> DB["PostgreSQL source logs and incidents"]
+    DB --> J["Durable diagnosis worker"]
+    J --> L["Runbook retrieval and Ollama"]
+    L --> DB
+    J --> O["Slack outbox and attempt history"]
+    O --> S["Configured provider"]
+    DB --> UI["Tenant-scoped React dashboard"]
+    O --> UI
+```
+
+The Kafka consumer commits progress after durable processing. The synchronous route returns after persistence. A completed diagnosis can create a Slack delivery intent in the same database transaction. A provider acknowledgement and an operator reading the message are separate events.
+
+## Quick start on Windows
+
+1. Install Java 21, Maven, PostgreSQL 16 with pgvector, Python 3.11, a Node version supported by the frontend lockfile, and Ollama. Prepare the trusted V1/V2 model artifacts, install Python requirements, and run `npm.cmd --prefix frontend ci`.
+2. Prepare the databases and apply the repository's Flyway migrations as described in [Database Setup](#16-database-setup). Start Ollama and prepare the models in [Ollama Setup](#17-ollama-setup).
+3. Create local configuration with the prompt-based setup script, then start and verify the stack.
+
+```powershell
+./scripts/setup-local-env.ps1
+./scripts/start-all.ps1
+./scripts/test-local-endpoints.ps1 -SkipAuth
+```
+
+Open the local frontend on port 5173. Use `./scripts/stop-all.ps1` to stop the managed services. The [Windows setup guide](docs/SETUP_GUIDE.md) covers prerequisites, artifact placement and troubleshooting. Kafka is optional. Follow the [Kafka startup instructions](#optional-local-kafka-intake) to use v2 locally. Fault or load workflows require a separately restored database and fixture broker.
+
+## Collector integration
+
+Provide the issued key through the collector process environment and set the registered application name and environment. The collector sends `X-API-Key`; dashboard requests use an operator JWT. Keep credentials out of source and command arguments.
+
+| API | Success | Meaning |
+|---|---|---|
+| `POST /api/v1/logs` | `201 Created` | One log created |
+| `POST /api/v1/logs/batch` | `200 OK` | Batch persisted |
+| `POST /api/v2/logs/batch` | `202 Accepted` | Broker accepted the events for asynchronous processing |
+
+Use the [Spring Boot Logback](client-integrations/spring-boot/README.md), [Python logging](client-integrations/python/README.md), and [Node Winston](client-integrations/nodejs/README.md) integration guides for configuration and executable examples. Keep the same event ID when retrying an unresolved submission.
+
+## Verified local results
+
+The latest full local run passed **511 automated tests**. It reconciled **336 distinct events with 336 persisted V2 results** and zero ending Kafka lag. The short burst reached **17.18 persisted events/s**, and mixed-workload dashboard reads had **31 ms p95** across 27 samples. These results describe a single Windows fixture. External Slack and email were disabled. See the [verification summary](docs/VERIFICATION.md) for sample counts, recovery outcomes and deployment limits.
+
+## Technical reference
+
+[Architecture guides](system-architecture/README.md) · [Model serving and rollback](ml-pipeline/README.md) · [Retrieval experiments](docs/verification/rag_retrieval_experiments_and_final_decision.md)
 
 ## Table of Contents
 
 - [1. Project Overview](#1-project-overview)
 - [2. System Architecture](#2-system-architecture)
   - [2.1 End-to-End System Architecture](#21-end-to-end-system-architecture)
-  - [2.2 Telemetry & Incident Lifecycle Sequence](#22-telemetry-incident-lifecycle-sequence)
+  - [2.2 Telemetry & Incident Lifecycle Sequence](#22-telemetry--incident-lifecycle-sequence)
   - [2.3 Deep-Dive Architecture Guides](#23-deep-dive-architecture-guides)
 - [3. How DevInsight Works](#3-how-devinsight-works)
 - [4. Key Features](#4-key-features)
@@ -43,13 +95,13 @@ DevInsight is a microservices-based log observability and incident-investigation
   - [4.4 ML-Based Anomaly Detection](#44-ml-based-anomaly-detection)
   - [4.5 AI-Powered Incident Analysis](#45-ai-powered-incident-analysis)
   - [4.6 Hybrid RAG Retrieval](#46-hybrid-rag-retrieval)
-  - [4.7 Centralized Dashboard & Live Inspector](#47-centralized-dashboard-live-inspector)
+  - [4.7 Centralized Dashboard & Live Inspector](#47-centralized-dashboard--live-inspector)
   - [4.8 Low-Overhead Client Integration (Spring Boot Logback SDK)](#48-low-overhead-client-integration-client-integrationsspring-boot)
   - [4.9 Automated Real-Time Alerting Engine](#49-automated-real-time-alerting-engine)
   - [4.10 Cloud-Native Kubernetes Orchestration](#410-cloud-native-kubernetes-orchestration-k8s)
   - [4.11 Multi-Tech-Stack Application Integrations Hub](#411-multi-tech-stack-application-integrations-hub-integrations)
   - [4.12 Dynamic Per-Service Slack Alert Routing Engine](#412-dynamic-per-service-slack-alert-routing-engine)
-  - [4.13 Enterprise Observability Dark Mode](#413-enterprise-observability-dark-mode-datadog-grafana-apm-style)
+  - [4.13 Enterprise Observability Dark Mode](#413-enterprise-observability-dark-mode-datadog--grafana-apm-style)
 - [5. Technology Stack](#5-technology-stack)
 - [6. Monorepo Structure](#6-monorepo-structure)
 - [7. Microservices and Responsibilities](#7-microservices-and-responsibilities)
@@ -66,7 +118,6 @@ DevInsight is a microservices-based log observability and incident-investigation
 - [10. LLM and RAG Architecture](#10-llm-and-rag-architecture)
 - [11. RAG Evaluation and Experiments](#11-rag-evaluation-and-experiments)
 - [12. Empirical Performance Benchmarks](#12-empirical-performance-benchmarks)
-  - [Architectural Latency Boundaries & Performance Insights](#architectural-latency-boundaries-performance-insights)
 - [13. API Reference](#13-api-reference)
   - [13.1 Authentication APIs](#131-authentication-apis)
   - [13.2 Log APIs](#132-log-apis)
@@ -85,8 +136,7 @@ DevInsight is a microservices-based log observability and incident-investigation
 - [19. Frontend](#19-frontend)
 - [20. Testing and Verification](#20-testing-and-verification)
 - [21. Security Considerations](#21-security-considerations)
-  - [Authentication boundaries and known gaps](#authentication-boundaries-and-known-gaps)
-- [22. Known Limitations & Production Hardening](#22-known-limitations-production-hardening)
+- [22. Known Limitations & Production Hardening](#22-known-limitations--production-hardening)
 - [23. Development and Deployment Lifecycle](#23-development-and-deployment-lifecycle)
 - [24. Future Improvements](#24-future-improvements)
 - [25. Architectural Implementation Status](#25-architectural-implementation-status)
@@ -1847,11 +1897,7 @@ Stop the application stack before calling `.\scripts\stop-kafka-local.ps1`. Loca
 
 Sign in, create an organization in **Integrations**, and register a development application. Issue a scoped ingestion key, then run one of the [collector examples](examples/collectors) with the key supplied through its environment. Inspect the log in the dashboard and open **Incidents** to review related events, diagnosis status, and attempts. To exercise the full write workflow automatically, use `.\scripts\test-local-endpoints.ps1 -RunWorkflow` on a disposable stack.
 
-The Spring Boot smoke script sends one synthetic multiline log through the single-log route. On a disposable stack, match the sample application name to the registered development application and supply its key through the shell environment.
-
-```powershell
-.\scripts\test-live-springboot-ingest.ps1 -ApiKey $env:DEVINSIGHT_API_KEY -ServiceName 'order-payment-service'
-```
+The single-log route accepts synthetic multiline messages for a registered development application. For repeatable smoke checks, use the collector examples with keys loaded in the process environment.
 
 ### Linux / macOS / WSL (Bash)
 
@@ -2083,20 +2129,20 @@ The Live Inspector allows operators to submit sample raw logs or stack traces fr
 
 An earlier verification run recorded **98 Python non-HTTP**, **30 targeted Log Layer**, and **48 targeted LLM Service** tests passing, plus a successful frontend build. That session could not run a full-stack HTTP check because of Windows loopback restrictions. The project owner subsequently reported a successful local live smoke test. See the [ML Pipeline guide](ml-pipeline/README.md) for test commands.
 
-The verified observability run on Flyway V9 recorded **497 passing backend and collector tests** and **7 passing frontend tests**, with zero failures, errors, or skips. The earlier notification and durable diagnosis baselines recorded 494 and 461 passing tests respectively.
+The latest local verification on a protected Flyway V9 restore recorded **504 passing backend and collector tests** and **7 passing frontend tests**, with zero failures, errors or skips. The earlier observability, notification and durable diagnosis checkpoints recorded 497, 494 and 461 passing backend and collector tests respectively.
 
 | Suite | Passed |
 |---|---:|
 | API Gateway | 19 |
 | User Service | 9 |
-| Log Layer | 122 |
+| Log Layer | 129 |
 | LLM Service | 195 |
 | ML Pipeline | 133 |
 | Spring Boot, Python, and Node.js collectors | 5, 7, and 7 |
-| **Backend and collectors** | **497** |
+| **Backend and collectors** | **504** |
 | Frontend component and API client | 7 |
 
-The frontend build, lint, and Chrome workflows were verified separately. The disposable run used authenticated Kafka, real V2 inference, real Ollama and a loopback notification receiver. Twelve related collector errors produced one diagnosis, one outbox record and one acknowledged request. The dashboard counts were reconciled with the scoped database rows.
+The frontend build, lint and Chrome workflows were verified separately. The disposable run used authenticated Kafka, real V2 inference, real Ollama and a loopback notification receiver. Twelve related collector errors produced one diagnosis, one outbox record and one acknowledged request. The dashboard counts were reconciled with the scoped database rows. A controlled load run matched 336 accepted logical events to 336 persisted V2 results and ended with zero Kafka lag. The fastest measured burst reached 17.18 persisted events per second on one workstation. The mixed workload's dashboard read p95 was 31 ms across 27 samples.
 
 # 21. Security Considerations
 
@@ -2196,7 +2242,7 @@ Security hardening + tests + repeatable benchmarks (ongoing)
 | Reliability | Kafka replay, PostgreSQL diagnosis leases, fencing, and retry history | Verified against disposable database and provider failures |
 | Containerization | Multi-stage Dockerfiles, Compose variants, pgvector initialization | Deployment configurations exist; verify a fresh startup |
 | Kubernetes | Kustomize/manifests, PVCs, probes, model-puller job | Included; vector schema and secrets need follow-up |
-| Verification | JUnit/Pytest sources, build scripts, saved benchmark artifacts | Historical results exist; latest revision needs fresh tests |
+| Verification | JUnit, pytest and Node suites, Chrome workflows, saved benchmark artifacts | 511 automated tests passed on the verified local revision. See [Testing and Verification](#20-testing-and-verification). |
 
 **Development practice:** Treat saved numbers as historical until rerun against the same application revision and deployment configuration.
 

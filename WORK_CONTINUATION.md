@@ -1,6 +1,8 @@
 # DevInsight continuation checkpoint
 
-Stage 09 is complete for local development on Flyway V9 with 497 passing backend and collector tests, seven passing frontend tests, and verified Chrome workflows. Use the [Stage 09 continuation](docs/stage-09/STAGE_09_CONTINUATION.md), [test evidence](docs/stage-09/STAGE_09_TEST_EVIDENCE.md), and [Stage 10 handoff](docs/stage-09/STAGE_10_HANDOFF.md). Stage 10 requires explicit approval.
+Stage 10 verified the local Flyway V9 stack with 504 passing backend and collector tests, seven passing frontend tests, Chrome workflows, controlled load and managed recovery scenarios. See the [public verification summary](docs/VERIFICATION.md). The full run reports and Stage 11 handoff are kept in the local-only Stage 10 directory. Stage 11 requires explicit approval.
+
+Stage 09 recorded 497 passing backend and collector tests, seven passing frontend tests, and verified Chrome workflows. Its [continuation](docs/stage-09/STAGE_09_CONTINUATION.md), [test evidence](docs/stage-09/STAGE_09_TEST_EVIDENCE.md), and [Stage 10 handoff](docs/stage-09/STAGE_10_HANDOFF.md) remain historical.
 
 Stage 08 established the historical V9 baseline with 494 passing tests. Its [continuation](docs/stage-08/STAGE_08_CONTINUATION.md) and [test evidence](docs/stage-08/STAGE_08_TEST_EVIDENCE.md) are preserved.
 

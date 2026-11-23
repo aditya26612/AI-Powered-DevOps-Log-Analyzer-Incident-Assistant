@@ -18,7 +18,7 @@ DevInsight is an AI-powered DevOps monitoring platform using Java 21, Spring Boo
 - Verify reported completion against source and actual test results.
 
 ## Current task
-Use docs/stage-10 for local verification evidence, unverified cases and the Stage 11 handoff. Stage 10 changes remain uncommitted. Stage 11 requires explicit authorization.
+See docs/VERIFICATION.md for the public verification summary. Local-only Stage 10 reports cover detailed evidence and the Stage 11 handoff. Stage 11 requires explicit authorization.
 
 ## Remaining roadmap
 Stage 11: Documentation and interview preparation.
