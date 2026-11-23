@@ -105,13 +105,17 @@ logs/
 /devinsight_ml_audit_complete.zip
 
 /docs/*
-!/docs/assets/
+!/docs/SETUP_GUIDE.md
+!/docs/VERIFICATION.md
 !/docs/screenshots/
+/docs/screenshots/*
+!/docs/screenshots/overview-synthetic.png
 !/docs/verification/
 /docs/verification/*
 !/docs/verification/rag_retrieval_experiments_and_final_decision.md
 
 # Local handoff and tools that depend on unpublished evidence
+/AGENTS.md
 /WORK_CONTINUATION.md
 /ml-pipeline/tools/verify_local_release.py
 /scripts/build_release_archive.py

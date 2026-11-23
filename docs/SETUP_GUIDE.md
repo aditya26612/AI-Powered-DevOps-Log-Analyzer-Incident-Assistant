@@ -4,7 +4,7 @@
 
 Use JDK 21, Maven, Python 3.11, npm with a Node version accepted by the checked-in frontend lockfile, PostgreSQL with pgvector, and Ollama. The [repository README](../README.md#14-prerequisites) describes the default stack and separate terminal commands. The project ZIP includes both model bundles. A clean Git clone currently needs the trusted bundles from the ZIP placed under `ml-pipeline/artifacts/`.
 
-The observability workspace uses the existing V9 schema. See the [Stage 09 Windows setup](stage-09/STAGE_09_LOCAL_SETUP.md) for the workspace and isolated browser workflow.
+The observability workspace uses the V9 schema. See [Local verification and benchmarks](VERIFICATION.md#reliability-and-reproduction) for the isolated fixture requirements and verification workflow.
 
 For a full Compose run, copy `.env.example` to `.env` and set local-only values for `DB_PASSWORD`, `JWT_SECRET`, and `INTERNAL_API_KEY`. Keep those values private. Use `docker compose config --quiet` to validate Compose configuration without printing interpolated values. Use the [local Compose or separate-terminal instructions](../README.md#18-running-the-project-locally).
 
