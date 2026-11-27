@@ -20,7 +20,9 @@ flowchart LR
     P --> M["FastAPI V2"]
     P --> D["PostgreSQL logs and incidents"]
     D --> J["Durable diagnosis and outbox"]
-    J --> O["Runbook retrieval and Ollama"]
+    J --> O["LLM Service"]
+    O --> R["PostgreSQL / pgvector runbooks"]
+    O --> I["Ollama inference"]
     J --> S["Slack worker when enabled"]
 ```
 
@@ -44,7 +46,7 @@ docker compose @compose up -d --build --wait --wait-timeout 600 ml-pipeline user
 Remove-Item Env:RAG_SYNCHRONIZE_ON_START
 ```
 
-Open the dashboard at `http://localhost:5173`. The Gateway is at `http://localhost:8080`. Set `DEVINSIGHT_FRONTEND_PORT` and `DEVINSIGHT_GATEWAY_PORT` for alternate loopback ports. Slack and email delivery are disabled. The runbook also covers the bundled Ollama option, existing volumes, model synchronization, readiness, and shutdown.
+Open the dashboard at `http://localhost:5173`. The Gateway is at `http://localhost:8080`. Set `DEVINSIGHT_FRONTEND_PORT` and `DEVINSIGHT_GATEWAY_PORT` for alternate loopback ports. Slack and email delivery are disabled. The runbook also covers bundled Ollama, model synchronization, readiness, and shutdown. A separate [bundled Compose rehearsal](docs/VERIFICATION.md#local-container-rehearsals) used pinned Ollama 0.17.1 with preseeded models and completed diagnosis and replay.
 
 ## API reference
 
@@ -70,7 +72,9 @@ The clean-copy Compose smoke passed with all six services healthy and local Olla
 
 The earlier Windows fixture passed **511 automated tests** and reconciled **336 distinct Kafka events** with persisted V2 scores. Its shortest burst peaked at 17.18 persisted events/s. These measurements describe one controlled workstation setup. [Verification and benchmarks](docs/VERIFICATION.md)
 
-Kubernetes is a **deployment template**. The manifests have been rendered for inspection. Production rollout and capacity remain outside the verified scope. [Kubernetes runbook](system-architecture/CONTAINER_DEPLOYMENT.md#kubernetes)
+**Kubernetes cold-start rehearsal.** On a single Docker Desktop node, all six apps became ready. The job pulled both models into a fresh volume using pinned Ollama 0.17.1 in **4 minutes 30 seconds**. PostgreSQL stored **253 pgvector runbook chunks**. Three synthetic events produced one incident and one diagnosis, which succeeded on the first attempt in **129.3 seconds**. HTTP v1 replay returned the original log IDs and preserved all counts. [Kubernetes evidence](docs/VERIFICATION.md#kubernetes-cold-pull-and-http-replay) · [Kubernetes runbook](system-architecture/CONTAINER_DEPLOYMENT.md#kubernetes)
+
+The registry Compose override passed with locally tagged app images. A separate Kafka Compose rehearsal returned HTTP 202 twice for the original batch and replay, preserved the original SQL log IDs, and finished with zero consumer lag. Remote application image pulls and production or multi-node rollout remain unverified. [Local container rehearsals](docs/VERIFICATION.md#local-container-rehearsals)
 
 ## Further reading
 

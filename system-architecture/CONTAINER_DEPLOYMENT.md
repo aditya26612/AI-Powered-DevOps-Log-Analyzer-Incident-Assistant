@@ -64,33 +64,51 @@ Use the ordinary first-sync setting for an empty vector store when you run that 
 
 ## Registry images
 
-The configuration below describes the local registry override draft. Use the development Compose path above to reproduce the published smoke test.
+Use the [development Compose path with host Ollama](#use-ollama-already-running-on-the-docker-desktop-host) to reproduce the published smoke test. The override passed locally with tagged images. Pulling matching application images from a remote registry remains unverified.
 
-`docker-compose.prod.yml` is an override for the base file. Use both files and set `DOCKER_REGISTRY_USER` and an explicit `IMAGE_TAG` for images built from the current revision. Use a separate project name. The override uses separate named volumes and retains the same loopback bindings and provisioning steps.
+Earlier repository revisions shipped a standalone `docker-compose.prod.yml`. If your checkout has that version, use development Compose. The override used by these instructions contains `build: !reset null`. It must be used with the base `docker-compose.yml`. It swaps the six application builds for registry images and inherits the base health checks, migration jobs, restricted Log Layer role setup, and loopback bindings.
+
+### Registry preflight
+
+From the repository root, use the current [production environment template](../.env.prod.example) to create a private file outside the checkout and set `$registryEnv` to its absolute path. Use independent credentials, the registry account that owns the images, and an explicit `IMAGE_TAG` for the same source revision. Choose a separate project name and unused loopback ports if development Compose is already running. The registry override uses project-specific PostgreSQL and Ollama volumes with a `-registry` suffix.
 
 ```powershell
-docker compose -p devinsight-registry -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+if (-not (Select-String -LiteralPath 'docker-compose.prod.yml' -SimpleMatch 'build: !reset null' -Quiet)) {
+    throw 'This checkout has the older standalone Compose file. Use the development Compose path.'
+}
+
+$registryCompose = @('--env-file', $registryEnv, '-p', 'devinsight-registry', '-f', 'docker-compose.yml', '-f', 'docker-compose.prod.yml')
+docker compose @registryCompose config --quiet
+if ($LASTEXITCODE -ne 0) { throw 'Registry Compose configuration failed validation.' }
+docker compose @registryCompose config --images
 ```
 
-Use that same prefix for each provisioning command. For the final startup, use `up -d --wait --wait-timeout 600` without `--build`. Production ingress, TLS, published image verification, and secret rotation are separate deployment decisions.
+Check that the six application images use the intended registry account and tag. The image list shows the resolved names. Image availability requires a separate pull. [Docker Compose merge rules](https://docs.docker.com/reference/compose-file/merge/) · [Configuration command](https://docs.docker.com/reference/cli/docker/compose/config/)
+
+### Start an isolated registry stack
+
+After the preflight, use `docker compose @registryCompose` for each step in the [first-time provisioning sequence](#docker-compose). Check that the target volumes are new before running Flyway. Start PostgreSQL and bundled Ollama, apply the User Service and Log Layer migration sets, provision the restricted Log Layer login, and run the model-pull job. For the final application startup use `docker compose @registryCompose up -d --no-build --wait --wait-timeout 600` in place of the development build command. Use first-run runbook synchronization only for an empty vector store or a planned index update.
+
+Check readiness and run a synthetic request before relying on the stack. Image availability, production ingress, TLS, and secret rotation still need validation.
 
 ## Kubernetes
 
-The configuration below describes the local manifest draft. The public Kubernetes files are deployment templates, and the Compose smoke test provides no Kubernetes rollout evidence.
+The local Kubernetes manifests passed a single-node Docker Desktop rehearsal with pinned Ollama 0.17.1 and fresh model and PostgreSQL PVCs. The test used an isolated namespace and locally loaded images. [Cold-pull and replay evidence](../docs/VERIFICATION.md#kubernetes-cold-pull-and-http-replay)
 
 The base renders a namespace, persistent volume claims, internal ClusterIP Services, application Deployments, and an Ollama model-pull Job. It references an externally provisioned `devinsight-secrets` Secret with the five credential keys listed for Compose. Provision it through the cluster's secret workflow or from a private environment file outside the checkout. The manifests contain references and omit secret values. PostgreSQL, User Service and LLM Service use the bundled development database administrator in this baseline. Log Layer uses the restricted runtime login.
 
 1. Verify the active Kubernetes context and storage class. Use fresh PVCs in an isolated cluster for a first run. Apply [the namespace](../k8s/00-namespace.yaml) and create the Secret.
-2. Apply [the ConfigMaps](../k8s/01-config-and-secrets.yaml), [PVCs](../k8s/02-storage/storage.yaml), [PostgreSQL](../k8s/03-infrastructure/postgres.yaml), [Ollama](../k8s/03-infrastructure/ollama.yaml), and the [model pull Job](../k8s/03-infrastructure/ollama-job.yaml). Wait for PostgreSQL readiness and confirm that the databases and vector schema exist.
-3. Port-forward the isolated PostgreSQL Service on loopback `15432`. In another shell use Flyway with `FLYWAY_USER=postgres`, a private `FLYWAY_PASSWORD`, and `FLYWAY_CLEAN_DISABLED=true`. Start with `flyway info` against each intended database. For a verified fresh target, run the User Service V1 migrations against `jdbc:postgresql://127.0.0.1:15432/devinsight` and Log Layer V1–V9 against `jdbc:postgresql://127.0.0.1:15432/log_layer_db`. Set `FLYWAY_LOCATIONS` to the matching module's `src/main/resources/db/migration` directory and validate each migration history.
+2. Apply [the ConfigMaps](../k8s/01-config-and-secrets.yaml), [PVCs](../k8s/02-storage/storage.yaml), [PostgreSQL](../k8s/03-infrastructure/postgres.yaml), and [Ollama](../k8s/03-infrastructure/ollama.yaml). Make the pinned `ollama/ollama:0.17.1` image available to the node. Wait for PostgreSQL readiness and confirm that the databases and vector schema exist. For a cold-pull check, confirm that `kubectl -n devinsight exec deployment/ollama -- ollama list` shows only the header on the fresh Ollama PVC. Then apply the [model-pull Job](../k8s/03-infrastructure/ollama-job.yaml).
+3. Port-forward the isolated PostgreSQL Service on loopback `15432`. In another shell use Flyway with `FLYWAY_USER=postgres`, a private `FLYWAY_PASSWORD`, and `FLYWAY_CLEAN_DISABLED=true`. Start with `flyway info` against each intended database. For a verified fresh target, run the User Service V1 migrations against `jdbc:postgresql://127.0.0.1:15432/devinsight` and all Log Layer migrations included with the deployed image against `jdbc:postgresql://127.0.0.1:15432/log_layer_db`. The earlier Kubernetes rehearsal deployed V9; the current Log Layer source includes V11. Set `FLYWAY_LOCATIONS` to the matching module's `src/main/resources/db/migration` directory and validate each migration history.
 4. Provision the Log Layer login using the shared [role script](../docker/bootstrap-log-role.sql). The PostgreSQL pod gets the runtime password through its Secret reference.
 
 ```powershell
 Get-Content -Raw docker/bootstrap-log-role.sql | kubectl -n devinsight exec -i deployment/postgres -- psql -X -v ON_ERROR_STOP=1 -U postgres -d log_layer_db
 kubectl -n devinsight wait --for=condition=complete job/ollama-model-puller --timeout=1800s
+kubectl -n devinsight exec deployment/ollama -- ollama list
 ```
 
-5. Make the `devinsight/<service>:local` application images available to your cluster using its local image-loading mechanism, or override each image in a private Kustomize overlay with an approved reference. The application image names match the Compose build tags. For an empty vector store, enable `RAG_SYNCHRONIZE_ON_START` in a private overlay for the initial LLM rollout. Once the index is verified, restore the default in the overlay and roll out the LLM deployment again. Render and apply to the intended test cluster only after database provisioning and images are ready.
+5. Make the `devinsight/<service>:local` application images available to your cluster using its local image-loading mechanism, or override each image in a private Kustomize overlay with an approved reference. The application image names match the Compose build tags. Kubernetes uses `RAG_VECTOR_STORE=postgres`. On a fresh vector store, set `RAG_SYNCHRONIZE_ON_START=true` in the overlay for the initial LLM rollout. After startup, query `llm_service_db.knowledge_chunks` as shown below. The tested runbook set produced 253 rows. After confirming the count, set synchronization back to `false` and restart the LLM deployment to preserve the indexed snapshot. Render and apply to the intended test cluster only after database provisioning and images are ready.
 
 ```powershell
 kubectl kustomize k8s
@@ -99,8 +117,14 @@ kubectl -n devinsight get deployments,pods,services,jobs
 kubectl -n devinsight port-forward service/frontend 5173:80
 ```
 
+```powershell
+kubectl -n devinsight exec deployment/postgres -- psql -X -U postgres -d llm_service_db -c "SELECT count(*) FROM public.knowledge_chunks;"
+```
+
+The model list must contain `nomic-embed-text:latest` and `phi3:mini`. The cold Job took 4 minutes 30 seconds in the isolated rehearsal. All six apps became ready. The LLM service completed the synthetic diagnosis on the first attempt in 129.3 seconds. HTTP v1 replay returned the original three log IDs and left counts at three logs, one incident, and one diagnosis job.
+
 The LLM pod waits for both Ollama models before starting. HTTP startup and readiness probes cover each application. PostgreSQL and Ollama keep single-writer volume behavior during replacement. Applications do not need Kubernetes API tokens. The base does not provision Kafka. A Kafka-enabled overlay must supply a reachable authenticated broker, topics, ACLs, and runtime credentials.
 
 ## Validation scope
 
-The published [verification results](../docs/VERIFICATION.md) come from the protected local fixture. A successful configuration render does not establish a running container stack, cluster compatibility, or production capacity. Validate clean-volume startup and an end-to-end synthetic workflow before relying on either deployment target.
+The [published Compose smoke](../docs/VERIFICATION.md#clean-copy-compose-smoke-and-http-replay) used a fresh PostgreSQL volume, locally built application images, host Ollama, and HTTP v1 replay. Separate [local container rehearsals](../docs/VERIFICATION.md#local-container-rehearsals) verified the registry override with locally tagged application images, bundled Ollama with preseeded models, and Kafka via an isolated overlay. The [Kubernetes cold-pull rehearsal](../docs/VERIFICATION.md#kubernetes-cold-pull-and-http-replay) verified the pinned Ollama runtime with a fresh model volume and PostgreSQL-backed RAG. Remote application image pulls and production or multi-node rollout remain unverified.

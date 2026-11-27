@@ -2,7 +2,7 @@
 
 ## Clean-copy Compose smoke and HTTP replay
 
-A temporary copy of the current candidate files, including the Log Layer bootstrap SQL, built all six application images. The run used Docker Desktop, a fresh PostgreSQL volume in a dedicated Compose project, and unused loopback ports. It used the existing host Ollama server through the [temporary override](../system-architecture/CONTAINER_DEPLOYMENT.md#use-ollama-already-running-on-the-docker-desktop-host). The bundled Ollama image download and full bundled startup remain unverified.
+A temporary copy of the current candidate files, including the Log Layer bootstrap SQL, built all six application images. The run used Docker Desktop, a fresh PostgreSQL volume in a dedicated Compose project, and unused loopback ports. It used the existing host Ollama server through the [temporary override](../system-architecture/CONTAINER_DEPLOYMENT.md#use-ollama-already-running-on-the-docker-desktop-host). Bundled Ollama and Kubernetes were exercised in the separate rehearsals below.
 
 User Service Flyway V1 and Log Layer V1–V9 applied successfully. PostgreSQL confirmed that the Log Layer runtime login inherits the tenant role, owns no application tables, and lacks superuser and RLS-bypass privileges. Seven tables enforce forced RLS. The role returned zero source logs without tenant scope after ingestion. The pgvector runbook schema initialized and the fixture indexed 253 chunks. All six application health checks passed.
 
@@ -15,6 +15,25 @@ User Service Flyway V1 and Log Layer V1–V9 applied successfully. PostgreSQL co
 Both requests returned HTTP 200. The replay returned three duplicate acknowledgements with the original log IDs. The local Ollama diagnosis succeeded on its first attempt and persisted a nonempty summary. Slack and email delivery were disabled. A short recording, screenshot, and sanitized replay receipt were saved locally.
 
 The Node example's stock clean install reproduced an npm lockfile sync error. The example now specifies npm's packaged local dependency mode, which matches the existing lockfile and lets the Winston peer dependency resolve. A second clean install succeeded, and all seven Node collector tests passed.
+
+## Local container rehearsals
+
+- **Registry Compose override with host Ollama.** All six application images were built from the checkout and supplied using local tags. Fresh PostgreSQL provisioning, HTTP v1 diagnosis and same-ID replay passed. Remote application image pulls were outside this run.
+- **Bundled Compose with pinned Ollama 0.17.1.** With preseeded models, six apps became healthy and the synthetic diagnosis succeeded in about 85 seconds. HTTP v1 replay returned the original IDs and preserved the three logs, one incident and one diagnosis. The clean model download below was exercised in Kubernetes.
+- **Kafka-enabled Compose.** A temporary overlay with authenticated loopback Kafka 4.2.2 returned HTTP 202 for both submissions. The database retained the original three log IDs, one incident and one successful diagnosis. The consumer reached offset 2 of 2 with zero lag.
+
+## Kubernetes cold pull and HTTP replay
+
+The local Docker Desktop rehearsal used the isolated `di-cold-2711` namespace, fresh PostgreSQL and Ollama PVCs, and locally loaded application images and the exact `ollama/ollama:0.17.1` image. All 22 rendered resources passed server-side dry run. Ollama reported 0.17.1 and an empty model inventory before the unmodified model-puller Job. The Job downloaded `nomic-embed-text:latest` and `phi3:mini` without preloading model files and completed in **4 minutes 30 seconds**.
+
+All six application deployments reached readiness. Fresh PostgreSQL passed User Service Flyway V1 and Log Layer V1–V9. The Log Layer login inherited the tenant role and lacked superuser and RLS-bypass privileges. With `RAG_VECTOR_STORE=postgres` and first-run synchronization enabled, 21 source documents produced **253 persisted pgvector chunks**.
+
+| Synthetic tenant | Source logs | Incidents | Diagnosis jobs | Successful diagnoses |
+|---|---:|---:|---:|---:|
+| After the original HTTP v1 batch and diagnosis | 3 | 1 | 1 | 1 |
+| After replaying the same HTTP v1 batch | 3 | 1 | 1 | 1 |
+
+Both submissions returned HTTP 200. Replay returned three duplicate acknowledgements with the original log IDs. All three logs were scored. The diagnosis succeeded on **attempt 1**, and the LLM service recorded **129.3 seconds**. External notification delivery was disabled and the fixture had zero outbox records. The test deployments were scaled to zero and both PVCs were retained. These results cover a single local node. [Kubernetes runbook](../system-architecture/CONTAINER_DEPLOYMENT.md#kubernetes)
 
 ## Local V11 Loki verification
 

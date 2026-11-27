@@ -8,6 +8,8 @@ metadata:
     app.kubernetes.io/component: ollama
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: ollama
@@ -18,9 +20,10 @@ spec:
         app.kubernetes.io/name: devinsight
         app.kubernetes.io/component: ollama
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: ollama
-          image: ollama/ollama:latest
+          image: ollama/ollama:0.17.1
           ports:
             - containerPort: 11434
               name: http
@@ -30,7 +33,7 @@ spec:
             - name: OLLAMA_MAX_LOADED_MODELS
               value: "1"
             - name: OLLAMA_KEEP_ALIVE
-              value: "5m"
+              value: "30s"
           volumeMounts:
             - name: ollama-data
               mountPath: /root/.ollama
@@ -39,7 +42,7 @@ spec:
               cpu: 250m
               memory: 1024Mi
             limits:
-              cpu: 3000m
+              cpu: 6000m
               memory: 6144Mi
           readinessProbe:
             tcpSocket:

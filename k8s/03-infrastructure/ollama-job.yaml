@@ -7,16 +7,18 @@ metadata:
     app.kubernetes.io/name: devinsight
     app.kubernetes.io/component: ollama-model-puller
 spec:
-  backoffLimit: 5
+  backoffLimit: 2
+  activeDeadlineSeconds: 1800
   template:
     metadata:
       labels:
         app: ollama-model-puller
     spec:
+      automountServiceAccountToken: false
       restartPolicy: OnFailure
       containers:
         - name: model-puller
-          image: ollama/ollama:latest
+          image: ollama/ollama:0.17.1
           env:
             - name: OLLAMA_HOST
               value: "ollama:11434"
@@ -24,6 +26,7 @@ spec:
             - /bin/sh
             - -c
             - |
+              set -e
               until ollama list; do
                 echo "Waiting for Ollama daemon to become available..."
                 sleep 3

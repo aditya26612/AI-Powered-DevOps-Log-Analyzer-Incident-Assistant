@@ -9,6 +9,7 @@ resources:
   - 02-storage/storage.yaml
   - 03-infrastructure/postgres.yaml
   - 03-infrastructure/ollama.yaml
+  - 03-infrastructure/ollama-job.yaml
   - 04-apps/ml-pipeline.yaml
   - 04-apps/user-service.yaml
   - 04-apps/llm-service.yaml

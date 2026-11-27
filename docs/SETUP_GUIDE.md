@@ -12,6 +12,8 @@ For Compose and Kubernetes, follow the [container runbook](../system-architectur
 
 The verified Compose path requires Ollama running on the Docker Desktop host with `phi3:mini` and `nomic-embed-text:latest` already downloaded. The [host Ollama override](../system-architecture/CONTAINER_DEPLOYMENT.md#use-ollama-already-running-on-the-docker-desktop-host) connects the LLM container to that server.
 
+For registry images, follow the [registry preflight](../system-architecture/CONTAINER_DEPLOYMENT.md#registry-preflight) only with the current Compose override and matching production environment template. If your checkout has the older standalone production file, use the verified development path above.
+
 | Service | Default local port | Readiness check |
 |---|---:|---|
 | Gateway | 8080 | `GET /actuator/health` |

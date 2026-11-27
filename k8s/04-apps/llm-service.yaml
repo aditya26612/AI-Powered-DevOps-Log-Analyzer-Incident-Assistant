@@ -20,9 +20,28 @@ spec:
         app.kubernetes.io/name: devinsight
         app.kubernetes.io/component: llm-service
     spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: wait-for-ollama-models
+          image: ollama/ollama:0.17.1
+          env:
+            - name: OLLAMA_HOST
+              value: http://ollama:11434
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              for attempt in $(seq 1 180); do
+                if ollama show phi3:mini >/dev/null 2>&1 && ollama show nomic-embed-text:latest >/dev/null 2>&1; then
+                  exit 0
+                fi
+                sleep 5
+              done
+              echo "Required Ollama models are unavailable" >&2
+              exit 1
       containers:
         - name: llm-service
-          image: adityagoku12/devinsight-llm-service:latest
+          image: devinsight/llm-service:local
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8084
@@ -44,7 +63,19 @@ spec:
                   name: devinsight-config
                   key: OLLAMA_BASE_URL
             - name: RAG_VECTOR_STORE
-              value: "memory"
+              value: "postgres"
+            - name: SPRING_AI_OLLAMA_CHAT_OPTIONS_NUMPREDICT
+              value: "256"
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: devinsight-secrets
+                  key: INTERNAL_API_KEY
+            - name: RAG_SYNCHRONIZE_ON_START
+              valueFrom:
+                configMapKeyRef:
+                  name: devinsight-config
+                  key: RAG_SYNCHRONIZE_ON_START
           resources:
             requests:
               cpu: 250m
@@ -52,17 +83,19 @@ spec:
             limits:
               cpu: 1500m
               memory: 1536Mi
-          readinessProbe:
-            tcpSocket:
-              port: 8084
-            initialDelaySeconds: 20
-            periodSeconds: 10
-          livenessProbe:
+          startupProbe:
             httpGet:
-              path: /actuator/health/liveness
+              path: /actuator/health
               port: 8084
-            initialDelaySeconds: 30
-            periodSeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8084
+            periodSeconds: 10
+            timeoutSeconds: 3
 
 ---
 apiVersion: v1

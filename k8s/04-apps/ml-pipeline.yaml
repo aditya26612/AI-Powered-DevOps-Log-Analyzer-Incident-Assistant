@@ -20,9 +20,10 @@ spec:
         app.kubernetes.io/name: devinsight
         app.kubernetes.io/component: ml-pipeline
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: ml-pipeline
-          image: adityagoku12/devinsight-ml-pipeline:latest
+          image: devinsight/ml-pipeline:local
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -38,6 +39,11 @@ spec:
                 configMapKeyRef:
                   name: devinsight-config
                   key: ENVIRONMENT
+            - name: ACTIVE_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: devinsight-config
+                  key: ACTIVE_MODEL
           resources:
             requests:
               cpu: 100m
@@ -45,18 +51,25 @@ spec:
             limits:
               cpu: 1000m
               memory: 1024Mi
+          startupProbe:
+            httpGet:
+              path: /api/v1/system/health
+              port: 8000
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 36
           readinessProbe:
             httpGet:
               path: /api/v1/system/health
               port: 8000
-            initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 3
           livenessProbe:
             httpGet:
               path: /api/v1/system/health
               port: 8000
-            initialDelaySeconds: 15
             periodSeconds: 15
+            timeoutSeconds: 3
 
 ---
 apiVersion: v1

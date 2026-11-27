@@ -20,9 +20,10 @@ spec:
         app.kubernetes.io/name: devinsight
         app.kubernetes.io/component: frontend
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: frontend
-          image: adityagoku12/devinsight-frontend:latest
+          image: devinsight/frontend:local
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -34,18 +35,25 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 36
           readinessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: 80
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: 80
-            initialDelaySeconds: 15
-            periodSeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
 
 ---
 apiVersion: v1
@@ -57,12 +65,11 @@ metadata:
     app.kubernetes.io/name: devinsight
     app.kubernetes.io/component: frontend
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: frontend
   ports:
     - name: http
       port: 80
       targetPort: 80
-      nodePort: 30080
 
