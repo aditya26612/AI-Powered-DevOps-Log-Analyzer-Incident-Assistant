@@ -33,6 +33,13 @@ Invoke-RestMethod http://localhost:8080/actuator/health
 docker compose -p devinsight-lab stop
 ```
 
+### Upgrade an existing Compose stack for Loki V11
+
+1. Verify the existing project, PostgreSQL container, and recorded Compose overrides. Use the same private environment and keep the existing PostgreSQL volume attached.
+2. Back up `log_layer_db` in custom format and verify the copied archive before migrating. With the existing project's Compose arguments in `$compose`, run `docker compose @compose run --rm --no-deps -T migrate-logs migrate`. Confirm schema history reached 11.
+3. Run `docker compose @compose build log-layer frontend`, then `docker compose @compose up -d --no-deps --no-build --wait log-layer frontend`. Check both services' readiness and the Gateway health endpoint.
+4. Keep the current private Loki configuration or approve additional origins for the bound organization. In the UI, save the connection as the organization owner, then select an exact stream for each application. [Loki setup](../docs/LOKI_LOG_SOURCES.md) · [V11 upgrade and replay evidence](../docs/VERIFICATION.md#local-v11-loki-verification)
+
 ### Use Ollama already running on the Docker Desktop host
 
 On Windows Docker Desktop, this option reuses an existing local Ollama server and its downloaded models. Verify `ollama list` contains `phi3:mini` and `nomic-embed-text:latest`. Keep the database in its own Compose project and volumes. Create a temporary override outside the checkout.

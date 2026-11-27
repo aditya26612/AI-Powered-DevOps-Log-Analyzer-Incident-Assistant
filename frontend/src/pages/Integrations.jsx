@@ -12,6 +12,8 @@ import {
   updateApplication,
 } from "../api/integrationApi";
 import "./Integrations.css";
+import LokiLogSource from "../components/LokiLogSource";
+import LokiConnection from "../components/LokiConnection";
 import { useWorkspace } from "../context/workspace";
 import { readError } from "../hooks/useResource";
 
@@ -97,6 +99,7 @@ function ApplicationSettings({ organization, app, refresh }) {
           Check the collector counters to confirm delivery.
         </p>
       </details>
+      <LokiLogSource organization={organization.id} application={app.id} admin={admin} />
       {error && <p role="alert">{error}</p>}
       {editor && (
         <form onSubmit={(event) => {
@@ -245,6 +248,7 @@ export default function Integrations() {
           <button type="submit">Create organization</button>
         </form>
       </section>
+      {org?.role === "OWNER" && <LokiConnection key={org.id} organization={org.id} />}
       {org && <section className="tenant-panel">
         <h2>Applications</h2>
         {org.role !== "VIEWER" && <form onSubmit={handleApplication}>

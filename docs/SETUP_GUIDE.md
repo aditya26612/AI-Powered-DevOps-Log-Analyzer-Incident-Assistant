@@ -2,9 +2,11 @@
 
 ## Prepare the application
 
+For automatic application log pulls, see the [Grafana Loki setup and replay guide](LOKI_LOG_SOURCES.md). Owner-managed Loki endpoints require Log Layer migration V11.
+
 For native development, use JDK 21, Maven, Python 3.11, a Node version accepted by the frontend lockfile, PostgreSQL with pgvector, and Ollama. The repository already includes the V1 and V2 model artifacts under `ml-pipeline/artifacts/`. See the [ML pipeline guide](../ml-pipeline/README.md) for model selection and verification.
 
-The observability workspace uses the V9 schema. See [Local verification and benchmarks](VERIFICATION.md#reliability-and-reproduction) for the isolated fixture requirements and verification workflow.
+The earlier observability and load fixtures used V9. The current Log Layer schema includes V10 application sources and V11 organization endpoints. Review the [V9 fixture requirements](VERIFICATION.md#reliability-and-reproduction) before reproducing the historical benchmarks.
 
 For Compose and Kubernetes, follow the [container runbook](../system-architecture/CONTAINER_DEPLOYMENT.md) for private configuration, database provisioning, image selection, and readiness checks. Use `docker compose config --quiet` to validate Compose configuration without printing interpolated values.
 

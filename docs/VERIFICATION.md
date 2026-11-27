@@ -16,6 +16,22 @@ Both requests returned HTTP 200. The replay returned three duplicate acknowledge
 
 The Node example's stock clean install reproduced an npm lockfile sync error. The example now specifies npm's packaged local dependency mode, which matches the existing lockfile and lets the Winston peer dependency resolve. A second clean install succeeded, and all seven Node collector tests passed.
 
+## Local V11 Loki verification
+
+Two runs cover the owner-managed endpoint and replay with real Grafana Loki 3.5.0. These results are separate from the earlier V9 HTTP and Kafka rehearsals.
+
+- **Isolated V10-to-V11 upgrade.** Flyway applied V11 to an existing fixture with three synthetic logs. In Chromium the organization owner saved a second approved origin, reloaded the page, and confirmed the saved URL. The application kept its selector and original rows, imported one new log, and replay skipped one duplicate with the same four persisted IDs. Unauthenticated requests, an organization admin attempting endpoint edits, an unbound organization, and an unapproved origin were rejected. The runtime database role saw zero connection rows without tenant scope.
+- **Existing local Compose stack, November 27, 2026.** The operator verified a backup archive before applying V11. Flyway confirmed the upgrade from V10, Log Layer and the frontend rebuilt and became healthy, and Gateway reported `UP`. A read-only SQL query confirmed the organization endpoint was stored in PostgreSQL. The owner used the `pull-demo` selector and confirmed automatic import and replay in the UI.
+
+| Existing local stack | Loki logs imported | Duplicates skipped | Rows matching `loki-v11-670e834b` | Log ID |
+|---|---:|---:|---:|---|
+| Before replay | 3 | 1 | 1 | `9` |
+| After replay | 3 | 2 | 1 | `9` |
+
+The Loki push returned HTTP 204 in the local smoke. That status confirms acceptance by Loki. The Log Explorer row confirms DevInsight persistence, and the counter change and stable ID confirm deduplication on replay. External Slack and email delivery were disabled.
+
+The focused V11 regression recorded **99 passing Log Layer tests** (31 fixture-gated skips), **7 passing frontend tests**, a successful frontend build, targeted ESLint, and quiet Compose validation. These counts are from the V11 work and are separate from the full historical 511-test run. Hosted Grafana authentication, late-arrival backfill guarantees, and production or multi-node operation were outside the V11 runs. [Run the Loki smoke test](LOKI_LOG_SOURCES.md)
+
 ## Prior Stage 10 fixture
 
 The Stage 10 run verified the Flyway V9 stack on one Windows workstation with an Intel i5-12450H and 16 GiB RAM. It used a protected database restore, authenticated loopback Kafka and a local Ollama model. A loopback receiver supplied notification acknowledgements. External Slack and email were disabled.

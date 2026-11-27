@@ -1,6 +1,6 @@
 # DevInsight system architecture
 
-DevInsight turns application telemetry into persisted source logs, anomaly scores, tenant-scoped incidents, and advisory diagnoses. PostgreSQL stores authoritative records. Kafka is an optional intake transport. The React workspace reads scoped APIs through the Gateway.
+DevInsight turns application telemetry into persisted source logs, anomaly scores, tenant-scoped incidents, and advisory diagnoses. PostgreSQL stores authoritative records. Kafka is an optional intake transport. Grafana Loki is an optional pull source. Log Layer queries the organization-approved endpoint and tracks a checkpoint for each application. The React workspace reads scoped APIs through the Gateway.
 
 | Component | Responsibility | Local port |
 |---|---|---:|

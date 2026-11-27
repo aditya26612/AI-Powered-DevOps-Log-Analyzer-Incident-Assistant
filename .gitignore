@@ -106,6 +106,7 @@ logs/
 
 /docs/*
 !/docs/SETUP_GUIDE.md
+!/docs/LOKI_LOG_SOURCES.md
 !/docs/VERIFICATION.md
 !/docs/screenshots/
 /docs/screenshots/*

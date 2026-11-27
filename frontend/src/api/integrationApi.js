@@ -1,5 +1,16 @@
 import api from "./axios";
 
+const connectionPath = (org) => `${orgPath(org)}/loki-connection`;
+
+export const getLokiConnection = (org, signal) => api.get(connectionPath(org), { signal }).then((r) => r.data);
+export const saveLokiConnection = (org, endpoint) => api.put(connectionPath(org), { endpoint }).then((r) => r.data);
+
+const sourcePath = (org, app) => `${appPath(org, app)}/log-source`;
+
+export const getLogSource = (org, app, signal) => api.get(sourcePath(org, app), { signal }).then((r) => r.data);
+export const saveLogSource = (org, app, settings) => api.put(sourcePath(org, app), settings).then((r) => r.data);
+export const replayLogSource = (org, app) => api.post(`${sourcePath(org, app)}/replay`).then((r) => r.data);
+
 export const selectionKey = "devinsight.activeOrganization";
 
 const orgPath = (id) => `/api/v1/organizations/${encodeURIComponent(id)}`;
